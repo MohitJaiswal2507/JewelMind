@@ -8,10 +8,11 @@ import {
   Calendar, 
   Clock, 
   Key, 
-  Image as ImageIcon,
   Loader2, 
   AlertCircle,
-  FileText
+  FileText,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -19,6 +20,8 @@ import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { DesignModal } from '../components/designs/DesignModal';
 import { DesignDeleteModal } from '../components/designs/DesignDeleteModal';
+import { SketchUploadDropzone } from '../components/designs/SketchUploadDropzone';
+import { SketchDeleteModal } from '../components/designs/SketchDeleteModal';
 import { designService } from '../services/api/designService';
 import { 
   Design, 
@@ -68,6 +71,13 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [isSketchDeleteModalOpen, setIsSketchDeleteModalOpen] = useState<boolean>(false);
+
+  // Sketch replacement mode
+  const [showReplaceUpload, setShowReplaceUpload] = useState<boolean>(false);
+
+  // Feedback Toast
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const fetchDesign = async () => {
     setLoading(true);
@@ -87,16 +97,40 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
     fetchDesign();
   }, [designId]);
 
+  useEffect(() => {
+    if (feedback) {
+      const timer = setTimeout(() => setFeedback(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedback]);
+
   const handleUpdate = async (data: DesignUpdateInput) => {
     if (!design) return;
-    await designService.updateDesign(design.id, data);
-    await fetchDesign();
+    const updated = await designService.updateDesign(design.id, data);
+    setDesign(updated);
+    setFeedback('Design metadata updated successfully.');
   };
 
   const handleDelete = async () => {
     if (!design) return;
     await designService.deleteDesign(design.id);
     onBack();
+  };
+
+  const handleUploadSketch = async (file: File) => {
+    if (!design) return;
+    const updated = await designService.uploadSketch(design.id, file);
+    setDesign(updated);
+    setShowReplaceUpload(false);
+    setFeedback('Sketch uploaded and synced with Supabase Storage.');
+  };
+
+  const handleDeleteSketch = async () => {
+    if (!design) return;
+    const updated = await designService.deleteSketch(design.id);
+    setDesign(updated);
+    setShowReplaceUpload(false);
+    setFeedback('Sketch removed from Supabase Storage.');
   };
 
   if (loading) {
@@ -150,7 +184,7 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
             className="text-xs font-semibold"
           >
             <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-            Edit Design
+            Edit Metadata
           </Button>
 
           <Button
@@ -160,10 +194,18 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
             className="text-xs border-slate-700 hover:border-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
           >
             <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-            Delete
+            Delete Design
           </Button>
         </div>
       </div>
+
+      {/* Toast Feedback */}
+      {feedback && (
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center space-x-2 text-emerald-300 text-xs animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{feedback}</span>
+        </div>
+      )}
 
       {/* Main Title Banner */}
       <div className="bg-gradient-to-br from-slate-900/90 to-[#0d121f] p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-xl space-y-4">
@@ -203,33 +245,77 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
       </div>
 
       {/* Visual Pipeline Previews (Sketch & Future AI Render) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sketch Blueprint Section */}
         <Card className="bg-[#0b0f19] border-slate-800 flex flex-col justify-between overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2 text-amber-400">
-              <Layers className="w-5 h-5" />
-              <CardTitle className="text-base">Sketch Blueprint</CardTitle>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2 text-amber-400">
+                <Layers className="w-5 h-5" />
+                <CardTitle className="text-base">Sketch Blueprint</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                {design.sketch_image_url 
+                  ? 'Active sketch asset stored in Supabase bucket jewel-sketches'
+                  : 'Upload your hand-drawn sketch or line drawing'}
+              </CardDescription>
             </div>
-            <CardDescription className="text-xs">
-              Hand-drawn artisan outline or CAD vector reference
-            </CardDescription>
+
+            {design.sketch_image_url && !showReplaceUpload && (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReplaceUpload(true)}
+                  className="h-8 text-xs border-slate-700 hover:text-amber-300"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1" /> Replace
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSketchDeleteModalOpen(true)}
+                  className="h-8 text-xs border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50"
+                  aria-label="Delete Sketch"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <Separator />
-          <CardContent className="pt-4 flex-1 flex flex-col items-center justify-center min-h-[260px]">
-            {design.sketch_image_url ? (
-              <img
-                src={design.sketch_image_url}
-                alt={`${design.name} sketch`}
-                className="w-full max-h-64 object-contain rounded-lg filter invert opacity-90"
-              />
+          <CardContent className="p-6 flex-1 flex flex-col items-center justify-center min-h-[300px]">
+            {showReplaceUpload ? (
+              <div className="w-full space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-300">Replace Sketch</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowReplaceUpload(false)}
+                    className="h-7 text-xs text-slate-400 hover:text-white"
+                  >
+                    Cancel Replacement
+                  </Button>
+                </div>
+                <SketchUploadDropzone onUpload={handleUploadSketch} isReplacing={true} />
+              </div>
+            ) : design.sketch_image_url ? (
+              <div className="w-full flex flex-col items-center space-y-3">
+                <div className="relative w-full max-h-72 bg-slate-950/80 rounded-xl border border-slate-800/80 p-4 flex items-center justify-center overflow-hidden group">
+                  <img
+                    src={design.sketch_image_url}
+                    alt={`${design.name} sketch`}
+                    className="max-h-64 object-contain rounded-lg filter invert opacity-95 transition group-hover:scale-[1.02] duration-200"
+                  />
+                </div>
+                <div className="text-[11px] font-mono text-slate-500 truncate max-w-md">
+                  Source: {design.sketch_image_url}
+                </div>
+              </div>
             ) : (
-              <div className="text-center p-6 space-y-2 text-slate-500">
-                <ImageIcon className="w-10 h-10 mx-auto text-slate-600" />
-                <div className="text-xs font-semibold text-slate-400">No Sketch Attached</div>
-                <p className="text-[11px] text-slate-500 max-w-xs">
-                  Upload or link a sketch image in Phase 4 (Storage & Sketch Processing) to enable AI generation.
-                </p>
+              <div className="w-full">
+                <SketchUploadDropzone onUpload={handleUploadSketch} isReplacing={false} />
               </div>
             )}
           </CardContent>
@@ -247,21 +333,21 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
             </CardDescription>
           </CardHeader>
           <Separator />
-          <CardContent className="pt-4 flex-1 flex flex-col items-center justify-center min-h-[260px]">
+          <CardContent className="p-6 flex-1 flex flex-col items-center justify-center min-h-[300px]">
             {design.rendered_image_url ? (
               <img
                 src={design.rendered_image_url}
                 alt={`${design.name} AI Render`}
-                className="w-full max-h-64 object-cover rounded-lg"
+                className="w-full max-h-72 object-cover rounded-xl"
               />
             ) : (
               <div className="text-center p-6 space-y-3">
-                <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 w-fit mx-auto">
-                  <Sparkles className="w-6 h-6" />
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 w-fit mx-auto">
+                  <Sparkles className="w-7 h-7" />
                 </div>
                 <div className="text-xs font-semibold text-white">AI Generation Pending</div>
-                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[11px] text-amber-300/90 leading-relaxed max-w-sm">
-                  Photorealistic AI rendering with GPU diffusion acceleration will be activated in Phase 7.
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[11px] text-amber-300/90 leading-relaxed max-w-sm">
+                  Photorealistic AI rendering using local RTX 4060 GPU diffusion conditioning on the sketch blueprint will be activated in Phase 7.
                 </div>
               </div>
             )}
@@ -288,13 +374,13 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
             </div>
           ) : (
             <div className="text-slate-500 italic">
-              No prompt configured. Click "Edit Design" to add descriptive prompts for metallic finish and gemstone specifications.
+              No prompt configured. Click "Edit Metadata" to add descriptive prompts for metallic finish and gemstone specifications.
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Edit Modal */}
+      {/* Edit Design Modal */}
       <DesignModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
@@ -302,13 +388,23 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
         initialDesign={design}
       />
 
-      {/* Delete Modal */}
+      {/* Delete Design Modal */}
       <DesignDeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
         design={design}
       />
+
+      {/* Delete Sketch Modal */}
+      <SketchDeleteModal
+        isOpen={isSketchDeleteModalOpen}
+        onClose={() => setIsSketchDeleteModalOpen(false)}
+        onConfirm={handleDeleteSketch}
+        designName={design.name}
+      />
     </div>
   );
 };
+
+export default DesignDetailPage;

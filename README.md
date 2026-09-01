@@ -162,8 +162,8 @@ JewelMind is built strictly around a **₹0 infrastructure budget**:
 - [x] **Phase 0:** Project Foundation & Repository Structure
 - [x] **Phase 1:** Technical Architecture & Application Foundation
 - [x] **Phase 2:** Authentication & User Management
-- [x] **Phase 3:** Jewellery Design Management (Current)
-- [ ] **Phase 4:** Sketch Upload & Storage Integration
+- [x] **Phase 3:** Jewellery Design Management
+- [x] **Phase 4:** Sketch Upload & Storage Integration (Current)
 - [ ] **Phase 5:** AI Job Queue & Worker Architecture
 - [ ] **Phase 6:** Jewellery Component Detection (YOLO)
 - [ ] **Phase 7:** Sketch-to-Rendering Pipeline (Diffusion + ControlNet)
@@ -192,4 +192,6 @@ Detailed project documentation is available in [`docs/`](./docs/):
 - [`docs/phases/PHASE_0_REPORT.md`](./docs/phases/PHASE_0_REPORT.md) - Phase 0 completion report
 - [`docs/phases/PHASE_1_REPORT.md`](./docs/phases/PHASE_1_REPORT.md) - Phase 1 completion report
 - [`docs/phases/PHASE_2_REPORT.md`](./docs/phases/PHASE_2_REPORT.md) - Phase 2 completion report
-- [`docs/phases/PHASE_3_REPORT.md`](./docs/phases/PHASE_3_REPORT.md) - Phase 3 completion report
+- [`docs/phases/PHASE_3_REPORT.md`](./docs/phases/PHASE_3_REPORT.md) - Phase 3 completion report
+- [`docs/phases/PHASE_4_REPORT.md`](./docs/phases/PHASE_4_REPORT.md) - Phase 4 completion report
+

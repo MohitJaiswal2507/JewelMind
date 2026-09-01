@@ -64,6 +64,22 @@ export class DesignService {
   public async deleteDesign(id: string): Promise<{ success: boolean; message: string; design_id: string }> {
     return apiClient.delete<{ success: boolean; message: string; design_id: string }>(`/api/v1/designs/${id}`);
   }
+
+  /**
+   * Uploads or replaces jewellery sketch asset for a design.
+   */
+  public async uploadSketch(designId: string, file: File): Promise<Design> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.upload<Design>(`/api/v1/designs/${designId}/sketch`, formData);
+  }
+
+  /**
+   * Deletes sketch asset from a design, keeping the design intact.
+   */
+  public async deleteSketch(designId: string): Promise<Design> {
+    return apiClient.delete<Design>(`/api/v1/designs/${designId}/sketch`);
+  }
 }
 
 export const designService = new DesignService();
