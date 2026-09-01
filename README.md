@@ -1,7 +1,7 @@
 # JewelMind
 ### AI-Powered Jewellery Design, Analysis & Production Planning Platform
 
-> **Status:** Foundation / Phase 0  
+> **Status:** Architecture & Technical Foundation / Phase 1  
 > **Budget Constraint:** ₹0 (Zero paid infrastructure, APIs, GPU rentals, or subscriptions)  
 > **Development Target:** Local RTX 4060 + Free Tier Cloud Ecosystem  
 
@@ -159,8 +159,8 @@ JewelMind is built strictly around a **₹0 infrastructure budget**:
 ---
 
 ## 10. Roadmap & Phased Execution
-- [x] **Phase 0:** Project Foundation & Repository Structure (Current)
-- [ ] **Phase 1:** Technical Architecture & Application Foundation
+- [x] **Phase 0:** Project Foundation & Repository Structure
+- [x] **Phase 1:** Technical Architecture & Application Foundation (Current)
 - [ ] **Phase 2:** Authentication & User Management
 - [ ] **Phase 3:** Jewellery Design Management
 - [ ] **Phase 4:** Sketch Upload & Storage Integration
@@ -182,8 +182,12 @@ JewelMind is built strictly around a **₹0 infrastructure budget**:
 ## 11. Documentation
 Detailed project documentation is available in [`docs/`](./docs/):
 - [`docs/architecture/ARCHITECTURE.md`](./docs/architecture/ARCHITECTURE.md) - System architecture design
+- [`docs/architecture/DATABASE_DESIGN.md`](./docs/architecture/DATABASE_DESIGN.md) - Relational entity schemas & diagrams
+- [`docs/api/API_CONVENTIONS.md`](./docs/api/API_CONVENTIONS.md) - API /v1 standards & error formatting
+- [`docs/architecture/CONFIGURATION.md`](./docs/architecture/CONFIGURATION.md) - Environment variables matrix
 - [`docs/architecture/TECH_STACK.md`](./docs/architecture/TECH_STACK.md) - Technology decisions & rationale
 - [`docs/architecture/DEVELOPMENT_GUIDELINES.md`](./docs/architecture/DEVELOPMENT_GUIDELINES.md) - Code style & Git conventions
 - [`docs/architecture/LOCAL_DEVELOPMENT.md`](./docs/architecture/LOCAL_DEVELOPMENT.md) - Local development setup
 - [`docs/deployment/COST_POLICY.md`](./docs/deployment/COST_POLICY.md) - Zero-cost deployment policy
 - [`docs/phases/PHASE_0_REPORT.md`](./docs/phases/PHASE_0_REPORT.md) - Phase 0 completion report
+- [`docs/phases/PHASE_1_REPORT.md`](./docs/phases/PHASE_1_REPORT.md) - Phase 1 completion report

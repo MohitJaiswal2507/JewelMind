@@ -107,7 +107,6 @@ tempCodeRunnerFile.py
 *.joblib
 *.pkl
 *.pickle
-*.md
 
 # Datasets & Outputs (Keep structure, ignore bulky data)
 datasets/raw/*
@@ -129,5 +128,4 @@ scratch/
 tmp/
 temp/
 *.log
-
-.env.example    
+*.md
