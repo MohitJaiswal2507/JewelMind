@@ -1,0 +1,311 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Plus, 
+  Layers, 
+  Sparkles, 
+  AlertCircle, 
+  FolderPlus,
+  RefreshCw,
+  Search
+} from 'lucide-react';
+
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { DesignCard } from '../components/designs/DesignCard';
+import { DesignModal } from '../components/designs/DesignModal';
+import { DesignDeleteModal } from '../components/designs/DesignDeleteModal';
+import { DesignFilters } from '../components/designs/DesignFilters';
+import { designService } from '../services/api/designService';
+import { 
+  Design, 
+  DesignCategory, 
+  DesignStatus, 
+  DesignCreateInput, 
+  DesignUpdateInput 
+} from '../types/design';
+
+interface DesignsPageProps {
+  onSelectDesign: (design: Design) => void;
+}
+
+export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
+  const [designs, setDesigns] = useState<Design[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filter states
+  const [search, setSearch] = useState<string>('');
+  const [category, setCategory] = useState<DesignCategory | ''>('');
+  const [status, setStatus] = useState<DesignStatus | ''>('');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize] = useState<number>(24);
+
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [editingDesign, setEditingDesign] = useState<Design | null>(null);
+  const [deletingDesign, setDeletingDesign] = useState<Design | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+
+  // Success toast feedback
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  const fetchDesigns = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await designService.getDesigns({
+        category: category || undefined,
+        status: status || undefined,
+        search: search || undefined,
+        page,
+        page_size: pageSize,
+      });
+      setDesigns(response.items);
+      setTotalCount(response.total);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to fetch jewellery designs.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [category, status, search, page, pageSize]);
+
+  useEffect(() => {
+    fetchDesigns();
+  }, [fetchDesigns]);
+
+  // Clear toast feedback after 4 seconds
+  useEffect(() => {
+    if (feedbackMessage) {
+      const timer = setTimeout(() => setFeedbackMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMessage]);
+
+  const handleOpenCreateModal = () => {
+    setEditingDesign(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (design: Design) => {
+    setEditingDesign(design);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDeleteModal = (design: Design) => {
+    setDeletingDesign(design);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleSaveDesign = async (data: DesignCreateInput | DesignUpdateInput) => {
+    if (editingDesign) {
+      await designService.updateDesign(editingDesign.id, data);
+      setFeedbackMessage(`Updated design "${data.name || editingDesign.name}" successfully.`);
+    } else {
+      await designService.createDesign(data as DesignCreateInput);
+      setFeedbackMessage(`Created new jewellery design "${data.name}" successfully.`);
+    }
+    await fetchDesigns();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deletingDesign) {
+      await designService.deleteDesign(deletingDesign.id);
+      setFeedbackMessage(`Deleted design "${deletingDesign.name}".`);
+      await fetchDesigns();
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setCategory('');
+    setStatus('');
+    setPage(1);
+  };
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto py-6">
+      {/* Workspace Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-br from-slate-900/90 to-[#0d121f] p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-xl">
+        <div className="flex items-center space-x-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 p-[1px] shadow-lg shadow-amber-500/20 shrink-0">
+            <div className="w-full h-full bg-[#0b0e17] rounded-[15px] flex items-center justify-center">
+              <Layers className="w-7 h-7 text-amber-400" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center space-x-2.5">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Jewellery Designs
+              </h1>
+              <Badge variant="gold" className="text-xs">
+                {totalCount} {totalCount === 1 ? 'Design' : 'Designs'}
+              </Badge>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              Personal artisan workspace for managing sketches, collections, and future AI render targets
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchDesigns}
+            disabled={loading}
+            className="border-slate-700"
+            title="Refresh Designs"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+
+          <Button
+            variant="gold"
+            size="default"
+            onClick={handleOpenCreateModal}
+            className="font-bold shadow-lg shadow-amber-500/20"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Design
+          </Button>
+        </div>
+      </div>
+
+      {/* Feedback Banner */}
+      {feedbackMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-emerald-300 text-xs animate-in fade-in">
+          <div className="flex items-center space-x-2">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            <span>{feedbackMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-3 text-rose-300 text-xs">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-semibold">Unable to load designs</div>
+            <div>{error}</div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchDesigns}
+              className="mt-2 text-xs border-rose-500/40 hover:bg-rose-500/20"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Toolbar */}
+      <DesignFilters
+        search={search}
+        onSearchChange={setSearch}
+        selectedCategory={category}
+        onCategoryChange={setCategory}
+        selectedStatus={status}
+        onStatusChange={setStatus}
+        onReset={handleResetFilters}
+      />
+
+      {/* Designs Grid or States */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="h-80 rounded-2xl bg-slate-900/60 border border-slate-800 animate-pulse flex flex-col justify-between p-5"
+            >
+              <div className="space-y-3">
+                <div className="h-36 bg-slate-800/80 rounded-xl" />
+                <div className="h-4 bg-slate-800/80 rounded w-3/4" />
+                <div className="h-3 bg-slate-800/60 rounded w-1/2" />
+              </div>
+              <div className="h-8 bg-slate-800/80 rounded-lg w-full" />
+            </div>
+          ))}
+        </div>
+      ) : designs.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {designs.map((design) => (
+            <DesignCard
+              key={design.id}
+              design={design}
+              onView={onSelectDesign}
+              onEdit={handleOpenEditModal}
+              onDelete={handleOpenDeleteModal}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Empty State */
+        <div className="text-center py-16 px-4 bg-gradient-to-br from-[#0b0e17] to-slate-950 rounded-2xl border border-slate-800/80 space-y-5">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
+            {search || category || status ? (
+              <Search className="w-8 h-8 text-slate-400" />
+            ) : (
+              <FolderPlus className="w-8 h-8 text-amber-400" />
+            )}
+          </div>
+
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="text-lg font-bold text-white">
+              {search || category || status
+                ? 'No designs match your filters'
+                : 'No jewellery designs yet'}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {search || category || status
+                ? 'Try adjusting your search terms, changing the category tab, or resetting filters.'
+                : 'Start building your portfolio by creating your first ring, necklace, earring, or pendant design.'}
+            </p>
+          </div>
+
+          <div>
+            {search || category || status ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetFilters}
+                className="border-slate-700"
+              >
+                Reset All Filters
+              </Button>
+            ) : (
+              <Button
+                variant="gold"
+                size="default"
+                onClick={handleOpenCreateModal}
+                className="font-bold"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Design
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit Modal Dialog */}
+      <DesignModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSaveDesign}
+        initialDesign={editingDesign}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DesignDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        design={deletingDesign}
+      />
+    </div>
+  );
+};
