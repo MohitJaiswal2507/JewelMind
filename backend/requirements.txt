@@ -1,14 +1,20 @@
-# JewelMind Backend Dependencies (Phase 1 Technical Foundation)
+# JewelMind Backend Dependencies (Phase 2 Authentication)
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.9.0
 pydantic-settings>=2.6.0
+email-validator>=2.2.0
 
 # Database & Migrations
 sqlalchemy>=2.0.36
 alembic>=1.14.0
 psycopg2-binary>=2.9.10
 
+# Security & Authentication
+pyjwt[crypto]>=2.9.0
+bcrypt>=4.2.0
+
 # Testing
 pytest>=8.3.0
 httpx>=0.28.0
+freezegun>=1.5.1

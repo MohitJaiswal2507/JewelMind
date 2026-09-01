@@ -1,7 +1,7 @@
 # JewelMind
 ### AI-Powered Jewellery Design, Analysis & Production Planning Platform
 
-> **Status:** Architecture & Technical Foundation / Phase 1  
+> **Status:** Authentication & User Management / Phase 2  
 > **Budget Constraint:** ₹0 (Zero paid infrastructure, APIs, GPU rentals, or subscriptions)  
 > **Development Target:** Local RTX 4060 + Free Tier Cloud Ecosystem  
 
@@ -160,8 +160,8 @@ JewelMind is built strictly around a **₹0 infrastructure budget**:
 
 ## 10. Roadmap & Phased Execution
 - [x] **Phase 0:** Project Foundation & Repository Structure
-- [x] **Phase 1:** Technical Architecture & Application Foundation (Current)
-- [ ] **Phase 2:** Authentication & User Management
+- [x] **Phase 1:** Technical Architecture & Application Foundation
+- [x] **Phase 2:** Authentication & User Management (Current)
 - [ ] **Phase 3:** Jewellery Design Management
 - [ ] **Phase 4:** Sketch Upload & Storage Integration
 - [ ] **Phase 5:** AI Job Queue & Worker Architecture
@@ -191,3 +191,4 @@ Detailed project documentation is available in [`docs/`](./docs/):
 - [`docs/deployment/COST_POLICY.md`](./docs/deployment/COST_POLICY.md) - Zero-cost deployment policy
 - [`docs/phases/PHASE_0_REPORT.md`](./docs/phases/PHASE_0_REPORT.md) - Phase 0 completion report
 - [`docs/phases/PHASE_1_REPORT.md`](./docs/phases/PHASE_1_REPORT.md) - Phase 1 completion report
+- [`docs/phases/PHASE_2_REPORT.md`](./docs/phases/PHASE_2_REPORT.md) - Phase 2 completion report

@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.config import settings
 from app.db.base import Base
-# Import models here once created in future phases to support autogenerate
+import app.models  # noqa: F401 - Register models with Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
