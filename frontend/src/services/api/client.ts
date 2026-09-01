@@ -1,13 +1,16 @@
 /**
  * Centralized Typed API Client for JewelMind
+ * Automatically injects authorization bearer tokens and correlation headers.
  */
 
 import { ApiError } from '../../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const TOKEN_STORAGE_KEY = 'jewelmind_auth_token';
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+  requiresAuth?: boolean;
 }
 
 export class ApiClientError extends Error {
@@ -33,6 +36,18 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  public getToken(): string | null {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  }
+
+  public setToken(token: string): void {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  }
+
+  public clearToken(): void {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  }
+
   private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
     const url = new URL(`${this.baseUrl}${cleanPath}`);
@@ -49,13 +64,18 @@ class ApiClient {
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { params, headers, ...restOptions } = options;
+    const { params, headers, requiresAuth = true, ...restOptions } = options;
     const url = this.buildUrl(path, params);
 
     const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     };
+
+    const token = this.getToken();
+    if (requiresAuth && token) {
+      defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
 
     const response = await fetch(url, {
       ...restOptions,

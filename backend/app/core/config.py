@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "JewelMind API"
-    VERSION: str = "0.1.0"
+    VERSION: str = "0.2.0"
     DESCRIPTION: str = (
         "AI-Powered Jewellery Design, Analysis & Production Planning Platform API"
     )
@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # Database Configuration (PostgreSQL / Supabase)
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/jewelmind"
     DB_ECHO_LOG: bool = False
+    
+    # Authentication & Security
+    JWT_SECRET_KEY: str = "jewelmind-super-secret-jwt-key-minimum-32-chars-for-dev"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
     # Supabase Free Tier Storage & Auth (Placeholders for future phases)
     SUPABASE_URL: str = ""
