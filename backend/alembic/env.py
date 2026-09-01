@@ -4,11 +4,7 @@ Integrates with JewelMind FastAPI Settings and SQLAlchemy Base.metadata.
 """
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
 from alembic import context
-
-# Import JewelMind configuration and models
 import sys
 from pathlib import Path
 
@@ -17,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.config import settings
 from app.db.base import Base
+from app.db.session import engine
 import app.models  # noqa: F401 - Register models with Base.metadata
 
 # this is the Alembic Config object, which provides
@@ -24,30 +21,19 @@ import app.models  # noqa: F401 - Register models with Base.metadata
 config = context.config
 
 # Interpret the config file for Python logging.
-# This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set target metadata for 'autogenerate' support
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url with dynamic application settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Set sqlalchemy.url with escaped % to prevent ConfigParser interpolation errors
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
-    url = config.get_main_option("sqlalchemy.url")
+    """Run migrations in 'offline' mode."""
+    url = settings.DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -60,21 +46,11 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
+    """Run migrations in 'online' mode using the application engine."""
+    with engine.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
         )
 
         with context.begin_transaction():
