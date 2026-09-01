@@ -4,6 +4,7 @@ Phase 1 Architecture & Technical Foundation Service
 """
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -53,11 +54,12 @@ async def app_exception_handler(request: Request, exc: AppException):
     )
     return JSONResponse(
         status_code=exc.status_code,
-        content=error_payload.model_dump(),
+        content=error_payload.model_dump(mode="json"),
     )
 
 
 @app.exception_handler(RequestValidationError)
+
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     request_id = getattr(request.state, "request_id", None)
     logger.warning(f"[{request_id}] Validation error on {request.url.path}: {exc.errors()}")
@@ -66,14 +68,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         error=ErrorDetail(
             code="VALIDATION_ERROR",
             message="Request validation failed.",
-            details=exc.errors(),
+            details=jsonable_encoder(exc.errors()),
         ),
         request_id=request_id,
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error_payload.model_dump(),
+        content=error_payload.model_dump(mode="json"),
     )
+
 
 
 @app.exception_handler(Exception)

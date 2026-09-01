@@ -12,6 +12,15 @@ from .auth import (
     TokenResponse,
     UserUpdate,
 )
+from .design import (
+    DesignCategory,
+    DesignStatus,
+    DesignBase,
+    DesignCreate,
+    DesignUpdate,
+    DesignResponse,
+    DesignListResponse,
+)
 
 __all__ = [
     "ApiResponse",
@@ -24,4 +33,11 @@ __all__ = [
     "UserResponse",
     "TokenResponse",
     "UserUpdate",
+    "DesignCategory",
+    "DesignStatus",
+    "DesignBase",
+    "DesignCreate",
+    "DesignUpdate",
+    "DesignResponse",
+    "DesignListResponse",
 ]
