@@ -68,9 +68,13 @@ class ApiClient {
     const url = this.buildUrl(path, params);
 
     const defaultHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
     };
+
+    // Only set Content-Type to JSON if body is not FormData
+    if (!(restOptions.body instanceof FormData)) {
+      defaultHeaders['Content-Type'] = 'application/json';
+    }
 
     const token = this.getToken();
     if (requiresAuth && token) {
@@ -117,6 +121,14 @@ class ApiClient {
       ...options,
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  public upload<T>(path: string, formData: FormData, options?: RequestOptions): Promise<T> {
+    return this.request<T>(path, {
+      ...options,
+      method: 'POST',
+      body: formData,
     });
   }
 

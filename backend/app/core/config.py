@@ -46,11 +46,14 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
-    # Supabase Free Tier Storage & Auth (Placeholders for future phases)
+    # Supabase Free Tier Storage & Auth
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
-    SUPABASE_STORAGE_BUCKET: str = "jewelmind-assets"
+    SUPABASE_STORAGE_BUCKET: str = "jewel-sketches"
+    
+    # Maximum upload size in bytes (10MB)
+    MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024
     
     # AI Worker Configuration
     AI_WORKER_URL: str = "http://localhost:8001"
