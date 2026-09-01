@@ -12,7 +12,8 @@ import {
   AlertCircle,
   FileText,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Brush
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -32,6 +33,7 @@ import {
 interface DesignDetailPageProps {
   designId: string;
   onBack: () => void;
+  onOpenCanvas?: (designId: string) => void;
 }
 
 const getStatusBadge = (status: DesignStatus) => {
@@ -63,6 +65,7 @@ const getStatusBadge = (status: DesignStatus) => {
 export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
   designId,
   onBack,
+  onOpenCanvas,
 }) => {
   const [design, setDesign] = useState<Design | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -261,27 +264,40 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
               </CardDescription>
             </div>
 
-            {design.sketch_image_url && !showReplaceUpload && (
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
+              {onOpenCanvas && (
                 <Button
-                  variant="outline"
+                  variant="gold"
                   size="sm"
-                  onClick={() => setShowReplaceUpload(true)}
-                  className="h-8 text-xs border-slate-700 hover:text-amber-300"
+                  onClick={() => onOpenCanvas(design.id)}
+                  className="h-8 text-xs font-bold shadow"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 mr-1" /> Replace
+                  <Brush className="w-3.5 h-3.5 mr-1.5" />
+                  Open Canvas
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsSketchDeleteModalOpen(true)}
-                  className="h-8 text-xs border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50"
-                  aria-label="Delete Sketch"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
+              )}
+              {design.sketch_image_url && !showReplaceUpload && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReplaceUpload(true)}
+                    className="h-8 text-xs border-slate-700 hover:text-amber-300"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-1" /> Replace
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsSketchDeleteModalOpen(true)}
+                    className="h-8 text-xs border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50"
+                    aria-label="Delete Sketch"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </>
+              )}
+            </div>
           </CardHeader>
           <Separator />
           <CardContent className="p-6 flex-1 flex flex-col items-center justify-center min-h-[300px]">

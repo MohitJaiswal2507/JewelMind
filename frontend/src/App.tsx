@@ -9,12 +9,12 @@ import {
   ArrowRight,
   Database,
   Sliders,
-  Server,
-  Code2,
   LogIn,
   UserPlus,
   LayoutDashboard,
-  LogOut
+  LogOut,
+  Palette,
+  Brush
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './components/ui/card';
@@ -28,9 +28,11 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DesignsPage } from './pages/DesignsPage';
 import { DesignDetailPage } from './pages/DesignDetailPage';
+import { DesignWorkspacePage } from './pages/DesignWorkspacePage';
+import { StudioPage } from './pages/StudioPage';
 import { Design } from './types/design';
 
-type ViewMode = 'landing' | 'login' | 'register' | 'dashboard' | 'designs' | 'design-detail';
+type ViewMode = 'landing' | 'login' | 'register' | 'dashboard' | 'designs' | 'design-detail' | 'studio' | 'canvas';
 
 const MainLayout: React.FC = () => {
   const { isAuthenticated, logout } = useAuth();
@@ -72,28 +74,41 @@ const MainLayout: React.FC = () => {
     setCurrentView('design-detail');
   };
 
+  const handleOpenCanvas = (designId: string) => {
+    setSelectedDesignId(designId);
+    setCurrentView('canvas');
+  };
+
   const handleBackToDesigns = () => {
     setSelectedDesignId(null);
     setCurrentView('designs');
   };
 
+  const handleBackFromCanvas = () => {
+    if (selectedDesignId) {
+      setCurrentView('design-detail');
+    } else {
+      setCurrentView('designs');
+    }
+  };
+
   const workflowSteps = [
     {
       step: '01',
-      title: 'Sketch Ingestion',
-      desc: 'Freehand jewellery line drawings and dimension inputs',
-      icon: Layers,
+      title: 'Interactive Sketch Canvas',
+      desc: 'Freehand jewellery drawing, symmetry guide, eraser, shapes & PNG export',
+      icon: Brush,
     },
     {
       step: '02',
-      title: 'Generative Render',
-      desc: 'ControlNet + Diffusion photorealistic metallic/gem previews',
+      title: 'Generative Diffusion',
+      desc: 'ControlNet + Diffusion photorealistic metallic/gem previews conditioned on sketch',
       icon: Sparkles,
     },
     {
       step: '03',
       title: 'CV Component Detection',
-      desc: 'YOLO object detection for gemstones, clasps, and connectors',
+      desc: 'YOLO object detection for gemstones, clasps, mounts, and connectors',
       icon: Cpu,
     },
     {
@@ -130,7 +145,7 @@ const MainLayout: React.FC = () => {
                   JewelMind
                 </span>
                 <Badge variant="gold" className="text-[10px] uppercase font-bold tracking-wider">
-                  Phase 3
+                  Phase 5
                 </Badge>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">AI Jewellery Design & Production Platform</p>
@@ -177,6 +192,16 @@ const MainLayout: React.FC = () => {
                 >
                   <Layers className="w-3.5 h-3.5 mr-1.5" />
                   Designs
+                </Button>
+
+                <Button
+                  variant={currentView === 'studio' ? 'gold' : 'secondary'}
+                  size="sm"
+                  onClick={() => setCurrentView('studio')}
+                  className="h-8 text-xs font-semibold"
+                >
+                  <Palette className="w-3.5 h-3.5 mr-1.5" />
+                  Studio
                 </Button>
 
                 <Button
@@ -250,6 +275,21 @@ const MainLayout: React.FC = () => {
           <DesignDetailPage
             designId={selectedDesignId}
             onBack={handleBackToDesigns}
+            onOpenCanvas={handleOpenCanvas}
+          />
+        )}
+
+        {currentView === 'canvas' && selectedDesignId && (
+          <DesignWorkspacePage
+            designId={selectedDesignId}
+            onBack={handleBackFromCanvas}
+          />
+        )}
+
+        {currentView === 'studio' && (
+          <StudioPage
+            onNavigateDesigns={() => setCurrentView('designs')}
+            onOpenCanvas={handleOpenCanvas}
           />
         )}
 
@@ -259,7 +299,7 @@ const MainLayout: React.FC = () => {
             <section className="text-center space-y-6 max-w-3xl mx-auto pt-4">
               <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
                 <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Phase 3: Jewellery Design Management Active</span>
+                <span>Phase 5: Interactive Sketch Canvas & Studio Active</span>
               </div>
 
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
@@ -270,7 +310,7 @@ const MainLayout: React.FC = () => {
               </h1>
 
               <p className="text-sm sm:text-base lg:text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto">
-                JewelMind combines generative diffusion, computer vision component detection, 
+                JewelMind combines interactive browser-based sketching, generative diffusion, computer vision component detection, 
                 machine learning estimation, and constraint-based workshop optimization in a single platform.
               </p>
 
@@ -289,10 +329,10 @@ const MainLayout: React.FC = () => {
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={() => setCurrentView('dashboard')}
+                      onClick={() => setCurrentView('studio')}
                       className="border-slate-700"
                     >
-                      Dashboard
+                      Browse Studio
                     </Button>
                   </div>
                 ) : (
@@ -319,7 +359,7 @@ const MainLayout: React.FC = () => {
               </div>
             </section>
 
-            {/* Phase 3 Status Card */}
+            {/* Phase 5 Status Card */}
             <section>
               <Card className="bg-gradient-to-br from-slate-900/90 to-[#0d121f] border-slate-800 shadow-xl">
                 <CardHeader className="pb-4">
@@ -327,10 +367,10 @@ const MainLayout: React.FC = () => {
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                        <CardTitle className="text-lg sm:text-xl">Phase 3: Design Management Deployed</CardTitle>
+                        <CardTitle className="text-lg sm:text-xl">Phase 5: Interactive Sketch Canvas & Studio Deployed</CardTitle>
                       </div>
                       <CardDescription className="text-xs sm:text-sm">
-                        Jewellery design CRUD, multi-tenant ownership enforcement, category filters (Rings, Necklaces, Earrings, Bracelets, Bangles, Pendants), and status tracking are fully operational.
+                        Full HTML5 drawing canvas with symmetry guides, geometric shapes, undo/redo history, direct Supabase Storage sync, and Studio media inspector.
                       </CardDescription>
                     </div>
                     {lastChecked && (
@@ -344,20 +384,20 @@ const MainLayout: React.FC = () => {
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Design Model</div>
-                      <div className="text-sm font-semibold text-emerald-400">PostgreSQL + Alembic</div>
+                      <div className="text-xs text-slate-400 font-medium">Drawing Canvas</div>
+                      <div className="text-sm font-semibold text-emerald-400">HTML5 2D Engine</div>
                     </div>
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Ownership Scope</div>
-                      <div className="text-sm font-semibold text-emerald-400">Multi-tenant Guarded</div>
+                      <div className="text-xs text-slate-400 font-medium">Cloud Storage</div>
+                      <div className="text-sm font-semibold text-emerald-400">Supabase jewel-sketches</div>
                     </div>
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Categories</div>
-                      <div className="text-sm font-semibold text-amber-300">7 Jewelry Types</div>
+                      <div className="text-xs text-slate-400 font-medium">Creative Tools</div>
+                      <div className="text-sm font-semibold text-amber-300">Brush, Symmetry, Shapes</div>
                     </div>
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Next Milestone</div>
-                      <div className="text-sm font-semibold text-slate-200">Phase 4: Storage & Sketches</div>
+                      <div className="text-xs text-slate-400 font-medium">Studio Inspector</div>
+                      <div className="text-sm font-semibold text-slate-200">Media Library + SKUs</div>
                     </div>
                   </div>
                 </CardContent>
@@ -406,15 +446,30 @@ const MainLayout: React.FC = () => {
               <Card className="bg-[#0b0f19] border-slate-800">
                 <CardHeader className="p-6 space-y-3">
                   <div className="flex items-center space-x-3 text-amber-400">
-                    <Server className="w-5 h-5" />
-                    <CardTitle className="text-base">Design CRUD Endpoints</CardTitle>
+                    <Brush className="w-5 h-5" />
+                    <CardTitle className="text-base">Interactive Drawing Canvas</CardTitle>
                   </div>
                   <CardDescription className="text-xs leading-relaxed">
-                    <code>POST /designs</code>, <code>GET /designs</code>, <code>GET /designs/:id</code>, <code>PATCH /designs/:id</code>, and <code>DELETE /designs/:id</code> with ownership verification.
+                    Real-time HTML5 canvas with freehand brush, eraser, vertical symmetry, shapes, multi-level undo/redo, and PNG export.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 text-xs font-mono text-slate-500 border-t border-slate-800/80">
-                  Router: <code>backend/app/api/v1/designs.py</code>
+                  Workspace: <code>frontend/src/pages/DesignWorkspacePage.tsx</code>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0b0f19] border-slate-800">
+                <CardHeader className="p-6 space-y-3">
+                  <div className="flex items-center space-x-3 text-amber-400">
+                    <Palette className="w-5 h-5" />
+                    <CardTitle className="text-base">Studio Media Inspector</CardTitle>
+                  </div>
+                  <CardDescription className="text-xs leading-relaxed">
+                    Browse all jewellery assets with SKU badges, seasonal collections, full search, detailed metadata inspector, download, and delete.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 pt-0 text-xs font-mono text-slate-500 border-t border-slate-800/80">
+                  Studio: <code>frontend/src/pages/StudioPage.tsx</code>
                 </CardContent>
               </Card>
 
@@ -422,29 +477,14 @@ const MainLayout: React.FC = () => {
                 <CardHeader className="p-6 space-y-3">
                   <div className="flex items-center space-x-3 text-amber-400">
                     <Database className="w-5 h-5" />
-                    <CardTitle className="text-base">Designs Table & Migration</CardTitle>
+                    <CardTitle className="text-base">Cloud Storage Integration</CardTitle>
                   </div>
                   <CardDescription className="text-xs leading-relaxed">
-                    SQLAlchemy <code>Design</code> model with UUID PK, foreign key cascade to <code>users</code>, indexed category, status, and created_at timestamps via <code>0002_create_designs</code>.
+                    Drawings and uploaded sketches are serialized directly into Supabase Storage <code>jewel-sketches</code> with multi-tenant isolation.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 text-xs font-mono text-slate-500 border-t border-slate-800/80">
-                  Model: <code>backend/app/models/design.py</code>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-[#0b0f19] border-slate-800">
-                <CardHeader className="p-6 space-y-3">
-                  <div className="flex items-center space-x-3 text-amber-400">
-                    <Code2 className="w-5 h-5" />
-                    <CardTitle className="text-base">Design Workspace UI</CardTitle>
-                  </div>
-                  <CardDescription className="text-xs leading-relaxed">
-                    Responsive Tailwind grid, category filter tabs, status selectors, creation/edit modals, safe delete confirmations, and single design blueprint details.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 pt-0 text-xs font-mono text-slate-500 border-t border-slate-800/80">
-                  Workspace: <code>frontend/src/pages/DesignsPage.tsx</code>
+                  Storage: <code>backend/app/services/storage_service.py</code>
                 </CardContent>
               </Card>
             </section>
@@ -461,7 +501,7 @@ const MainLayout: React.FC = () => {
             <span>•</span>
             <span>RTX 4060 Accelerated</span>
             <span>•</span>
-            <span>Phase 3 Design Management</span>
+            <span>Phase 5 Interactive Design Canvas</span>
           </div>
         </div>
       </footer>
