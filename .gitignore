@@ -107,6 +107,9 @@ tempCodeRunnerFile.py
 *.joblib
 *.pkl
 *.pickle
+checkpoints/
+runs/
+wandb/
 
 # Datasets & Outputs (Keep structure, ignore bulky data)
 datasets/raw/*
@@ -118,10 +121,21 @@ datasets/processed/*
 datasets/annotations/*
 !datasets/annotations/.gitkeep
 !datasets/annotations/README.md
+ai/vision/datasets/raw/*
+!ai/vision/datasets/raw/.gitkeep
+!ai/vision/datasets/raw/README.md
+ai/vision/datasets/processed/*
+!ai/vision/datasets/processed/.gitkeep
+!ai/vision/datasets/processed/README.md
+ai/vision/datasets/jewelmind_components/*
+!ai/vision/datasets/jewelmind_components/.gitkeep
+!ai/vision/datasets/jewelmind_components/README.md
+ai/vision/datasets/sample/
+ai/vision/datasets/previews/
+*.cache
 outputs/
 generated/
-runs/
-wandb/
+
 
 # Temporary / Scratch
 scratch/

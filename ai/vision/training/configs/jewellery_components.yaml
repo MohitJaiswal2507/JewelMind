@@ -1,0 +1,20 @@
+# JewelMind Jewellery Component Instance Segmentation Dataset Configuration
+# Standard Ultralytics YOLO dataset format
+
+# Base dataset root path (resolved relative to execution or absolute)
+path: ai/vision/datasets/sample
+
+# Train, validation, and test image directories (relative to 'path')
+train: train/images
+val: val/images
+test: test/images
+
+# Class Taxonomy (7 evidence-based micro-components)
+names:
+  0: gemstone
+  1: ring_shank
+  2: ring_head
+  3: prong
+  4: bezel
+  5: setting
+  6: shoulder

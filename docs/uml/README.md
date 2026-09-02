@@ -184,3 +184,43 @@ sequenceDiagram
     Client-->>UI: Updated Design State
     UI-->>Artisan: Display updated Sketch Blueprint image instantly
 ```
+
+---
+
+## 6. Sequence Diagram (Interactive Canvas Drawing & Studio Inspection Flow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Artisan as Jewellery Designer
+    participant Canvas as DrawingCanvas (HTML5 2D Engine)
+    participant Toolbar as CanvasToolbar
+    participant Chat as DesignChatPanel
+    participant Workspace as DesignWorkspacePage
+    participant Studio as StudioPage (Media Library)
+    participant API as FastAPI Backend
+    participant Storage as Supabase Storage (jewel-sketches)
+
+    Artisan->>Toolbar: Select Tool (Brush / Eraser / Shapes / Symmetry)
+    Artisan->>Canvas: Draw jewellery outline with mouse / pointer
+    Canvas->>Canvas: Render smooth interpolated stroke + Mirrored Symmetry Guide
+    Artisan->>Chat: Enter prompt & adjust Canvas Influence slider (e.g. 60%)
+    Artisan->>Toolbar: Click "Save Sketch" (Ctrl+S)
+    Toolbar->>Canvas: exportPngBlob()
+    Canvas-->>Workspace: Serialized PNG Blob
+    Workspace->>API: POST /api/v1/designs/{id}/sketch (Multipart Form)
+    API->>Storage: Upload to jewel-sketches/{user_id}/{design_id}/...
+    Storage-->>API: Public URL
+    API->>API: Commit sketch_image_url & ai_prompt to DB
+    API-->>Workspace: 200 OK (Updated Design)
+    Workspace-->>Artisan: Toast: "Sketch saved successfully"
+
+    Artisan->>Studio: Navigate to Studio Media Library
+    Studio->>API: GET /api/v1/designs (All Designs)
+    API-->>Studio: Returns designs list
+    Studio->>Studio: Derive SKU tags (e.g. SKU #JM-RG-40856) & partition Collections
+    Artisan->>Studio: Click Media Card
+    Studio->>Studio: Open Media Details Inspector (Preview, Creator, Date, Size, SKU)
+    Artisan->>Studio: Click "Open in Sketch Canvas" -> Launches Drawing Canvas
+```
+

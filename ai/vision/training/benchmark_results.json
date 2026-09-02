@@ -1,0 +1,36 @@
+{
+  "yolo11s-seg.pt": {
+    "model_name": "yolo11s-seg.pt",
+    "parameters": 10069525,
+    "peak_vram_mb": 1462.0,
+    "peak_vram_gb": 1.43,
+    "avg_inference_ms": 9.58,
+    "total_train_sec": 20.42,
+    "sec_per_epoch": 20.42,
+    "box_p": 1.0,
+    "box_r": 0.0,
+    "box_map50": 0.0062,
+    "box_map50_95": 0.0015,
+    "mask_p": 0.0,
+    "mask_r": 0.0,
+    "mask_map50": 0.0,
+    "mask_map50_95": 0.0
+  },
+  "yolo11m-seg.pt": {
+    "model_name": "yolo11m-seg.pt",
+    "parameters": 22340709,
+    "peak_vram_mb": 2707.6,
+    "peak_vram_gb": 2.64,
+    "avg_inference_ms": 22.54,
+    "total_train_sec": 15.27,
+    "sec_per_epoch": 15.27,
+    "box_p": 1.0,
+    "box_r": 0.0,
+    "box_map50": 0.0154,
+    "box_map50_95": 0.0034,
+    "mask_p": 0.0,
+    "mask_r": 0.0,
+    "mask_map50": 0.0,
+    "mask_map50_95": 0.0
+  }
+}
