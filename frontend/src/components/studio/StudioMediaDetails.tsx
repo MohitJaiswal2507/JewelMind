@@ -9,12 +9,14 @@ import {
   User,
   AlertTriangle,
   Loader2,
-  HardDrive
+  HardDrive,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { StudioMediaItem } from './StudioMediaCard';
+import { AiRenderModal } from './AiRenderModal';
 
 interface StudioMediaDetailsProps {
   item: StudioMediaItem | null;
@@ -31,6 +33,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
 }) => {
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [isAiRenderOpen, setIsAiRenderOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!item) return null;
@@ -166,11 +169,22 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
 
       {/* Action Footer */}
       <div className="pt-4 border-t border-slate-800/80 space-y-2">
-        {/* Open in Interactive Canvas */}
+        {/* Generative AI Render Button */}
         <Button
           variant="gold"
           size="sm"
-          className="w-full font-bold text-xs shadow-md"
+          className="w-full font-bold text-xs shadow-md bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 hover:brightness-110"
+          onClick={() => setIsAiRenderOpen(true)}
+          disabled={!item.thumbnailUrl}
+        >
+          <Sparkles className="w-3.5 h-3.5 mr-1.5" /> AI Render (Diffusion)
+        </Button>
+
+        {/* Open in Interactive Canvas */}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="w-full font-semibold text-xs border border-slate-700"
           onClick={() => onOpenCanvas(item.designId)}
         >
           <Brush className="w-3.5 h-3.5 mr-1.5" /> Open in Sketch Canvas
@@ -233,6 +247,16 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           </div>
         )}
       </div>
+
+      {/* Phase 7 AI Generative Diffusion Modal */}
+      {item.thumbnailUrl && (
+        <AiRenderModal
+          isOpen={isAiRenderOpen}
+          onClose={() => setIsAiRenderOpen(false)}
+          sketchUrl={item.thumbnailUrl}
+          designTitle={item.title}
+        />
+      )}
     </aside>
   );
 };
