@@ -133,12 +133,44 @@ def generate_blueprint_image(img_size=640, design_id=0):
     cv2.polylines(img, [np.array(head_pts, dtype=np.int32)], True, (30, 30, 30), 2, cv2.LINE_AA)
     labels.append((2, [(x / img_size, y / img_size) for x, y in head_pts]))  # 2: ring_head
 
-    # 4. Bezel / Stone Setting
+    # 4. Setting (Stone Basket / Gallery Mount)
     bezel_cy = head_cy - int(img_size * 0.02)
     bezel_r = int(img_size * 0.09)
+
+    setting_top_y = bezel_cy + int(bezel_r * 0.20)
+    setting_bot_y = head_cy + int(head_h * 0.85)
+    setting_top_w = int(bezel_r * 0.80)
+    setting_mid_w = int(bezel_r * 0.65)
+    setting_bot_w = int(bezel_r * 0.35)
+    setting_mid_y = (setting_top_y + setting_bot_y) // 2
+
+    setting_pts = [
+        (cx - setting_top_w, setting_top_y),
+        (cx + setting_top_w, setting_top_y),
+        (cx + setting_mid_w, setting_mid_y),
+        (cx + setting_bot_w, setting_bot_y),
+        (cx - setting_bot_w, setting_bot_y),
+        (cx - setting_mid_w, setting_mid_y),
+    ]
+    cv2.fillConvexPoly(img, np.array(setting_pts, dtype=np.int32), (205, 205, 205), cv2.LINE_AA)
+    cv2.polylines(img, [np.array(setting_pts, dtype=np.int32)], True, (35, 35, 35), 2, cv2.LINE_AA)
+
+    # Gallery aperture and strut detailing for realistic bench setting
+    arch_w = max(2, int(setting_bot_w * 0.7))
+    arch_h = max(2, int((setting_bot_y - setting_top_y) * 0.28))
+    cv2.ellipse(img, (cx, setting_mid_y), (arch_w, arch_h), 0, 0, 360, (240, 240, 240), -1, cv2.LINE_AA)
+    cv2.ellipse(img, (cx, setting_mid_y), (arch_w, arch_h), 0, 0, 360, (40, 40, 40), 1, cv2.LINE_AA)
+    cv2.line(img, (cx - int(setting_top_w * 0.5), setting_top_y), (cx - int(setting_bot_w * 0.5), setting_bot_y), (50, 50, 50), 1, cv2.LINE_AA)
+    cv2.line(img, (cx + int(setting_top_w * 0.5), setting_top_y), (cx + int(setting_bot_w * 0.5), setting_bot_y), (50, 50, 50), 1, cv2.LINE_AA)
+
+    norm_setting_pts = [(x / img_size, y / img_size) for x, y in setting_pts]
+    labels.append((5, norm_setting_pts))  # 5: setting
+
+    # 5. Bezel
     bezel_pts = draw_ellipse_polygon((cx, bezel_cy), (bezel_r, int(bezel_r * 0.9)), 0, num_points=24)
     cv2.circle(img, (cx, bezel_cy), bezel_r, (40, 40, 40), 2, cv2.LINE_AA)
     labels.append((4, [(x / img_size, y / img_size) for x, y in bezel_pts]))  # 4: bezel
+
 
     # 5. Center Gemstone
     gem_r = int(bezel_r * 0.8)

@@ -33,8 +33,12 @@ def draw_detection_overlay(img: np.ndarray, detections: list) -> np.ndarray:
             color = (255, 0, 255)   # prong (magenta)
         elif cid == 4:
             color = (0, 220, 0)     # bezel (green)
+        elif cid == 5:
+            color = (180, 0, 180)   # setting (purple)
         elif cid == 6:
             color = (255, 120, 120) # shoulder (light blue)
+        else:
+            color = CLASS_COLORS.get(cid, (0, 200, 255))
 
         # Draw polygon mask if available
         if det.mask and len(det.mask) >= 3:
@@ -67,28 +71,13 @@ def draw_detection_overlay(img: np.ndarray, detections: list) -> np.ndarray:
     return blended
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Predict jewellery components on a sketch image.")
-    parser.add_argument("--model", default=None, help="Path to trained YOLO model weights (.pt)")
-    parser.add_argument("--source", required=True, help="Path to input jewellery sketch image")
-    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (0.0 to 1.0)")
-    parser.add_argument("--output", default=None, help="Path to save annotated output image")
-    parser.add_argument("--device", default=None, help="CUDA device index (0) or 'cpu'")
-    parser.add_argument("--json_output", default=None, help="Path to save JSON detections output")
-    args = parser.parse_args()
-
-    source_path = Path(args.source)
-    if not source_path.exists():
-        print(f"[ERROR] Source image not found: {source_path}")
-        sys.exit(1)
-
-    detector = JewelleryComponentDetector(model_path=args.model, device=args.device)
-    result = detector.detect(source_path, conf_threshold=args.conf)
-
-    # Output formatted JSON
+def process_single_image(detector, img_path: Path, conf: float, output_path: Path = None, json_path: Path = None):
+    """Process a single image, print summary, and optionally save visual and JSON outputs."""
+    result = detector.detect(img_path, conf_threshold=conf)
     result_dict = result.model_dump()
+
     print("\n" + "=" * 60)
-    print(f"JEWELMIND COMPONENT DETECTION: {source_path.name}")
+    print(f"JEWELMIND COMPONENT DETECTION: {img_path.name}")
     print("=" * 60)
     print(f"Model:          {result.model_version}")
     print(f"Inference Time: {result.inference_time_ms:.2f} ms")
@@ -98,23 +87,61 @@ def main():
     for idx, det in enumerate(result.detections):
         print(f"[{idx+1}] {det.class_name:<12} (Conf: {det.confidence:.2%}) BBox: {det.bbox} Area: {det.area or 0:.1f}px")
 
-    if args.json_output:
-        json_path = Path(args.json_output)
+    if json_path:
         json_path.parent.mkdir(parents=True, exist_ok=True)
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(result_dict, f, indent=2)
         print(f"[*] JSON detections saved to: {json_path}")
 
-    # Render visualization overlay if output specified
-    if args.output:
-        out_path = Path(args.output)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        orig_img = cv2.imread(str(source_path))
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        orig_img = cv2.imread(str(img_path))
         annotated_img = draw_detection_overlay(orig_img, result.detections)
-        cv2.imwrite(str(out_path), annotated_img)
-        print(f"[*] Visualized prediction saved to: {out_path}")
+        cv2.imwrite(str(output_path), annotated_img)
+        print(f"[*] Visualized prediction saved to: {output_path}")
 
-    print("=" * 60 + "\n")
+    print("=" * 60)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Predict jewellery components on a sketch image or directory.")
+    parser.add_argument("--model", default=None, help="Path to trained YOLO model weights (.pt)")
+    parser.add_argument("--source", required=True, help="Path to input jewellery sketch image or directory of images")
+    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (0.0 to 1.0)")
+    parser.add_argument("--output", default=None, help="Path to save annotated output image or directory")
+    parser.add_argument("--device", default=None, help="CUDA device index (0) or 'cpu'")
+    parser.add_argument("--json_output", default=None, help="Path to save JSON detections output or directory")
+    args = parser.parse_args()
+
+    source_path = Path(args.source)
+    if not source_path.exists():
+        print(f"[ERROR] Source path not found: {source_path}")
+        sys.exit(1)
+
+    detector = JewelleryComponentDetector(model_path=args.model, device=args.device)
+
+    if source_path.is_dir():
+        image_files = sorted(
+            [p for p in source_path.glob("*") if p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]]
+        )
+        if not image_files:
+            print(f"[!] No images found in {source_path}")
+            return
+
+        print(f"[*] Processing {len(image_files)} images from directory: {source_path}")
+        out_dir = Path(args.output) if args.output else None
+        json_dir = Path(args.json_output) if args.json_output else None
+
+        for img_p in image_files:
+            out_p = (out_dir / f"pred_{img_p.stem}.jpg") if out_dir else None
+            j_p = (json_dir / f"pred_{img_p.stem}.json") if json_dir else None
+            process_single_image(detector, img_p, args.conf, out_p, j_p)
+    else:
+        out_p = Path(args.output) if args.output else None
+        j_p = Path(args.json_output) if args.json_output else None
+        process_single_image(detector, source_path, args.conf, out_p, j_p)
+
 
 
 if __name__ == "__main__":

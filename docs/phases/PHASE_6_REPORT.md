@@ -179,3 +179,82 @@ We verified that zero large binary artifacts or credentials are tracked in Git:
 conda activate tgpu
 python ai/vision/training/scripts/train.py --model yolo11s-seg.pt --data ai/vision/training/configs/jewellery_components.yaml --epochs 50 --batch 8 --imgsz 640 --device 0 --name yolo11s-seg-jewelmind-v1
 ```
+
+---
+
+## 11. Final Validation
+
+### Model
+- **Model:** YOLO11m-seg
+- **Version:** `yolo11m-seg-jewelmind-v1`
+- **Task:** Instance Segmentation
+- **Checkpoint:** `best.pt`
+- **Checkpoint Path:** `runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt`
+- **Checkpoint Size:** 45,160,118 bytes (~43.07 MB)
+- **GPU Used:** NVIDIA GeForce RTX 4060 Laptop GPU (8,188 MiB VRAM)
+- **CUDA Status:** Verified (`torch.cuda.is_available() == True`, CUDA 13.0 / PyTorch 2.9.0+cu130)
+
+### Dataset
+- **Train Images:** 35 images (385 masks)
+- **Validation Images:** 10 images (110 masks)
+- **Test Images:** 5 images (55 masks)
+- **Total Images:** 50 images
+- **Total Component Masks:** 550 polygon masks
+- **7-Class Taxonomy:** `0: gemstone`, `1: ring_shank`, `2: ring_head`, `3: prong`, `4: bezel`, `5: setting`, `6: shoulder`
+- **Synthetic Limitation:** Small synthetic blueprint dataset intended for pipeline validation and architectural proof-of-concept.
+
+### Inference
+- **Test Split Used:** `ai/vision/datasets/sample/test/images/` (5 images)
+- **Inference Status:** Completed successfully via `ai/vision/inference/predict_components.py`
+- **Test Images Processed:** 5 / 5 images (`ring_test_000.jpg` to `ring_test_004.jpg`)
+- **Output Location:** `outputs/inference/validation/images/` and `outputs/inference/validation/json/` (Git-ignored)
+- **Hardware Acceleration:** Local GPU inference executed on `cuda:0` (NVIDIA GeForce RTX 4060 Laptop GPU)
+
+### Visual Validation
+- **Setting (`class_id: 5`):** Consistently identified on 4 of 5 test images (`ring_test_000`, `ring_test_001`, `ring_test_002`, `ring_test_004`) with confidence reaching up to 63.06% (`ring_test_002`). Masks accurately enclose the stone seat / under-gallery setting collet.
+- **Ring Shank (`class_id: 1`):** Coherently detected on `ring_test_000` with bounding box `[133.83, 196.50, 498.01, 542.55]` and area 106,374.5px, tightly following the ring band contour.
+- **Weak / Subtle Classes:** Fine micro-components (`prong`, `shoulder`, `bezel`, `ring_head`, `gemstone`) fall below confidence threshold on several test images due to small training sample size (35 images) and early stopping at epoch 17.
+- **Geometric Sanity:** No predictions on blank background, no runaway masks covering the whole canvas, and no detached geometry.
+
+### DetectionResult Validation
+The structured contract adheres to the Pydantic schema in `ai/vision/inference/schemas.py`:
+- `model_version`: Present and verified (`yolo11m-seg-jewelmind-v1:best`)
+- `image_size`: Present (`[640, 640]`)
+- `inference_time_ms`: Present and numeric (~233ms - 1526ms on RTX 4060)
+- `device_used`: Present (`"0"`)
+- `total_detections`: Present and verified
+- `detections`: Array of objects containing `class_id`, `class_name`, `confidence`, `bbox`, `mask`, `normalized_mask`, and `area`
+- Class ID mapping strictly aligned: `0: gemstone`, `1: ring_shank`, `2: ring_head`, `3: prong`, `4: bezel`, `5: setting`, `6: shoulder`
+
+### Automated Tests
+- **AI Suite:** `pytest tests/ai -v` $\rightarrow$ **12 Passed**, 0 Failed, 0 Skipped (1.93s)
+- **Backend AI Endpoints:** `uv run --directory backend pytest tests/test_ai_components.py -v` $\rightarrow$ **4 Passed**, 0 Failed, 0 Skipped (0.06s)
+- **Backend Full Suite:** `uv run --directory backend pytest tests` $\rightarrow$ **53 Passed**, 0 Failed (7.29s)
+
+### Limitations
+> [!IMPORTANT]
+> The current model is a Phase 6 proof-of-concept trained on a small synthetic dataset. Its metrics and visual predictions must not be interpreted as production-level jewellery component detection performance.
+> A real production model will require a substantially larger, diverse, properly annotated real-jewellery/sketch dataset.
+
+### Checkpointing
+- `best.pt`: Best validation checkpoint (`runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt`)
+- `last.pt`: Latest training checkpoint (`runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/last.pt`)
+- Resuming supported via `--resume` flag in `ai/vision/training/scripts/train.py`
+- Strict Git exclusion confirmed for all `.pt`, `.pth`, `.onnx`, and `.safetensors` binaries.
+
+---
+
+## 12. Phase 6 Merge Readiness
+
+- [x] Dataset validation passed (50 images, 550 masks across 7 classes, 0 errors, 0 warnings)
+- [x] `best.pt` located (`runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt`)
+- [x] Test inference completed on all 5 test images using RTX 4060 GPU
+- [x] Prediction visualizations generated (`outputs/inference/validation/images/`)
+- [x] Prediction masks visually inspected and verified
+- [x] `DetectionResult` schema verified with all required fields and mappings
+- [x] AI tests passed (12/12)
+- [x] No secrets tracked (`.env` not in Git)
+- [x] No model binaries tracked (`*.pt`, `*.pth`, `*.onnx`, `*.safetensors` excluded)
+- [x] Git diff reviewed
+- [x] Git status clean or intentionally documented
+- [x] Phase 6 ready to merge into `main`

@@ -78,8 +78,11 @@ class JewelleryComponentDetector:
         # Locate model weights
         candidate_paths = [
             model_path,
+            "runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt",
+            "runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt",
             "runs/jewellery/yolo11s-seg-jewelmind-v1/weights/best.pt",
             "runs/smoke_test/gpu_smoke_run/weights/best.pt",
+            "yolo11m-seg.pt",
             "yolo11s-seg.pt",
         ]
 
@@ -92,10 +95,15 @@ class JewelleryComponentDetector:
         if resolved_path:
             from ultralytics import YOLO
             self.model_path = resolved_path
-            self.model_version = Path(resolved_path).stem
+            p_obj = Path(resolved_path)
+            if p_obj.stem in ["best", "last"] and p_obj.parent.name == "weights":
+                self.model_version = f"{p_obj.parent.parent.name}:{p_obj.stem}"
+            else:
+                self.model_version = p_obj.stem
             self.model = YOLO(resolved_path)
         else:
             # Fallback to base pretrained weights
+
             try:
                 from ultralytics import YOLO
                 self.model_path = "yolo11s-seg.pt"
