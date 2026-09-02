@@ -1,0 +1,18 @@
+candidate_id,image_path,source,source_id,category,category_confidence,license,original_width,original_height,output_width,output_height,sha256,training_split,caption_file,validation_status
+CAND_003,images/CAND_003.jpg,cma,96617,ring,MEDIUM,CC0 1.0 Universal (Public Domain),900,785,900,785,528398a17982dbeded4376fe637adcbef1daebb6046df5b764ffb0752289bc5b,validation,images/CAND_003.txt,VALID
+CAND_021,images/CAND_021.jpg,cma,127721,ring,HIGH,CC0 1.0 Universal (Public Domain),750,616,750,616,789d5178799cbdf5f2022cedb8b2ab446d72893f6518fcd490a7a915001dd3af,validation,images/CAND_021.txt,VALID
+CAND_022,images/CAND_022.jpg,cma,144316,ring,HIGH,CC0 1.0 Universal (Public Domain),737,893,737,893,88669a8dccec8bc7bed691363f1d586f0a5be69233a6a2cd7732e2c7d79c2a9d,validation,images/CAND_022.txt,VALID
+CAND_058,images/CAND_058.jpg,cma,148321,earring,MEDIUM,CC0 1.0 Universal (Public Domain),900,555,900,555,bf29da9c0f7b0abb90257ecdde094171ae3cc189ef492aac59ce0b7e02a0ae6b,validation,images/CAND_058.txt,VALID
+CAND_066,images/CAND_066.jpg,cma,160506,pendant,HIGH,CC0 1.0 Universal (Public Domain),991,893,991,893,1b664cb7a63bd1e856b3cf9598838ec071b37cfae3d54e15149d3cfa6c43b4e5,validation,images/CAND_066.txt,VALID
+CAND_074,images/CAND_074.jpg,cma,129226,pendant,HIGH,CC0 1.0 Universal (Public Domain),750,738,750,738,8a3dc73691edf7b0a5494c2fc3a3e20a8f57569b3905f8a8f751d75ee09a7ed8,validation,images/CAND_074.txt,VALID
+CAND_121,images/CAND_121.jpg,cma,161405,necklace,HIGH,CC0 1.0 Universal (Public Domain),595,893,595,893,95227c5dcc1e8e5dcd349a7d02b94d326320df0c187ce5d2286366a7c42bd750,validation,images/CAND_121.txt,VALID
+CAND_127,images/CAND_127.jpg,cma,126196,necklace,HIGH,CC0 1.0 Universal (Public Domain),596,893,596,893,309f530d5e4cdd380e6bb740d11a7b7533669453a056f355699b6256bb4aef38,validation,images/CAND_127.txt,VALID
+CAND_150,images/CAND_150.jpg,cma,128160,bracelet,HIGH,CC0 1.0 Universal (Public Domain),1263,684,1263,684,f2edf32a2053f870dcc50cc7a2002fa4fe44d18c9f7b9d88369fc1143c65b3c4,validation,images/CAND_150.txt,VALID
+CAND_165,images/CAND_165.jpg,cma,136924,brooch,HIGH,CC0 1.0 Universal (Public Domain),750,743,750,743,0e30a3a005896de1c6f5d29487a538ae30d7b3130e144c2d5e692327a6ca834b,validation,images/CAND_165.txt,VALID
+CAND_166,images/CAND_166.jpg,cma,165167,brooch,HIGH,CC0 1.0 Universal (Public Domain),886,893,886,893,ca4c80f44566347ee9808b6ac96a3217823d90cf5f70a79ba13bc17c4152a582,validation,images/CAND_166.txt,VALID
+CAND_177,images/CAND_177.jpg,cma,111704,brooch,HIGH,CC0 1.0 Universal (Public Domain),750,740,750,740,88585f3e654ccf862fcdf653c9fc032e1f70d790d0022311a89806139d3c3d99,validation,images/CAND_177.txt,VALID
+CAND_187,images/CAND_187.jpg,met,316436,earring,HIGH,CC0 1.0 Universal (Public Domain),600,607,600,607,eebb5a5e2c3fe47c6c7bff94b6624a095e8831e984700a8b0ae0b727e7a8cabf,validation,images/CAND_187.txt,VALID
+CAND_188,images/CAND_188.jpg,met,316437,earring,HIGH,CC0 1.0 Universal (Public Domain),599,608,599,608,a2f2f9eadd3740de860e5016815f46fdb4248e63b62b2e00b5caed10a4e4b0ba,validation,images/CAND_188.txt,VALID
+CAND_191,images/CAND_191.jpg,met,316696,pendant,HIGH,CC0 1.0 Universal (Public Domain),560,624,560,624,b9caa00f83da282410c49ed4a9e6ee2cd123576c0cf0d08880fcb67c09d244ec,validation,images/CAND_191.txt,VALID
+CAND_212,images/CAND_212.jpg,met,310555,pendant,LOW,CC0 1.0 Universal (Public Domain),599,549,599,549,0d505b0bb88a74af11f41a793840d8010733b507a702eefd1fa6c30ee456ff80,validation,images/CAND_212.txt,VALID
+CAND_220,images/CAND_220.jpg,cma,172512,pendant,HIGH,CC0 1.0 Universal (Public Domain),900,695,900,695,b59268b81d61055c436c806d7adddd1287a80dc13ef4af9baba3a97810db804d,validation,images/CAND_220.txt,VALID
