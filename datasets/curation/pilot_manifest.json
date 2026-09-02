@@ -1,0 +1,422 @@
+[
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_207968_other.jpg",
+    "source": "met",
+    "source_id": "207968",
+    "source_url": "https://images.metmuseum.org/CRDImages/es/original/DP349144.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/es/original/DP349144.jpg",
+    "title": "Table clock with calendar",
+    "category": "other",
+    "medium": "Case: silver, partly enameled gold, hardstones, rock crystal, amethysts, and diamonds; movement: brass and steel",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      2792,
+      3894
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "5070f0f00f2b3332",
+    "ahash": "00003c7f050018ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_454738_other.jpg",
+    "source": "met",
+    "source_id": "454738",
+    "source_url": "https://images.metmuseum.org/CRDImages/is/original/DP116018.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/is/original/DP116018.jpg",
+    "title": "Goa Stone and Gold Case",
+    "category": "other",
+    "medium": "Container: gold; pierced, repouss\u00e9, with cast legs and finials\r\nGoa stone: compound of organic and inorganic materials",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      3791,
+      3791
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "00303026060f0700",
+    "ahash": "00001090c0e0f3ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_194067_other.jpg",
+    "source": "met",
+    "source_id": "194067",
+    "source_url": "https://images.metmuseum.org/CRDImages/es/original/DP340439.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/es/original/DP340439.jpg",
+    "title": "Watch in the form of a Lesser George",
+    "category": "other",
+    "medium": "Case and dial: gold, partly enameled; movement: gilded brass and steel",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      2620,
+      3013
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "0e0f0f272b130f0c",
+    "ahash": "ffe7e3c3c1c3c3ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_205427_other.jpg",
+    "source": "met",
+    "source_id": "205427",
+    "source_url": "https://images.metmuseum.org/CRDImages/es/original/DP156524.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/es/original/DP156524.jpg",
+    "title": "Vase (vase chinois) (one of a pair)",
+    "category": "other",
+    "medium": "Hard-paste porcelain decorated in black enamel, platinum, two tones of gold; gilt metal; interior metal rod",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      3180,
+      4000
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "e032333333331313",
+    "ahash": "0080d9d981c1cbff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "",
+    "source": "met",
+    "source_id": "472562",
+    "source_url": "https://images.metmuseum.org/CRDImages/md/original/DT119.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/md/original/DT119.jpg",
+    "title": "The Fieschi Morgan Staurotheke",
+    "category": "other",
+    "medium": "Gilded silver, gold, enamel worked in cloisonn\u00e9, and niello",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      3811,
+      3049
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "EXCESSIVE_BACKGROUND_CLUTTER: Corner variance std=71.6 > 65.0",
+    "dhash": null,
+    "ahash": null,
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_193674_other.jpg",
+    "source": "met",
+    "source_id": "193674",
+    "source_url": "https://images.metmuseum.org/CRDImages/es/original/DP-35884-001.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/es/original/DP-35884-001.jpg",
+    "title": "Reliquary",
+    "category": "other",
+    "medium": "Gold, rock crystal, enamel",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      2942,
+      4000
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "108c0c0e06061714",
+    "ahash": "00e7e7c3c3c3c3ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_53429_other.jpg",
+    "source": "met",
+    "source_id": "53429",
+    "source_url": "https://images.metmuseum.org/CRDImages/as/original/DP362588.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/as/original/DP362588.jpg",
+    "title": "Cherry Blossom Viewing at Itsukushima and Yoshino",
+    "category": "other",
+    "medium": "Pair of six-panel folding screens; ink, color, and gold leaf on paper",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      4000,
+      1903
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "64ce9b8786ce5645",
+    "ahash": "1667ffe34322f200",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_309943_other.jpg",
+    "source": "met",
+    "source_id": "309943",
+    "source_url": "https://images.metmuseum.org/CRDImages/ao/original/DP-13440-014.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/ao/original/DP-13440-014.jpg",
+    "title": "Miniature male effigy",
+    "category": "other",
+    "medium": "Gold-silver alloy",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      3053,
+      4000
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "cccc8c8ccccc8ccc",
+    "ahash": "e7c7c3c7e7e7e7ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_309944_other.jpg",
+    "source": "met",
+    "source_id": "309944",
+    "source_url": "https://images.metmuseum.org/CRDImages/ao/original/DP-13440-023.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/ao/original/DP-13440-023.jpg",
+    "title": "Miniature female effigy",
+    "category": "other",
+    "medium": "Gold-silver alloy",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      2771,
+      4000
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "cc8c9e9c96cf0f8d",
+    "ahash": "0643c3c3c3e7e7ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\met_309960_other.jpg",
+    "source": "met",
+    "source_id": "309960",
+    "source_url": "https://images.metmuseum.org/CRDImages/ao/original/DP-13440-031.jpg",
+    "image_url": "https://images.metmuseum.org/CRDImages/ao/original/DP-13440-031.jpg",
+    "title": "Miniature camelid effigy",
+    "category": "other",
+    "medium": "Silver, gold, copper alloy",
+    "license": "CC0 1.0 Universal (Public Domain)",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      3053,
+      4000
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "204426861c169744",
+    "ahash": "00000000c3c3e3ff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\cma_692272_pendant.jpg",
+    "source": "cma",
+    "source_id": "692272",
+    "source_url": "https://openaccess-cdn.clevelandart.org/2025.154/2025.154_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/2025.154/2025.154_web.jpg",
+    "title": "Necklace (ash\u00e4n ketab) with amulet pendants (t\u00e4ls\u00e4m) and bead",
+    "category": "pendant",
+    "medium": "mercury-gilded copper alloy",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      726,
+      900
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "0e22b296941c0c0c",
+    "ahash": "000000d3ffffffff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "",
+    "source": "cma",
+    "source_id": "692270",
+    "source_url": "https://openaccess-cdn.clevelandart.org/2025.152/2025.152_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/2025.152/2025.152_web.jpg",
+    "title": "Necklace (ash\u00e4n ketab) with amulet pendants (t\u00e4ls\u00e4m)",
+    "category": "pendant",
+    "medium": "silver alloy",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      656,
+      900
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "NEAR_DUPLICATE: Distance 3 <= 6 of cma_692272",
+    "dhash": "86b222232333160c",
+    "ahash": "00000099ffffffff",
+    "duplicate_of": "cma_692272"
+  },
+  {
+    "local_path": "",
+    "source": "cma",
+    "source_id": "692273",
+    "source_url": "https://openaccess-cdn.clevelandart.org/2025.155/2025.155_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/2025.155/2025.155_web.jpg",
+    "title": "Necklace (muriya or murriyya)",
+    "category": "pendant",
+    "medium": "gilt silver, tree resin (possibly copal)",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      653,
+      900
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "NEAR_DUPLICATE: Distance 3 <= 6 of cma_692272",
+    "dhash": "68cc50322232160e",
+    "ahash": "000000ffffffffff",
+    "duplicate_of": "cma_692272"
+  },
+  {
+    "local_path": "",
+    "source": "cma",
+    "source_id": "692269",
+    "source_url": "https://openaccess-cdn.clevelandart.org/2025.151/2025.151_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/2025.151/2025.151_web.jpg",
+    "title": "Necklace with pendant (waqari or wakari?)",
+    "category": "pendant",
+    "medium": "silver alloy, glass",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      678,
+      900
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "NEAR_DUPLICATE: Distance 3 <= 6 of cma_692272",
+    "dhash": "84b08012940c0c0c",
+    "ahash": "000000ffffffffff",
+    "duplicate_of": "cma_692272"
+  },
+  {
+    "local_path": "",
+    "source": "cma",
+    "source_id": "115163",
+    "source_url": "https://openaccess-cdn.clevelandart.org/1935.310/1935.310_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/1935.310/1935.310_web.jpg",
+    "title": "Disk Pendant (akrafok\u0254nmu)",
+    "category": "pendant",
+    "medium": "Gold",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      808,
+      900
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "NEAR_DUPLICATE: Distance 6 <= 6 of met_309960",
+    "dhash": "00cc0e1f0f1f0e00",
+    "ahash": "0000008183c3ffff",
+    "duplicate_of": "met_309960"
+  },
+  {
+    "local_path": "",
+    "source": "cma",
+    "source_id": "112320",
+    "source_url": "https://openaccess-cdn.clevelandart.org/1930.742/1930.742_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/1930.742/1930.742_web.jpg",
+    "title": "Belt for a Lady's Dress",
+    "category": "other",
+    "medium": "basse-taille enamel and gilding on silver, silver thread, gilt-silver buckle, cast and chased",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      515,
+      900
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "EXCESSIVE_BACKGROUND_CLUTTER: Corner variance std=71.3 > 65.0",
+    "dhash": null,
+    "ahash": null,
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\cma_132047_pendant.jpg",
+    "source": "cma",
+    "source_id": "132047",
+    "source_url": "https://openaccess-cdn.clevelandart.org/1954.602/1954.602_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/1954.602/1954.602_web.jpg",
+    "title": "Pendant: Face",
+    "category": "pendant",
+    "medium": "Gold",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      598,
+      893
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "df333b3b1f8eceec",
+    "ahash": "0001898183c7ffff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\cma_123778_pendant.jpg",
+    "source": "cma",
+    "source_id": "123778",
+    "source_url": "https://openaccess-cdn.clevelandart.org/1944.290/1944.290_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/1944.290/1944.290_web.jpg",
+    "title": "Disk Pendant (akrafok\u0254nmu)",
+    "category": "pendant",
+    "medium": "Gold",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      900,
+      824
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "20ac8e0f0f0e0c00",
+    "ahash": "000000c3c3e7ffff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "datasets\\curation\\pilot_images\\cma_129836_pendant.jpg",
+    "source": "cma",
+    "source_id": "129836",
+    "source_url": "https://openaccess-cdn.clevelandart.org/1952.265/1952.265_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/1952.265/1952.265_web.jpg",
+    "title": "Pendant: Crocodile",
+    "category": "pendant",
+    "medium": "Gold",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      1263,
+      786
+    ],
+    "status": "ACCEPTED",
+    "rejection_reason": null,
+    "dhash": "fcdcfaf8f8dae6f0",
+    "ahash": "0000001e7e7fffff",
+    "duplicate_of": null
+  },
+  {
+    "local_path": "",
+    "source": "cma",
+    "source_id": "130309",
+    "source_url": "https://openaccess-cdn.clevelandart.org/1952.84/1952.84_web.jpg",
+    "image_url": "https://openaccess-cdn.clevelandart.org/1952.84/1952.84_web.jpg",
+    "title": "Disk Pendant (akrafok\u0254nmu)",
+    "category": "pendant",
+    "medium": "Gold",
+    "license": "CC0 1.0 Universal",
+    "license_status": "VERIFIED_CC0",
+    "original_dimensions": [
+      869,
+      900
+    ],
+    "status": "REJECTED",
+    "rejection_reason": "NEAR_DUPLICATE: Distance 4 <= 6 of cma_132047",
+    "dhash": "20362f0f0f070f0c",
+    "ahash": "0000818181c3ffff",
+    "duplicate_of": "cma_132047"
+  }
+]

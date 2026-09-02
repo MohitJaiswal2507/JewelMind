@@ -1,0 +1,117 @@
+=== 1. PHYSICAL FILE ACCOUNTING ===
+Total image files physically present in repo: 602
+  .JPG: 401
+  .PNG: 201
+
+Image file count by directory:
+  ai\vision\datasets\previews                  : 5 images
+  ai\vision\datasets\sample\test\images        : 5 images
+  ai\vision\datasets\sample\train\images       : 35 images
+  ai\vision\datasets\sample\val\images         : 10 images
+  datasets\curation                            : 21 images
+  datasets\curation\full_candidates            : 264 images
+  datasets\curation\pilot_images               : 13 images
+  datasets\curation\validation_pilot_images    : 16 images
+  frontend\src\assets                          : 1 images
+  outputs\inference                            : 1 images
+  outputs\inference\validation\images          : 5 images
+  outputs\rendering                            : 1 images
+  runs\segment\runs\benchmark\bench_yolo11m-seg: 19 images
+  runs\segment\runs\benchmark\bench_yolo11s-seg: 19 images
+  runs\segment\runs\jewellery\yolo11m-seg-jewelmind-v1: 19 images
+  runs\segment\val                             : 12 images
+  runs\segment\val-10                          : 12 images
+  runs\segment\val-11                          : 12 images
+  runs\segment\val-12                          : 12 images
+  runs\segment\val-13                          : 12 images
+  runs\segment\val-14                          : 12 images
+  runs\segment\val-2                           : 12 images
+  runs\segment\val-3                           : 12 images
+  runs\segment\val-4                           : 12 images
+  runs\segment\val-5                           : 12 images
+  runs\segment\val-6                           : 12 images
+  runs\segment\val-7                           : 12 images
+  runs\segment\val-8                           : 12 images
+  runs\segment\val-9                           : 12 images
+
+=== 2. FULL CANDIDATES FOLDER INSPECTION ===
+Total images in datasets\curation\full_candidates: 264
+Sources in full_candidates folder: {'cma': 232, 'met': 32}
+Categories in full_candidates folder: {'other': 69, 'earring': 30, 'necklace': 34, 'brooch': 22, 'ring': 37, 'bracelet': 18, 'pendant': 51, 'bangle': 3}
+
+=== 3. HUMAN_CURATION.CSV INSPECTION ===
+CSV row count (excluding header): 226
+Candidate ID count: 226 (Unique: 226)
+ID range: CAND_001 to CAND_226
+Duplicate candidate IDs: 0
+Blank counts in manual fields (should be 226 for all if completely pristine for human):
+  jewellery_clearly_visible     : 226 / 226 blank
+  single_primary_object         : 226 / 226 blank
+  sufficient_object_size        : 226 / 226 blank
+  useful_geometry               : 226 / 226 blank
+  minimal_occlusion             : 226 / 226 blank
+  useful_metal_appearance       : 226 / 226 blank
+  gemstone_detail_applicable    : 226 / 226 blank
+  useful_lighting               : 226 / 226 blank
+  useful_background             : 226 / 226 blank
+  visual_quality                : 226 / 226 blank
+  design_diversity              : 226 / 226 blank
+  design_redundancy             : 226 / 226 blank
+  training_usefulness           : 226 / 226 blank
+  final_triage                  : 226 / 226 blank
+  curator_notes                 : 226 / 226 blank
+Image paths in CSV pointing to nonexistent files: 0
+
+=== 4. MANIFESTS INSPECTION ===
+full_dataset_manifest.json entries: 226
+full_dataset_manifest.jsonl entries: 226
+Manifest candidate ID range: CAND_001 to CAND_226
+Manifest entries pointing to nonexistent files: 0
+
+=== 5. SHA-256 BYTE-LEVEL UNIQUENESS IN RETAINED 226 POOL ===
+Total images evaluated: 226
+Unique SHA-256 digests: 221
+Exact byte duplicate groups: 2
+  Hash 10ec13d117c3b29d... shared by: ['CAND_040', 'CAND_041']
+  Hash 0e30a3a005896de1... shared by: ['CAND_165', 'CAND_167', 'CAND_168', 'CAND_182', 'CAND_183']
+
+=== 6. PERCEPTUAL HASH & NEAR-DUPLICATE AUDIT IN 226 POOL ===
+Duplicate status breakdown in CSV: {'DISTINCT': 102, 'NEAR_DUPLICATE_REVIEW_REQUIRED': 119, 'EXACT_DUPLICATE': 5}
+
+=== 7. CATEGORY DISTRIBUTION IN 226 POOL ===
+  ring        : 32
+  earring     : 30
+  pendant     : 47
+  necklace    : 34
+  bracelet    : 18
+  bangle      : 3
+  brooch      : 21
+  other       : 41
+  Total       : 226
+
+=== 8. SOURCE AND LICENSE DISTRIBUTION IN 226 POOL ===
+Sources: {'cma': 197, 'met': 29}
+Licenses: {'CC0 1.0 Universal (Public Domain)': 226}
+
+=== 9. CONTACT SHEET INVENTORY & DIMENSIONS ===
+  accepted_contact_sheet.png                : 1380x1800 px, size=997,372 bytes
+  CONTACT_SHEET_BRACELETS_BANGLES.png       : 1496x1214 px, size=776,505 bytes
+  CONTACT_SHEET_BROOCHES_OTHER.png          : 1496x9862 px, size=11,244,601 bytes
+  CONTACT_SHEET_EARRINGS.png                : 1496x1966 px, size=1,513,812 bytes
+  CONTACT_SHEET_NECKLACES.png               : 1496x1590 px, size=1,180,547 bytes
+  CONTACT_SHEET_PENDANTS.png                : 1496x2342 px, size=2,284,375 bytes
+  CONTACT_SHEET_REVIEW_REQUIRED.png         : 1496x12870 px, size=13,478,986 bytes
+  CONTACT_SHEET_RINGS.png                   : 1496x1966 px, size=1,778,096 bytes
+  FULL_CANDIDATE_CONTACT_SHEET.png          : 1744x8966 px, size=9,989,620 bytes
+  HUMAN_CURATION_BRACELETS_BANGLES.png      : 1296x1716 px, size=997,400 bytes
+  HUMAN_CURATION_BROOCHES_OTHER.png         : 1296x4324 px, size=4,031,637 bytes
+  HUMAN_CURATION_EARRINGS.png               : 1296x2042 px, size=1,431,467 bytes
+  HUMAN_CURATION_MASTER_CONTACT_SHEET.png   : 1552x12474 px, size=12,604,032 bytes
+  HUMAN_CURATION_NEAR_DUPLICATES.png        : 1296x8236 px, size=6,357,726 bytes
+  HUMAN_CURATION_NECKLACES.png              : 1296x2368 px, size=1,660,216 bytes
+  HUMAN_CURATION_PENDANTS.png               : 1296x3346 px, size=2,780,781 bytes
+  HUMAN_CURATION_RINGS.png                  : 1296x2368 px, size=1,820,645 bytes
+  HUMAN_CURATION_UNCERTAIN.png              : 1296x1390 px, size=1,369,293 bytes
+  rejected_contact_sheet.png                : 1380x950 px, size=467,132 bytes
+  VALIDATION_PILOT_ACCEPTED_CONTACT_SHEET.png: 1380x1375 px, size=1,021,354 bytes
+  VALIDATION_PILOT_REVIEW_CONTACT_SHEET.png : 1380x950 px, size=991,033 bytes

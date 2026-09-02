@@ -1,7 +1,7 @@
 # JewelMind — Phase 7: Manual Jewellery LoRA Training Guide
 # Local Execution Instructions for NVIDIA GeForce RTX 4060 (8 GB VRAM)
 
-> **MANDATORY POLICY**: Antigravity never launches or executes model training automatically.
+> **MANDATORY POLICY**: Antigravity never launches, schedules, resumes, or executes model training automatically.
 > All training commands must be executed manually by the human operator using the step-by-step instructions below.
 
 ---
@@ -11,12 +11,13 @@
 | Parameter | Specification | Training Implication |
 | :--- | :--- | :--- |
 | **GPU** | NVIDIA GeForce RTX 4060 Laptop GPU | 3,072 CUDA cores, Ada Lovelace architecture |
-| **VRAM** | 8,188 MiB (8 GB) GDDR6 | Net available under Windows WDDM is ~6.1 GB |
-| **Target Architecture** | Stable Diffusion 1.5 + UNet LoRA (PEFT) | Low Rank Adaptation targeting cross-attention projections |
-| **Precision** | Float16 (`fp16`) | Halves model weight & activation footprint |
-| **Batch Size** | 1 (with Gradient Accumulation = 4) | Prevents VRAM exhaustion while maintaining effective batch size 4 |
-| **Gradient Checkpointing** | **ENABLED** | Essential: drops UNet activation memory from ~7.5 GB to ~4.2 GB |
-| **Expected Peak VRAM** | **~4.5 GB to 5.2 GB** | Safe operation within 8 GB envelope without shared RAM thrashing |
+| **Total VRAM** | 8,188 MiB (8 GB) GDDR6 | Net usable VRAM under Windows WDDM is ~6.1 GB |
+| **Target Architecture** | Stable Diffusion 1.5 + UNet LoRA (PEFT) | Low Rank Adaptation targeting cross-attention projections (`to_k`, `to_q`, `to_v`, `to_out.0`) |
+| **Precision** | Float16 (`fp16`) | Halves model weights and activation memory |
+| **Batch Size** | 1 (with Gradient Accumulation = 4) | Strictly batch size 1 to prevent CUDA OOM on 8GB hardware |
+| **Gradient Checkpointing** | **ENABLED** | Essential: drops UNet activation memory footprint significantly |
+| **Measured Inference VRAM** | **3,410.4 MiB (3.33 GiB)** | Measured empirically during Phase 7 smoke test (forward pass only) |
+| **Estimated Training VRAM** | **~4.2 GB to ~5.2 GB (Estimated)** | Higher than inference due to backward pass activations and optimizer states; expected to fit within 6.1 GB net window |
 
 ---
 
@@ -25,7 +26,7 @@
 Open an Anaconda PowerShell Prompt or Windows Terminal and execute:
 
 ```powershell
-# Step 1: Activate the existing Phase 6 CUDA environment
+# Step 1: Activate the existing Phase 6/7 CUDA environment
 conda activate tgpu
 
 # Step 2: Verify Python, PyTorch, and CUDA device recognition
@@ -34,15 +35,17 @@ python -c "import torch; print('PyTorch:', torch.__version__, '| CUDA:', torch.c
 *Expected Output: `PyTorch: 2.x.x | CUDA: True | Device: NVIDIA GeForce RTX 4060 Laptop GPU`*
 
 ```powershell
-# Step 3: Ensure training dependencies are installed
+# Step 3: Ensure required training packages are present
 pip install peft accelerate datasets pyyaml
 ```
 
 ---
 
-## 3. Dataset Folder Structure
+## 3. Dataset Requirements & Preparation
 
-Organize your raw jewellery images (photographs, CAD renders, or clean sketches with target renders) into the following directory layout:
+> **CRITICAL DATASET NOTICE**:  
+> Do NOT train this model on the 35 Phase 6 YOLO sketches. Training on black-and-white sketches will corrupt the diffusion prior.  
+> Prepare a dataset of **150–200 high-quality photorealistic jewellery images** (clean white background, centered rings/pendants/earrings) before running the training script.
 
 ```
 JewelMind/
@@ -80,21 +83,23 @@ python ai/training/validate_dataset.py --data_dir datasets/jewellery_lora
 
 ## 4. Manual Training Execution
 
-> **DO NOT start until you have closed heavy GPU applications (games, 3D CAD, local LLMs).**
+> **Pre-flight check**: Close all heavy GPU software (games, 3D CAD, local LLMs) before launching training.
 
-### Recommended Hyperparameters (`configs/jewellery_lora.yaml`)
-* **Base Model**: `runwayml/stable-diffusion-v1-5`
-* **LoRA Rank ($r$)**: `16`
-* **LoRA Alpha ($\alpha$)**: `32`
-* **Learning Rate**: `1e-4` with cosine schedule
-* **Batch Size**: `1`
-* **Gradient Accumulation**: `4` steps
-* **Gradient Checkpointing**: `true`
-* **Checkpoint Interval**: Every `200` steps
+### Step Sizing Formula (Do Not Blindly Use 1000 Steps)
+With `train_batch_size: 1` and `gradient_accumulation_steps: 4`, every optimizer step consumes **4 images**.
+
+$$\text{Steps per Epoch} = \left\lceil \frac{N_{\text{train}}}{4} \right\rceil$$
+$$\text{Max Train Steps} = \text{Target Epochs} \times \text{Steps per Epoch}$$
+
+* **For 160 train images**: $\text{Steps/epoch} = 40$. Target 20–25 epochs $\to$ `max_train_steps: 800 - 1000`.
+* **For 100 train images**: $\text{Steps/epoch} = 25$. Target 20–25 epochs $\to$ `max_train_steps: 500 - 625`.
+* **For 50 train images**: $\text{Steps/epoch} = 13$. Target 20–25 epochs $\to$ `max_train_steps: 260 - 325`.
+
+Edit `configs/jewellery_lora.yaml` to set `max_train_steps` according to your finalized image count.
 
 ### Exact Manual Training Command
 ```powershell
-# Launch the training script on local GPU
+# Launch the training script manually on local GPU
 python ai/training/train_lora.py --config configs/jewellery_lora.yaml
 ```
 
@@ -106,76 +111,64 @@ In a second terminal window, run:
 ```powershell
 nvidia-smi -l 2
 ```
-Verify that:
-1. `Memory-Usage` remains below **6,200 MiB / 8,188 MiB**.
-2. GPU compute utilization fluctuates between 60% and 95%.
-3. If VRAM exceeds 7,800 MiB, immediately press `Ctrl + C` in the training terminal.
+Monitor:
+1. `Memory-Usage`: Expected to operate around **4,200 MiB – 5,200 MiB**.
+2. If VRAM exceeds **7,600 MiB**, press `Ctrl + C` immediately to avoid Windows shared memory paging.
 
 ---
 
 ## 6. Checkpointing, Interruptions & Resuming
 
-Training checkpoints are automatically written to:
+Checkpoints are automatically saved to `models/lora/jewellery_v1/checkpoints/`:
 ```
-models/lora/jewellery_v1/checkpoints/
+checkpoints/
 ├── checkpoint-200/
 │   ├── adapter_config.json
-│   └── adapter_model.safetensors
-├── checkpoint-400/
-├── checkpoint-last/       <-- Always points to the most recent completed step
+│   ├── adapter_model.safetensors
+│   ├── optimizer.pt               <-- Restores AdamW momentum buffers
+│   ├── scheduler.pt               <-- Restores cosine LR schedule
+│   ├── scaler.pt                  <-- Restores GradScaler state
+│   └── trainer_state.json         <-- Stores global_step & epoch
+└── checkpoint-last/               <-- Mirrored latest checkpoint
 ```
 
-### How to Stop Safely
-Press `Ctrl + C` once in the training terminal. PyTorch will complete the current backward step and flush the latest checkpoint.
+### Stopping Safely
+Press `Ctrl + C` once in the training console. PyTorch will complete the active step and cleanly exit.
 
-### How to Resume Without Restarting from Step 1
-`train_lora.py` natively detects existing checkpoints. To resume from the latest saved step:
+### Resuming Without Losing State
+To resume from the latest saved checkpoint:
+```powershell
+python ai/training/train_lora.py --config configs/jewellery_lora.yaml --resume latest
+```
+Or specify an explicit folder:
 ```powershell
 python ai/training/train_lora.py --config configs/jewellery_lora.yaml --resume models/lora/jewellery_v1/checkpoints/checkpoint-last
 ```
 The script will log:
 ```
-Resuming training from checkpoint: ...\checkpoint-400
-Successfully resumed at step: 400 (skipping steps 0 to 400)
+Resuming training from checkpoint: ...\checkpoint-200
+Restored optimizer momentum and state.
+Restored learning rate scheduler state.
+Successfully resumed at optimizer step 200 / 1000 (epoch 5)
 ```
 
 ---
 
 ## 7. How to Recognize Successful Completion
 
-When training reaches `max_train_steps` (1000 steps), the script will output:
+When training reaches `max_train_steps`, the script will output:
 ```
 Training complete! Saving final LoRA weights to: models/lora/jewellery_v1/jewellery_lora_final
 SUCCESS: LoRA weights ready for inference.
 ```
-The final LoRA bundle will contain:
-* `adapter_config.json` (~600 bytes)
-* `adapter_model.safetensors` (~3.2 MB)
 
 ---
 
-## 8. Validation & Inference with Trained LoRA
+## 8. Manual Evaluation Command
 
-### Test Standalone LoRA Generation
+After training completes, evaluate the LoRA checkpoint on test prompts:
 ```powershell
-python ai/training/evaluate_lora.py --lora_dir models/lora/jewellery_v1/jewellery_lora_final
+python ai/training/evaluate_lora.py `
+  --lora_dir models/lora/jewellery_v1/jewellery_lora_final `
+  --output_dir outputs/evaluation/manual_run_01
 ```
-
-### Test LoRA + ControlNet Conditioning on a Jewellery Sketch
-```powershell
-python ai/training/inference.py --sketch ai/vision/datasets/sample/train/images/ring_train_000.jpg --lora_dir models/lora/jewellery_v1/jewellery_lora_final --prompt "photorealistic fine jewellery solitaire ring, 18k yellow gold with round diamond, studio lighting" --output outputs/lora_test_render.png
-```
-
-### Rollback Procedure
-If the fine-tuned LoRA introduces artifacts or overfits (e.g. garbled gemstones or distorted ring bands), simply omit `--lora_dir` or delete `models/lora/jewellery_v1/`. The core JewelMind pipeline immediately falls back to pristine base Stable Diffusion 1.5.
-
----
-
-## 9. What to Return to the Assistant After Training
-
-Once you finish manual training, share the following summary in the chat:
-1. **Total steps completed** (e.g. 1,000 steps).
-2. **Peak VRAM observed** in `nvidia-smi` (e.g. 4,850 MiB).
-3. **Training duration** (e.g. 24 minutes).
-4. **Final loss value** (e.g. 0.082).
-5. **Visual assessment** of `eval_lora_sample_1.png` and `outputs/lora_test_render.png`.

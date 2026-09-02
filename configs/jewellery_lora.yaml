@@ -8,8 +8,8 @@ model:
   pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
   revision: "main"
   variant: "fp16"
-  lora_rank: 16               # Low rank rank=16 keeps parameter count minimal (~3.2 MB)
-  lora_alpha: 32              # Alpha scaling factor (2 * rank)
+  lora_rank: 16               # Rank 16 keeps parameter count minimal (~3.2 MB)
+  lora_alpha: 32              # Alpha scaling factor (2 * rank -> multiplier 2.0)
   lora_dropout: 0.05
   target_modules:
     - "to_k"
@@ -23,25 +23,38 @@ dataset:
   val_data_dir: "datasets/jewellery_lora/val"
   resolution: 512             # 512x512 native for SD 1.5
   center_crop: false
-  random_flip: true
+  random_flip: false          # Strictly FALSE: jewellery geometry & prongs must not be mirrored
   caption_column: "text"
   image_column: "image"
   max_train_samples: null
 
 # Training Hyperparameters for 8GB VRAM
+#
+# NOTE ON STEP SIZING FOR 150-200 IMAGE DATASET:
+# With train_batch_size: 1 and gradient_accumulation_steps: 4, each optimizer step processes 4 images.
+# Formulas:
+#   steps_per_epoch = ceil(N_train / 4)
+#   max_train_steps = target_epochs * steps_per_epoch
+#
+# Recommended sizing guide:
+#   For N = 160 train images: steps_per_epoch = 40. Target 20-25 epochs -> max_train_steps: 800 - 1000.
+#   For N = 100 train images: steps_per_epoch = 25. Target 20-25 epochs -> max_train_steps: 500 - 625.
+#   For N = 50 train images:  steps_per_epoch = 13. Target 20-25 epochs -> max_train_steps: 260 - 325.
+#
+# Set max_train_steps below once your actual dataset size is finalized.
 training:
   seed: 42
-  train_batch_size: 1         # Strictly 1 on 8GB VRAM
+  train_batch_size: 1             # Strictly 1 on 8GB VRAM to avoid CUDA OOM
   gradient_accumulation_steps: 4  # Effective batch size = 4
-  gradient_checkpointing: true    # Essential: drops VRAM from ~7.5GB to ~4.2GB
-  mixed_precision: "fp16"     # Float16 mixed precision
-  learning_rate: 1.0e-4       # AdamW standard LoRA LR
+  gradient_checkpointing: true    # Essential: drops activation VRAM to ~4.2GB
+  mixed_precision: "fp16"         # Float16 mixed precision
+  learning_rate: 1.0e-4           # Standard AdamW LoRA learning rate
   scale_lr: false
   lr_scheduler: "cosine"
   lr_warmup_steps: 50
-  max_train_steps: 1000
-  checkpointing_steps: 200    # Save checkpoint every 200 steps
-  checkpoints_total_limit: 3  # Keep last 3 checkpoints to conserve disk space
+  max_train_steps: 1000           # Adjust to ~20-25 epochs based on actual dataset count
+  checkpointing_steps: 200        # Save checkpoint every 200 optimizer steps
+  checkpoints_total_limit: 3      # Retain last 3 checkpoints to conserve disk space
   resume_from_checkpoint: "latest" # Auto-resumes from last saved checkpoint if present
 
 # Optimizer Configuration
@@ -51,7 +64,7 @@ optimizer:
   beta2: 0.999
   weight_decay: 1.0e-2
   epsilon: 1.0e-8
-  use_8bit_adam: false        # Optional bitsandbytes 8-bit Adam for further memory saving
+  use_8bit_adam: false
 
 # Output Directories (Git-ignored)
 output:
