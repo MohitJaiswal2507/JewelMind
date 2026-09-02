@@ -110,6 +110,9 @@ tempCodeRunnerFile.py
 checkpoints/
 runs/
 wandb/
+models/diffusion/
+models/cache/
+
 
 # Datasets & Outputs (Keep structure, ignore bulky data)
 datasets/raw/*
