@@ -14,7 +14,8 @@ import {
   LayoutDashboard,
   LogOut,
   Palette,
-  Brush
+  Brush,
+  Factory
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './components/ui/card';
@@ -30,9 +31,10 @@ import { DesignsPage } from './pages/DesignsPage';
 import { DesignDetailPage } from './pages/DesignDetailPage';
 import { DesignWorkspacePage } from './pages/DesignWorkspacePage';
 import { StudioPage } from './pages/StudioPage';
+import { ProductionPage } from './pages/ProductionPage';
 import { Design } from './types/design';
 
-type ViewMode = 'landing' | 'login' | 'register' | 'dashboard' | 'designs' | 'design-detail' | 'studio' | 'canvas';
+type ViewMode = 'landing' | 'login' | 'register' | 'dashboard' | 'designs' | 'design-detail' | 'studio' | 'canvas' | 'production';
 
 const MainLayout: React.FC = () => {
   const { isAuthenticated, logout } = useAuth();
@@ -205,6 +207,16 @@ const MainLayout: React.FC = () => {
                 </Button>
 
                 <Button
+                  variant={currentView === 'production' ? 'gold' : 'secondary'}
+                  size="sm"
+                  onClick={() => setCurrentView('production')}
+                  className="h-8 text-xs font-semibold"
+                >
+                  <Factory className="w-3.5 h-3.5 mr-1.5" />
+                  Production
+                </Button>
+
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
@@ -290,6 +302,13 @@ const MainLayout: React.FC = () => {
           <StudioPage
             onNavigateDesigns={() => setCurrentView('designs')}
             onOpenCanvas={handleOpenCanvas}
+          />
+        )}
+
+        {currentView === 'production' && (
+          <ProductionPage
+            onNavigateToStudio={() => setCurrentView('studio')}
+            onSelectDesign={handleSelectDesign}
           />
         )}
 

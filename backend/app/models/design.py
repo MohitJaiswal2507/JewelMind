@@ -12,6 +12,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.production import ProductionOrder
 
 
 class Design(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -59,8 +60,13 @@ class Design(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=True,
     )
 
-    # Relationship to user
+    # Relationships
     user: Mapped["User"] = relationship("User", back_populates="designs")
+    production_orders: Mapped[list["ProductionOrder"]] = relationship(
+        "ProductionOrder",
+        back_populates="design",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<Design id={self.id} name='{self.name}' category='{self.category}' status='{self.status}'>"
