@@ -1,0 +1,66 @@
+# ====================================================================
+# JewelMind Phase 10 — 300-Step Jewellery ControlNet Training Configuration
+# Staged Controlled Experiment Resuming from Checkpoint-100
+# Tailored for NVIDIA GeForce RTX 4060 Laptop GPU (8,188 MiB VRAM)
+# ====================================================================
+
+# Base Diffusion Model and ControlNet Specification
+model:
+  pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+  revision: "main"
+  variant: "fp16"
+  pretrained_controlnet_name_or_path: "lllyasviel/control_v11p_sd15_lineart"
+  conditioning_channels: 3
+  controlnet_conditioning: "lineart_structural"
+
+# Paired Dataset Specification
+dataset:
+  train_data_dir: "datasets/controlnet_paired"
+  train_metadata_file: "datasets/controlnet_paired/metadata/train.jsonl"
+  val_data_dir: "datasets/controlnet_paired"
+  val_metadata_file: "datasets/controlnet_paired/metadata/validation.jsonl"
+  resolution: 512             # 512x512 native resolution
+  keep_aspect_ratio: true     # Letterbox pads to square to preserve exact geometry
+  center_crop: false          # Strictly FALSE: do not crop out rings, bezels, prongs
+  random_flip: false          # Strictly FALSE: maintain structural asymmetric alignment
+  max_train_samples: null
+
+# Training Hyperparameters for 300-Step Controlled Run
+training:
+  seed: 42
+  train_batch_size: 1             # Strictly 1 on 8GB VRAM to avoid CUDA OOM
+  gradient_accumulation_steps: 4  # Effective batch size = 4
+  gradient_checkpointing: true    # Essential: drops activation VRAM
+  mixed_precision: "fp16"         # Float16 mixed precision via torch.amp
+  learning_rate: 1.0e-5           # Standard ControlNet fine-tuning learning rate
+  scale_lr: false
+  lr_scheduler: "cosine"
+  lr_warmup_steps: 50
+  max_train_steps: 300           # 300-step controlled experiment
+  checkpointing_steps: 100        # Checkpoint every 100 steps (steps 200, 300)
+  checkpoints_total_limit: 5      # Retain all checkpoints
+  resume_from_checkpoint: "outputs/controlnet_jewellery/checkpoints/checkpoint-100"
+  validation_steps: 100           # Validation loss evaluation at steps 100, 200, 300
+  validation_samples: 4           # Validation samples
+  max_grad_norm: 1.0              # Gradient clipping norm
+
+# Memory & Hardware Optimizations (RTX 4060 8GB)
+memory:
+  enable_gradient_checkpointing: true
+  enable_sdpa: true               # PyTorch Scaled Dot-Product Attention (SDPA)
+  allow_tf32: true
+  attention_slicing: false
+
+# Optimizer Configuration
+optimizer:
+  name: "AdamW"
+  beta1: 0.9
+  beta2: 0.999
+  weight_decay: 1.0e-2
+  epsilon: 1.0e-8
+
+# Separate Output Directories (Preserves 100-step artifacts)
+output:
+  output_dir: "outputs/controlnet_jewellery_300"
+  logging_dir: "outputs/controlnet_jewellery_300/logs"
+  report_to: "tensorboard"

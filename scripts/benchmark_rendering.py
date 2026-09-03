@@ -61,12 +61,13 @@ def run_benchmark():
     for idx, steps in enumerate(step_configs, start=2):
         print(f"[{idx}/4] Benchmarking {steps} steps (512x512, batch 1, seed=42)...")
         req = RenderRequest(
+            category="ring",
             material="18k yellow gold",
             gemstone="round brilliant diamond",
             control_type="lineart",
             steps=steps,
             guidance_scale=7.5,
-            control_strength=0.8,
+            control_strength=1.0,
             seed=42,
             width=512,
             height=512,

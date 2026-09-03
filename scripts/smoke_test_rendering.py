@@ -21,9 +21,10 @@ from ai.rendering.pipeline import JewelleryRenderingPipeline
 from ai.rendering.schemas import RenderRequest
 
 
-def run_smoke_test():
+def run_smoke_test(control_strength: float = 1.0):
     print("=" * 65)
     print("  JEWELMIND PHASE 7 — REAL GPU SMOKE TEST")
+    print(f"  ControlNet Conditioning Strength: {control_strength}")
     print("=" * 65)
 
     # 1. Verify CUDA
@@ -63,10 +64,11 @@ def run_smoke_test():
 
     # 4. Prepare Render Request (512x512, batch 1, 20 steps, seed 42)
     request = RenderRequest(
+        category="ring",
         material="18k yellow gold",
         gemstone="round brilliant diamond",
         control_type="lineart",
-        control_strength=0.8,
+        control_strength=control_strength,
         steps=20,
         guidance_scale=7.5,
         seed=42,
@@ -75,7 +77,7 @@ def run_smoke_test():
     )
 
     # 5. Execute Rendering
-    print("\n[INFERENCE] Starting generative render (batch 1, 512x512, 20 steps)...")
+    print(f"\n[INFERENCE] Starting generative render (batch 1, 512x512, 20 steps, strength={control_strength})...")
     start_time = time.perf_counter()
     rendered_img, result = pipeline.render(sketch_img, request=request)
     total_elapsed = time.perf_counter() - start_time
@@ -92,6 +94,7 @@ def run_smoke_test():
     print(f"  Status:             SUCCESS")
     print(f"  Model:              {result.model_version}")
     print(f"  ControlNet:         {result.controlnet_version}")
+    print(f"  Control Strength:   {result.control_strength}")
     print(f"  Device:             {result.device_used}")
     print(f"  Resolution:         {result.image_width}x{result.image_height}")
     print(f"  Seed:               {result.seed}")
@@ -113,4 +116,13 @@ def run_smoke_test():
 
 
 if __name__ == "__main__":
-    run_smoke_test()
+    import argparse
+    parser = argparse.ArgumentParser(description="JewelMind Generative Rendering Smoke Test")
+    parser.add_argument(
+        "--control-strength",
+        type=float,
+        default=1.0,
+        help="ControlNet conditioning guidance strength (default: 1.0)",
+    )
+    args = parser.parse_args()
+    run_smoke_test(control_strength=args.control_strength)

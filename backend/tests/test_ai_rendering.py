@@ -100,7 +100,7 @@ def test_render_success_mock(mock_get_pipeline, auth_client):
         "image_height": 512,
         "seed": 42,
         "control_type": "lineart",
-        "control_strength": 0.8,
+        "control_strength": 1.0,
         "steps": 20,
         "guidance_scale": 7.5,
         "inference_time_ms": 3210.5,
@@ -116,6 +116,7 @@ def test_render_success_mock(mock_get_pipeline, auth_client):
         "/api/v1/ai/render",
         files={"file": ("ring_sketch.png", io.BytesIO(png_bytes), "image/png")},
         data={
+            "category": "ring",
             "material": "18k yellow gold",
             "gemstone": "round brilliant diamond",
             "control_type": "lineart",
@@ -127,8 +128,24 @@ def test_render_success_mock(mock_get_pipeline, auth_client):
     assert response.status_code == 200
     data = response.json()
     assert data["model_version"] == "runwayml/stable-diffusion-v1-5"
+    assert data["control_strength"] == 1.0
     assert data["seed"] == 42
     assert data["output_url"].startswith("/api/v1/ai/render/outputs/")
+    # Ensure default control_strength of 1.0 is passed to pipeline request
+    call_req = mock_pipeline.render.call_args.kwargs["request"]
+    assert call_req.control_strength == 1.0
     # Ensure no local filesystem paths are leaked
     assert "C:\\" not in str(data)
     assert "/Users/" not in str(data)
+
+
+def test_render_invalid_category_rejected(auth_client):
+    """Ensure unsupported category returns 422."""
+    png_bytes = create_mock_png_bytes()
+    response = auth_client.post(
+        "/api/v1/ai/render",
+        files={"file": ("sketch.png", io.BytesIO(png_bytes), "image/png")},
+        data={"category": "invalid_jewellery_type"},
+    )
+    assert response.status_code == 422
+    assert "Invalid render parameters" in response.json()["detail"]

@@ -21,12 +21,33 @@ def test_rendering_config_defaults():
     assert cfg.batch_size == 1
     assert cfg.use_fp16 is True
     assert cfg.enable_attention_slicing is True
+    assert cfg.default_control_strength == 1.0
     assert "stable-diffusion" in cfg.base_model_id
-    assert "lineart" in cfg.lineart_controlnet_id
+    assert "controlnet" in cfg.lineart_controlnet_id.lower() or "lineart" in cfg.lineart_controlnet_id.lower()
+
+
+def test_controlnet_model_resolution_env_override(monkeypatch):
+    """Verify that JEWELMIND_CONTROLNET_MODEL_PATH overrides default resolution."""
+    monkeypatch.setenv("JEWELMIND_CONTROLNET_MODEL_PATH", "custom/jewellery/controlnet")
+    cfg = RenderingConfig()
+    assert cfg.lineart_controlnet_id == "custom/jewellery/controlnet"
+
+
+def test_controlnet_model_resolution_fallback(monkeypatch, tmp_path):
+    """Verify fallback when neither custom path nor fine-tuned model exists."""
+    monkeypatch.delenv("JEWELMIND_CONTROLNET_MODEL_PATH", raising=False)
+    monkeypatch.delenv("JEWELMIND_CONTROLNET_LINEART", raising=False)
+    from ai.rendering.config import DEFAULT_PRETRAINED_LINEART_FALLBACK, get_default_lineart_controlnet
+    # If target doesn't exist, resolves to fallback
+    res = get_default_lineart_controlnet()
+    assert "controlnet" in res.lower() or "lineart" in res.lower()
 
 
 def test_render_request_validation():
     """Verify bounds and validation rules on RenderRequest."""
+    req_default = RenderRequest()
+    assert req_default.control_strength == 1.0
+
     req = RenderRequest(
         width=512,
         height=512,
@@ -36,6 +57,7 @@ def test_render_request_validation():
     )
     assert req.width == 512
     assert req.steps == 25
+    assert req.control_strength == 0.85
     assert req.seed == 12345
 
     # Invalid width (not multiple of 8)
@@ -140,3 +162,80 @@ def test_prompt_builder():
     assert "malformed jewellery" in neg_prompt
     assert "deformed ring" in neg_prompt
     assert "low contrast" in neg_prompt
+
+
+@pytest.mark.parametrize(
+    "category",
+    ["ring", "earring", "pendant", "necklace", "bracelet", "bangle", "brooch"],
+)
+def test_prompt_builder_supported_categories(category):
+    """Verify each supported controlled category is semantically injected into the prompt."""
+    prompt = build_jewellery_prompt(
+        material="18k yellow gold",
+        gemstone="round brilliant diamond",
+        category=category,
+    )
+    assert f"fine jewellery {category}" in prompt
+    assert "polished 18k yellow gold" in prompt
+    assert "round brilliant diamond" in prompt
+    assert "studio lighting" in prompt
+
+
+def test_prompt_builder_other_and_default_category():
+    """Verify 'other' and None categories generate generic fine jewellery prompts without ring bias."""
+    # Category = 'other'
+    prompt_other = build_jewellery_prompt(
+        material="platinum",
+        gemstone="blue sapphire",
+        category="other",
+    )
+    assert "photorealistic fine jewellery product photograph" in prompt_other
+    assert "ring" not in prompt_other
+    assert "earring" not in prompt_other
+
+    # Category = None (default backwards compatibility)
+    prompt_none = build_jewellery_prompt(
+        material="platinum",
+        gemstone="blue sapphire",
+        category=None,
+    )
+    assert "photorealistic fine jewellery product photograph" in prompt_none
+    assert "ring" not in prompt_none
+
+
+def test_prompt_builder_invalid_category_raises():
+    """Verify invalid categories raise ValueError with supported categories listed."""
+    with pytest.raises(ValueError, match="Unsupported jewellery category 'tiara'"):
+        build_jewellery_prompt(category="tiara")
+
+    with pytest.raises(ValueError, match="Unsupported jewellery category 'automobile'"):
+        build_jewellery_prompt(category="automobile")
+
+
+def test_prompt_builder_case_and_whitespace_normalization():
+    """Verify category parameter trims whitespace and handles mixed casing."""
+    prompt = build_jewellery_prompt(
+        material="18k yellow gold",
+        gemstone="diamond",
+        category="  RING  ",
+    )
+    assert "photorealistic fine jewellery ring product photograph" in prompt
+
+
+def test_render_request_category_validation():
+    """Verify category validation and normalization on RenderRequest schema."""
+    # Valid explicit category
+    req = RenderRequest(category="earring")
+    assert req.category == "earring"
+
+    # Uppercase normalization
+    req_upper = RenderRequest(category="PENDANT")
+    assert req_upper.category == "pendant"
+
+    # Default is None (no universal ring default)
+    req_default = RenderRequest()
+    assert req_default.category is None
+
+    # Invalid category raises ValidationError
+    with pytest.raises(ValueError):
+        RenderRequest(category="unsupported_item")

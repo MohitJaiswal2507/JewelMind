@@ -1,0 +1,73 @@
+# ====================================================================
+# JewelMind Phase 10 — Jewellery ControlNet Training Configuration
+# Tailored for NVIDIA GeForce RTX 4060 Laptop GPU (8,188 MiB VRAM)
+# ====================================================================
+
+# Base Diffusion Model and ControlNet Specification
+model:
+  pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+  revision: "main"
+  variant: "fp16"
+  # Pretrained ControlNet lineart adapter (matching Phase 7 baseline)
+  pretrained_controlnet_name_or_path: "lllyasviel/control_v11p_sd15_lineart"
+  conditioning_channels: 3
+  controlnet_conditioning: "lineart_structural"
+
+# Paired Dataset Specification
+dataset:
+  train_data_dir: "datasets/controlnet_paired"
+  train_metadata_file: "datasets/controlnet_paired/metadata/train.jsonl"
+  val_data_dir: "datasets/controlnet_paired"
+  val_metadata_file: "datasets/controlnet_paired/metadata/validation.jsonl"
+  resolution: 512             # 512x512 native resolution for SD 1.5 & ControlNet
+  keep_aspect_ratio: true     # Letterbox pads to square to preserve exact jewellery geometry
+  center_crop: false          # Strictly FALSE: do not crop out rings, bezels, prongs, or chains
+  random_flip: false          # Strictly FALSE: jewellery geometry must maintain structural alignment
+  max_train_samples: null
+
+# Training Hyperparameters for 8GB VRAM
+#
+# Sizing Notes:
+#   Dataset: 147 train pairs.
+#   With train_batch_size: 1 and gradient_accumulation_steps: 4:
+#   steps_per_epoch = ceil(147 / 4) = 37 optimizer steps.
+#   25 epochs ≈ 925 steps (~1000 max_train_steps).
+#   For ControlNet adaptation, 1e-5 learning rate ensures stable structural learning.
+training:
+  seed: 42
+  train_batch_size: 1             # Strictly 1 on 8GB VRAM to prevent CUDA OOM
+  gradient_accumulation_steps: 4  # Effective batch size = 4
+  gradient_checkpointing: true    # Critical: drops activation VRAM to fit 8GB VRAM envelope
+  mixed_precision: "fp16"         # Float16 mixed precision via torch.amp
+  learning_rate: 1.0e-5           # Standard ControlNet fine-tuning learning rate
+  scale_lr: false
+  lr_scheduler: "cosine"
+  lr_warmup_steps: 50
+  max_train_steps: 1000           # Configurable training step count
+  checkpointing_steps: 200        # Checkpoint interval in optimizer steps
+  checkpoints_total_limit: 3      # Keep last 3 checkpoints
+  resume_from_checkpoint: null    # Manual resume only (do not auto-resume)
+  validation_steps: 200           # Validation loss evaluation interval
+  validation_samples: 4           # Number of validation pairs to track
+  max_grad_norm: 1.0              # Gradient clipping norm
+
+# Memory & Hardware Optimizations (RTX 4060 8GB)
+memory:
+  enable_gradient_checkpointing: true
+  enable_sdpa: true               # PyTorch Scaled Dot-Product Attention (native memory efficient attention)
+  allow_tf32: true
+  attention_slicing: false        # Optional slicing if further VRAM reduction needed
+
+# Optimizer Configuration
+optimizer:
+  name: "AdamW"
+  beta1: 0.9
+  beta2: 0.999
+  weight_decay: 1.0e-2
+  epsilon: 1.0e-8
+
+# Output Directories (Git-ignored)
+output:
+  output_dir: "outputs/controlnet_jewellery"
+  logging_dir: "outputs/controlnet_jewellery/logs"
+  report_to: "tensorboard"

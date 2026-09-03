@@ -21,9 +21,25 @@ class ConditioningMetadata(BaseModel):
     )
 
 
+JewelleryCategory = Literal[
+    "ring",
+    "earring",
+    "pendant",
+    "necklace",
+    "bracelet",
+    "bangle",
+    "brooch",
+    "other",
+]
+
+
 class RenderRequest(BaseModel):
     """Rendering parameters validated before inference execution."""
 
+    category: Optional[JewelleryCategory] = Field(
+        default=None,
+        description="Controlled jewellery category ('ring', 'earring', 'pendant', 'necklace', 'bracelet', 'bangle', 'brooch', 'other')",
+    )
     prompt: Optional[str] = Field(
         default=None,
         max_length=500,
@@ -47,7 +63,7 @@ class RenderRequest(BaseModel):
         description="Conditioning method for sketch guidance",
     )
     control_strength: float = Field(
-        default=0.8,
+        default=1.0,
         ge=0.1,
         le=1.0,
         description="ControlNet conditioning guidance scale",
@@ -82,6 +98,18 @@ class RenderRequest(BaseModel):
         le=768,
         description="Target image height in pixels",
     )
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def normalize_category(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v_clean = v.strip().lower()
+            if not v_clean:
+                return None
+            return v_clean
+        return v
 
     @field_validator("width", "height")
     @classmethod

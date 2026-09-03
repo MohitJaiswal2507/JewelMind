@@ -60,6 +60,7 @@ class JewelleryRenderingPipeline:
         positive_prompt = build_jewellery_prompt(
             material=req.material,
             gemstone=req.gemstone,
+            category=req.category,
             user_prompt=req.prompt,
         )
         negative_prompt = build_negative_prompt(

@@ -37,12 +37,26 @@ GEMSTONE_PROMPTS = {
 }
 
 
+# Supported controlled jewellery categories
+SUPPORTED_CATEGORIES = {
+    "ring",
+    "earring",
+    "pendant",
+    "necklace",
+    "bracelet",
+    "bangle",
+    "brooch",
+    "other",
+}
+
+
 def build_jewellery_prompt(
     material: str = "18k yellow gold",
     gemstone: str = "round brilliant diamond",
+    category: Optional[str] = None,
     user_prompt: Optional[str] = None,
 ) -> str:
-    """Build positive prompt combining materials, gemstones, quality anchors, and user input.
+    """Build positive prompt combining category, materials, gemstones, quality anchors, and user input.
     
     Guarantees that standard generated prompts stay well below the 77-token CLIP limit
     (typically 30-40 tokens), leaving sufficient headroom for user style notes.
@@ -56,8 +70,24 @@ def build_jewellery_prompt(
         f"faceted {gemstone}, refractive clarity"
     )
 
+    if category is not None and category.strip():
+        cat_clean = category.strip().lower()
+        if cat_clean not in SUPPORTED_CATEGORIES:
+            valid_list = ", ".join(sorted(SUPPORTED_CATEGORIES))
+            raise ValueError(
+                f"Unsupported jewellery category '{category}'. Supported categories: {valid_list}"
+            )
+        if cat_clean != "other":
+            style_modifiers = (
+                f"photorealistic fine jewellery {cat_clean} product photograph, studio lighting, sharp focus, clean background"
+            )
+        else:
+            style_modifiers = DEFAULT_STYLE_MODIFIERS
+    else:
+        style_modifiers = DEFAULT_STYLE_MODIFIERS
+
     parts = [
-        DEFAULT_STYLE_MODIFIERS,
+        style_modifiers,
         f"crafted in {material_desc}",
         f"embellished with {gemstone_desc}",
     ]
@@ -66,7 +96,6 @@ def build_jewellery_prompt(
         parts.insert(0, user_prompt.strip())
 
     return ", ".join(parts)
-
 
 
 def build_negative_prompt(user_negative_prompt: Optional[str] = None) -> str:
