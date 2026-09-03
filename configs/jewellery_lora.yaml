@@ -19,13 +19,16 @@ model:
 
 # Dataset Specification
 dataset:
-  train_data_dir: "datasets/jewellery_lora/train"
-  val_data_dir: "datasets/jewellery_lora/val"
+  train_data_dir: "datasets/appearance_lora"
+  train_metadata_file: "datasets/appearance_lora/splits/train_metadata.jsonl"
+  val_data_dir: "datasets/appearance_lora"
+  val_metadata_file: "datasets/appearance_lora/splits/val_metadata.jsonl"
   resolution: 512             # 512x512 native for SD 1.5
-  center_crop: false
+  keep_aspect_ratio: true     # Letterbox pads to square without squashing/distorting jewellery geometry
+  center_crop: false          # Strictly FALSE: do not crop out rings, bezels, or chains
   random_flip: false          # Strictly FALSE: jewellery geometry & prongs must not be mirrored
   caption_column: "text"
-  image_column: "image"
+  image_column: "file_name"
   max_train_samples: null
 
 # Training Hyperparameters for 8GB VRAM
@@ -68,6 +71,6 @@ optimizer:
 
 # Output Directories (Git-ignored)
 output:
-  output_dir: "models/lora/jewellery_v1"
-  logging_dir: "models/lora/jewellery_v1/logs"
+  output_dir: "outputs/appearance_lora"
+  logging_dir: "outputs/appearance_lora/logs"
   report_to: "tensorboard"

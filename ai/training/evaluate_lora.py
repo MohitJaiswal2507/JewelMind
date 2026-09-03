@@ -10,6 +10,8 @@ from PIL import Image
 import torch
 from diffusers import StableDiffusionPipeline
 
+from ai.training.inference import load_peft_lora_to_unet
+
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Jewellery LoRA Checkpoint")
@@ -33,7 +35,7 @@ def main():
     ).to("cuda")
 
     # Load trained LoRA
-    pipe.load_lora_weights(args.lora_dir)
+    load_peft_lora_to_unet(pipe.unet, args.lora_dir)
 
     eval_prompts = [
         "photorealistic fine jewellery product photograph, luxury 18k yellow gold solitaire ring with brilliant round diamond, studio lighting",

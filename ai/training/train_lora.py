@@ -48,16 +48,32 @@ class JewelleryCaptionDataset(Dataset):
       - file_name / target_image / image
       - text / caption / prompt
       - category, metal, gemstone, source
+      - optional aspect-ratio preserving letterbox padding (keep_aspect_ratio)
     """
 
-    def __init__(self, data_dir: str, tokenizer: CLIPTokenizer, size: int = 512):
+    def __init__(
+        self,
+        data_dir: str,
+        tokenizer: CLIPTokenizer,
+        size: int = 512,
+        metadata_file: Optional[str] = None,
+        keep_aspect_ratio: bool = True,
+    ):
         self.data_dir = Path(data_dir)
         self.tokenizer = tokenizer
         self.size = size
+        self.keep_aspect_ratio = keep_aspect_ratio
         self.entries = []
 
-        meta_file = self.data_dir / "metadata.jsonl"
-        if not meta_file.exists():
+        if metadata_file and Path(metadata_file).exists():
+            meta_file = Path(metadata_file)
+        elif (self.data_dir / "metadata.jsonl").exists():
+            meta_file = self.data_dir / "metadata.jsonl"
+        elif (self.data_dir / "train_metadata.jsonl").exists():
+            meta_file = self.data_dir / "train_metadata.jsonl"
+        elif (self.data_dir / "splits" / "train_metadata.jsonl").exists():
+            meta_file = self.data_dir / "splits" / "train_metadata.jsonl"
+        else:
             raise FileNotFoundError(f"metadata.jsonl not found in {data_dir}")
 
         with open(meta_file, "r", encoding="utf-8") as f:
@@ -69,12 +85,12 @@ class JewelleryCaptionDataset(Dataset):
                     except json.JSONDecodeError:
                         continue
 
-        # Deterministic normalization: NO RandomHorizontalFlip to preserve jewellery geometry
-        self.transforms = transforms.Compose([
-            transforms.Resize((size, size), interpolation=transforms.InterpolationMode.BILINEAR),
+        # Standard normalization without RandomHorizontalFlip to preserve jewellery geometry
+        self.norm_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ])
+        self.transforms = self.norm_transform
 
     def __len__(self):
         return len(self.entries)
@@ -92,8 +108,32 @@ class JewelleryCaptionDataset(Dataset):
             raise KeyError(f"Entry {idx} in {self.data_dir} missing image filename key ('file_name', 'target_image', or 'image').")
 
         img_path = self.data_dir / img_rel_path
+        if not img_path.exists():
+            # Robust path fallbacks
+            if (self.data_dir.parent / img_rel_path).exists():
+                img_path = self.data_dir.parent / img_rel_path
+            elif (Path("datasets/appearance_lora") / img_rel_path).exists():
+                img_path = Path("datasets/appearance_lora") / img_rel_path
+            elif (self.data_dir / "images" / Path(img_rel_path).name).exists():
+                img_path = self.data_dir / "images" / Path(img_rel_path).name
+
         image = Image.open(img_path).convert("RGB")
-        pixel_values = self.transforms(image)
+
+        if self.keep_aspect_ratio:
+            # Letterbox pad to square canvas to preserve jewellery geometry without squashing/stretching
+            w, h = image.size
+            scale = min(self.size / w, self.size / h)
+            new_w, new_h = max(1, int(round(w * scale))), max(1, int(round(h * scale)))
+            resized = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
+            padded = Image.new("RGB", (self.size, self.size), (255, 255, 255))
+            paste_x = (self.size - new_w) // 2
+            paste_y = (self.size - new_h) // 2
+            padded.paste(resized, (paste_x, paste_y))
+            image = padded
+        else:
+            image = image.resize((self.size, self.size), Image.Resampling.BILINEAR)
+
+        pixel_values = self.norm_transform(image)
 
         # Resolve prompt text across supported schema variations
         caption_text = (
@@ -117,7 +157,7 @@ class JewelleryCaptionDataset(Dataset):
         }
 
         # Preserve optional semantic attributes if present in dataset
-        for attr in ("category", "metal", "gemstone", "source"):
+        for attr in ("category", "metal", "gemstone", "source", "candidate_id"):
             if attr in entry:
                 sample[attr] = entry[attr]
 
@@ -250,6 +290,16 @@ def main():
     parser = argparse.ArgumentParser(description="JewelMind Manual Jewellery LoRA Trainer")
     parser.add_argument("--config", type=str, default="configs/jewellery_lora.yaml", help="Path to training config YAML")
     parser.add_argument("--resume", type=str, default=None, help="Explicit checkpoint folder to resume from")
+    parser.add_argument("--train_data_dir", type=str, default=None, help="Override training data directory")
+    parser.add_argument("--val_data_dir", type=str, default=None, help="Override validation data directory")
+    parser.add_argument("--train_metadata_file", type=str, default=None, help="Override path to train metadata.jsonl")
+    parser.add_argument("--val_metadata_file", type=str, default=None, help="Override path to val metadata.jsonl")
+    parser.add_argument("--output_dir", type=str, default=None, help="Override output directory")
+    parser.add_argument("--max_train_steps", type=int, default=None, help="Override max training optimizer steps")
+    parser.add_argument("--learning_rate", type=float, default=None, help="Override learning rate")
+    parser.add_argument("--train_batch_size", type=int, default=None, help="Override per-device train batch size")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=None, help="Override gradient accumulation steps")
+    parser.add_argument("--seed", type=int, default=None, help="Override random seed")
     args = parser.parse_args()
 
     # Load configuration
@@ -260,6 +310,28 @@ def main():
 
     with open(config_path, "r", encoding="utf-8") as f:
         cfg: Dict[str, Any] = yaml.safe_load(f)
+
+    # Apply CLI overrides if specified
+    if args.train_data_dir:
+        cfg["dataset"]["train_data_dir"] = args.train_data_dir
+    if args.val_data_dir:
+        cfg["dataset"]["val_data_dir"] = args.val_data_dir
+    if args.train_metadata_file:
+        cfg["dataset"]["train_metadata_file"] = args.train_metadata_file
+    if args.val_metadata_file:
+        cfg["dataset"]["val_metadata_file"] = args.val_metadata_file
+    if args.output_dir:
+        cfg["output"]["output_dir"] = args.output_dir
+    if args.max_train_steps:
+        cfg["training"]["max_train_steps"] = args.max_train_steps
+    if args.learning_rate:
+        cfg["training"]["learning_rate"] = args.learning_rate
+    if args.train_batch_size:
+        cfg["training"]["train_batch_size"] = args.train_batch_size
+    if args.gradient_accumulation_steps:
+        cfg["training"]["gradient_accumulation_steps"] = args.gradient_accumulation_steps
+    if args.seed is not None:
+        cfg["training"]["seed"] = args.seed
 
     # Verify CUDA
     if not torch.cuda.is_available():
@@ -325,8 +397,17 @@ def main():
 
     # 3. Dataloaders (Train & Validation)
     train_dir = cfg["dataset"]["train_data_dir"]
+    train_meta = cfg["dataset"].get("train_metadata_file")
     resolution = cfg["dataset"].get("resolution", 512)
-    train_dataset = JewelleryCaptionDataset(data_dir=train_dir, tokenizer=tokenizer, size=resolution)
+    keep_ar = cfg["dataset"].get("keep_aspect_ratio", True)
+
+    train_dataset = JewelleryCaptionDataset(
+        data_dir=train_dir,
+        tokenizer=tokenizer,
+        size=resolution,
+        metadata_file=train_meta,
+        keep_aspect_ratio=keep_ar,
+    )
     train_batch_size = cfg["training"].get("train_batch_size", 1)
     train_dataloader = DataLoader(
         train_dataset,
@@ -334,13 +415,24 @@ def main():
         shuffle=True,
         num_workers=0,
     )
+    logger.info("Training dataset active: %d samples from %s", len(train_dataset), train_dir)
 
     val_dir = cfg["dataset"].get("val_data_dir")
+    val_meta = cfg["dataset"].get("val_metadata_file")
     val_dataloader = None
-    if val_dir and Path(val_dir).exists() and (Path(val_dir) / "metadata.jsonl").exists():
-        val_dataset = JewelleryCaptionDataset(data_dir=val_dir, tokenizer=tokenizer, size=resolution)
-        val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0)
-        logger.info("Validation dataset active: %d samples in %s", len(val_dataset), val_dir)
+    if val_dir and Path(val_dir).exists():
+        try:
+            val_dataset = JewelleryCaptionDataset(
+                data_dir=val_dir,
+                tokenizer=tokenizer,
+                size=resolution,
+                metadata_file=val_meta,
+                keep_aspect_ratio=keep_ar,
+            )
+            val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0)
+            logger.info("Validation dataset active: %d samples from %s", len(val_dataset), val_dir)
+        except Exception as err:
+            logger.warning("Validation dataloader disabled: %s", err)
 
     # 4. Optimizer & LR Scheduler
     # global_step strictly represents OPTIMIZER updates
@@ -359,7 +451,7 @@ def main():
         num_warmup_steps=cfg["training"].get("lr_warmup_steps", 50),
         num_training_steps=max_train_steps,
     )
-    scaler = torch.cuda.amp.GradScaler(enabled=True)
+    scaler = torch.amp.GradScaler("cuda", enabled=True)
 
     # 5. Checkpoint Resume Logic
     starting_step = 0
@@ -457,7 +549,7 @@ def main():
             with torch.no_grad():
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(device))[0]
 
-            with torch.cuda.amp.autocast(dtype=torch.float16):
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
                 model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
                 raw_loss = F.mse_loss(model_pred.float(), noise.float(), reduction="mean")
                 loss = raw_loss / grad_accum_steps
