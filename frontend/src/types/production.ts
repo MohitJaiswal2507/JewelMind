@@ -163,3 +163,83 @@ export interface ProductionSummary {
   available_machines: number;
   total_machine_capacity_hours: number;
 }
+
+export type SolverStatus = 'OPTIMAL' | 'FEASIBLE' | 'INFEASIBLE' | 'MODEL_INVALID' | 'UNKNOWN';
+
+export interface ScheduledTask {
+  id?: string;
+  order_id: string;
+  design_id?: string | null;
+  design_name?: string | null;
+  design_image_url?: string | null;
+  quantity: number;
+  priority: OrderPriority;
+  worker_id?: string | null;
+  worker_name?: string | null;
+  worker_skill?: string | null;
+  machine_id?: string | null;
+  machine_name?: string | null;
+  machine_type?: string | null;
+  operation_name: string;
+  start_time: string;
+  end_time: string;
+  start_hour?: number;
+  end_hour?: number;
+  duration_hours: number;
+  sequence_order: number;
+  is_overdue: boolean;
+}
+
+export interface OptimizationMetrics {
+  makespan_hours: number;
+  total_orders_scheduled: number;
+  total_orders_unscheduled: number;
+  worker_utilization_pct: number;
+  machine_utilization_pct: number;
+  orders_on_time: number;
+  orders_overdue: number;
+  solver_runtime_ms: number;
+}
+
+export interface OptimizationRequest {
+  order_ids?: string[];
+  start_date?: string;
+  horizon_days?: number;
+  time_limit_seconds?: number;
+  persist_schedule?: boolean;
+  schedule_name?: string;
+}
+
+export interface OptimizationResponse {
+  status: 'success' | 'feasible' | 'infeasible' | 'error';
+  solver_status: SolverStatus;
+  message: string;
+  schedule: ScheduledTask[];
+  unscheduled_order_ids: string[];
+  metrics: OptimizationMetrics;
+  infeasibility_reasons: string[];
+  schedule_id?: string | null;
+}
+
+export interface ProductionSchedule {
+  id: string;
+  user_id: string;
+  name: string;
+  start_date: string;
+  horizon_days: number;
+  solver_status: SolverStatus;
+  makespan_hours: number;
+  total_orders_scheduled: number;
+  total_orders_unscheduled: number;
+  worker_utilization_pct: number;
+  machine_utilization_pct: number;
+  runtime_seconds: number;
+  tasks: ScheduledTask[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductionScheduleListResponse {
+  items: ProductionSchedule[];
+  total: number;
+}

@@ -28,7 +28,14 @@ from app.schemas.production import (
     WorkerResponse,
     WorkerUpdate,
 )
+from app.schemas.optimization import (
+    OptimizationRequest,
+    OptimizationResponse,
+    ProductionScheduleListResponse,
+    ProductionScheduleResponse,
+)
 from app.services.production_service import production_service
+from app.services.production_optimization_service import production_optimization_service
 
 router = APIRouter(prefix="/production", tags=["Production Management"])
 
@@ -408,5 +415,97 @@ async def delete_machine(
         db=db,
         user_id=current_user.id,
         machine_id=machine_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Production Optimization & Scheduling Endpoints (OR-Tools CP-SAT)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/optimize",
+    response_model=OptimizationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Run OR-Tools CP-SAT production scheduling optimization",
+)
+async def optimize_production(
+    request: OptimizationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Generates an optimized, conflict-free production schedule for the user's
+    production orders respecting worker skills, machine capacities, deadlines,
+    and priority weights using Google OR-Tools CP-SAT.
+    """
+    return production_optimization_service.optimize(
+        db=db,
+        user_id=current_user.id,
+        request=request,
+    )
+
+
+@router.get(
+    "/schedules",
+    response_model=ProductionScheduleListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List saved production schedules",
+)
+async def list_schedules(
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    offset: int = Query(0, ge=0, description="Offset"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves paginated historical production schedules generated for the user.
+    """
+    return production_optimization_service.get_user_schedules(
+        db=db,
+        user_id=current_user.id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/schedules/{schedule_id}",
+    response_model=ProductionScheduleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve a specific production schedule with full task breakdown",
+)
+async def get_schedule(
+    schedule_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves full details and timeline task records for a saved production schedule.
+    """
+    return production_optimization_service.get_schedule_by_id(
+        db=db,
+        user_id=current_user.id,
+        schedule_id=schedule_id,
+    )
+
+
+@router.delete(
+    "/schedules/{schedule_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a saved production schedule",
+)
+async def delete_schedule(
+    schedule_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Deletes a saved production schedule and cascades to its task allocations.
+    """
+    production_optimization_service.delete_schedule(
+        db=db,
+        user_id=current_user.id,
+        schedule_id=schedule_id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

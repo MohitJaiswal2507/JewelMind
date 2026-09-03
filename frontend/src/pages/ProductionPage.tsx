@@ -15,6 +15,12 @@ import {
   X,
   AlertCircle,
   TrendingUp,
+  Sparkles,
+  Calendar,
+  Sliders,
+  Timer,
+  Play,
+  History,
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -36,9 +42,12 @@ import {
   ORDER_STATUSES,
   WORKER_SKILLS,
   MACHINE_TYPES,
+  ProductionSchedule,
+  ScheduledTask,
+  OptimizationResponse,
 } from '../types/production';
 
-type ActiveTab = 'orders' | 'workers' | 'machines';
+type ActiveTab = 'orders' | 'workers' | 'machines' | 'optimization';
 
 interface ProductionPageProps {
   onNavigateToStudio?: () => void;
@@ -78,6 +87,19 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
   const [userDesigns, setUserDesigns] = useState<Design[]>([]);
 
   // -------------------------------------------------------------------------
+  // Optimization & Schedule State (Phase 12)
+  // -------------------------------------------------------------------------
+  const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
+  const [activeSchedule, setActiveSchedule] = useState<ProductionSchedule | null>(null);
+  const [optimizationResult, setOptimizationResult] = useState<OptimizationResponse | null>(null);
+  const [optimizing, setOptimizing] = useState<boolean>(false);
+  const [horizonDays, setHorizonDays] = useState<number>(14);
+  const [timeLimitSec, setTimeLimitSec] = useState<number>(10);
+  const [optScheduleName, setOptScheduleName] = useState<string>('');
+  const [timelineGroupBy, setTimelineGroupBy] = useState<'worker' | 'machine' | 'order'>('worker');
+  const [selectedTaskDetail, setSelectedTaskDetail] = useState<ScheduledTask | null>(null);
+
+  // -------------------------------------------------------------------------
   // Modals
   // -------------------------------------------------------------------------
   const [isOrderModalOpen, setIsOrderModalOpen] = useState<boolean>(false);
@@ -89,7 +111,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
   const [isMachineModalOpen, setIsMachineModalOpen] = useState<boolean>(false);
   const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
 
-  const [deletingItem, setDeletingItem] = useState<{ type: 'order' | 'worker' | 'machine'; id: string; name: string } | null>(null);
+  const [deletingItem, setDeletingItem] = useState<{ type: 'order' | 'worker' | 'machine' | 'schedule'; id: string; name: string } | null>(null);
 
   // Feedback notifications
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -163,13 +185,54 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
     }
   }, []);
 
+  const fetchSchedules = useCallback(async () => {
+    try {
+      const data = await productionService.getSchedules(20, 0);
+      setSchedules(data.items);
+      if (data.items.length > 0) {
+        setActiveSchedule((prev) => prev || data.items[0]);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to load saved schedules:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSummary();
     fetchOrders();
     fetchWorkers();
     fetchMachines();
     fetchUserDesigns();
-  }, [fetchSummary, fetchOrders, fetchWorkers, fetchMachines, fetchUserDesigns]);
+    fetchSchedules();
+  }, [fetchSummary, fetchOrders, fetchWorkers, fetchMachines, fetchUserDesigns, fetchSchedules]);
+
+  const handleRunOptimization = async () => {
+    setOptimizing(true);
+    setOptimizationResult(null);
+    try {
+      const res = await productionService.optimizeProduction({
+        horizon_days: horizonDays,
+        time_limit_seconds: timeLimitSec,
+        schedule_name: optScheduleName.trim() || undefined,
+        persist_schedule: true,
+      });
+      setOptimizationResult(res);
+      if (res.status === 'success' || res.status === 'feasible') {
+        showFeedback(`Schedule generated: ${res.solver_status} (${res.metrics.makespan_hours}h makespan)`);
+        await fetchSchedules();
+        if (res.schedule_id) {
+          const loaded = await productionService.getSchedule(res.schedule_id);
+          setActiveSchedule(loaded);
+        }
+      } else {
+        showFeedback(res.message || 'Optimization infeasible with current workshop constraints', 'error');
+      }
+    } catch (err: unknown) {
+      showFeedback(err instanceof Error ? err.message : 'Optimization failed', 'error');
+    } finally {
+      setOptimizing(false);
+    }
+  };
 
   // -------------------------------------------------------------------------
   // Order Handlers
@@ -361,6 +424,12 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       } else if (deletingItem.type === 'machine') {
         await productionService.deleteMachine(deletingItem.id);
         fetchMachines();
+      } else if (deletingItem.type === 'schedule') {
+        await productionService.deleteSchedule(deletingItem.id);
+        if (activeSchedule?.id === deletingItem.id) {
+          setActiveSchedule(null);
+        }
+        fetchSchedules();
       }
       showFeedback(`Successfully deleted ${deletingItem.name}.`);
       setDeletingItem(null);
@@ -467,6 +536,28 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
               Add Machine
             </Button>
           )}
+
+          {activeTab === 'optimization' && (
+            <Button
+              variant="gold"
+              size="sm"
+              onClick={handleRunOptimization}
+              disabled={optimizing}
+              className="font-semibold shadow-lg shadow-amber-500/10"
+            >
+              {optimizing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                  Optimizing...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-1.5 fill-current" />
+                  Run Solver
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -542,10 +633,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 border-b border-slate-800 my-6">
+      <div className="flex space-x-1 border-b border-slate-800 my-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'orders'
               ? 'border-amber-400 text-amber-400 bg-amber-400/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -560,7 +651,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
         <button
           onClick={() => setActiveTab('workers')}
-          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'workers'
               ? 'border-amber-400 text-amber-400 bg-amber-400/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -575,7 +666,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
         <button
           onClick={() => setActiveTab('machines')}
-          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'machines'
               ? 'border-amber-400 text-amber-400 bg-amber-400/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -585,6 +676,21 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           <span>Machinery & Tools</span>
           <Badge variant="secondary" className="text-[10px] ml-1 bg-slate-800">
             {machines.length}
+          </Badge>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('optimization')}
+          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+            activeTab === 'optimization'
+              ? 'border-amber-400 text-amber-400 bg-amber-400/5'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <span>AI Optimization & Schedule</span>
+          <Badge variant="outline" className="text-[10px] ml-1 bg-amber-500/10 text-amber-300 border-amber-500/30">
+            OR-Tools
           </Badge>
         </button>
       </div>
@@ -1005,6 +1111,544 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   </Card>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+      {/* ===================================================================== */}
+      {/* TAB 4: AI OPTIMIZATION & SCHEDULE (PHASE 12) */}
+      {/* ===================================================================== */}
+      {activeTab === 'optimization' && (
+        <div className="space-y-6">
+          {/* Optimization Controls & Schedule Selector Bar */}
+          <div className="bg-[#0b0e17]/80 p-5 rounded-2xl border border-slate-800/80 backdrop-blur shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  Google OR-Tools CP-SAT Production Optimizer
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Computes globally optimal, conflict-free manufacturing sequences respecting artisan skills, machine types, and delivery deadlines.
+                </p>
+              </div>
+
+              {/* Saved Schedules Selector */}
+              <div className="flex items-center space-x-2">
+                <History className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Saved Schedules:</span>
+                <select
+                  value={activeSchedule?.id || ''}
+                  onChange={async (e) => {
+                    const id = e.target.value;
+                    if (id) {
+                      try {
+                        const sched = await productionService.getSchedule(id);
+                        setActiveSchedule(sched);
+                        setOptimizationResult(null);
+                      } catch (err: unknown) {
+                        showFeedback(err instanceof Error ? err.message : 'Failed to load schedule', 'error');
+                      }
+                    }
+                  }}
+                  className="bg-[#111625] border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-amber-500 max-w-xs truncate"
+                >
+                  {schedules.length === 0 ? (
+                    <option value="">No saved schedules</option>
+                  ) : (
+                    schedules.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name || `Schedule #${s.id.slice(0, 8)}`} ({s.solver_status} &bull; {new Date(s.created_at).toLocaleDateString()})
+                      </option>
+                    ))
+                  )}
+                </select>
+                {activeSchedule && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDeletingItem({
+                        type: 'schedule',
+                        id: activeSchedule.id,
+                        name: activeSchedule.name || `Schedule #${activeSchedule.id.slice(0, 8)}`,
+                      });
+                    }}
+                    className="h-8 w-8 p-0 text-slate-400 hover:text-rose-400"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Parameter Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                  Planning Horizon (Days)
+                </label>
+                <select
+                  value={horizonDays}
+                  onChange={(e) => setHorizonDays(parseInt(e.target.value, 10))}
+                  className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-amber-500"
+                >
+                  <option value={3}>3 Days (Express Run)</option>
+                  <option value={7}>7 Days (1 Week)</option>
+                  <option value={14}>14 Days (2 Weeks - Standard)</option>
+                  <option value={21}>21 Days (3 Weeks)</option>
+                  <option value={30}>30 Days (Full Month)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                  <Timer className="w-3.5 h-3.5 text-amber-400" />
+                  Solver Time Limit
+                </label>
+                <select
+                  value={timeLimitSec}
+                  onChange={(e) => setTimeLimitSec(parseInt(e.target.value, 10))}
+                  className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-amber-500"
+                >
+                  <option value={5}>5 Seconds (Fast)</option>
+                  <option value={10}>10 Seconds (Recommended)</option>
+                  <option value={30}>30 Seconds (Deep Search)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                  <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                  Schedule Name (Optional)
+                </label>
+                <Input
+                  placeholder="e.g. Diwali Rush 2026 Run A"
+                  value={optScheduleName}
+                  onChange={(e) => setOptScheduleName(e.target.value)}
+                  className="bg-[#111625] border-slate-800 text-xs h-9"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <Button
+                  variant="gold"
+                  size="sm"
+                  onClick={handleRunOptimization}
+                  disabled={optimizing}
+                  className="w-full h-9 font-semibold shadow-lg shadow-amber-500/20 text-xs flex items-center justify-center space-x-2"
+                >
+                  {optimizing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Solving CP-SAT Model...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 fill-current" />
+                      <span>Run Production Solver</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Infeasibility Diagnostic Box */}
+          {((optimizationResult && optimizationResult.status === 'infeasible') ||
+            (activeSchedule && activeSchedule.solver_status === 'INFEASIBLE')) && (
+            <div className="bg-rose-950/40 border border-rose-500/40 rounded-2xl p-5 backdrop-blur">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <h3 className="text-base font-bold text-rose-300">
+                    Schedule Infeasible Under Current Constraints
+                  </h3>
+                  <p className="text-xs text-rose-200/90 leading-relaxed">
+                    The CP-SAT mathematical solver proved that no valid non-overlapping schedule exists within the specified parameters.
+                  </p>
+                  {optimizationResult?.infeasibility_reasons && optimizationResult.infeasibility_reasons.length > 0 && (
+                    <div className="mt-3 bg-rose-950/60 rounded-xl p-3 border border-rose-900/60">
+                      <p className="text-xs font-semibold text-rose-300 mb-1.5 uppercase tracking-wider">
+                        Diagnostic Insights & Remediation:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-xs text-rose-200/80">
+                        {optimizationResult.infeasibility_reasons.map((reason, idx) => (
+                          <li key={idx}>{reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* KPI Dashboard for Active / Optimized Schedule */}
+          {(activeSchedule || optimizationResult?.metrics) && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Card className="bg-[#0b0e17]/80 border-slate-800">
+                <CardContent className="p-3.5">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Status</p>
+                  <div className="mt-1">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-bold uppercase ${
+                        (activeSchedule?.solver_status || optimizationResult?.solver_status) === 'OPTIMAL'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : (activeSchedule?.solver_status || optimizationResult?.solver_status) === 'FEASIBLE'
+                          ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                          : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                      }`}
+                    >
+                      {activeSchedule?.solver_status || optimizationResult?.solver_status || 'UNKNOWN'}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0b0e17]/80 border-slate-800">
+                <CardContent className="p-3.5">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Makespan</p>
+                  <h3 className="text-lg font-bold text-amber-300 mt-1">
+                    {activeSchedule?.makespan_hours ?? optimizationResult?.metrics?.makespan_hours ?? 0}h
+                  </h3>
+                  <p className="text-[10px] text-slate-500">
+                    {(((activeSchedule?.makespan_hours ?? optimizationResult?.metrics?.makespan_hours ?? 0) / 24).toFixed(1))} days total
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0b0e17]/80 border-slate-800">
+                <CardContent className="p-3.5">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Scheduled Tasks</p>
+                  <h3 className="text-lg font-bold text-white mt-1">
+                    {activeSchedule?.tasks?.length ?? optimizationResult?.schedule?.length ?? 0}
+                  </h3>
+                  <p className="text-[10px] text-slate-500">
+                    {activeSchedule?.total_orders_scheduled ?? optimizationResult?.metrics?.total_orders_scheduled ?? 0} Orders
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0b0e17]/80 border-slate-800">
+                <CardContent className="p-3.5">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Artisan Utilization</p>
+                  <h3 className="text-lg font-bold text-blue-300 mt-1">
+                    {(activeSchedule?.worker_utilization_pct ?? optimizationResult?.metrics?.worker_utilization_pct) != null
+                      ? `${(activeSchedule?.worker_utilization_pct ?? optimizationResult?.metrics?.worker_utilization_pct ?? 0).toFixed(1)}%`
+                      : 'Active'}
+                  </h3>
+                  <div className="w-full bg-slate-800 h-1 rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className="bg-blue-400 h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, activeSchedule?.worker_utilization_pct ?? optimizationResult?.metrics?.worker_utilization_pct ?? 75)}%`,
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0b0e17]/80 border-slate-800">
+                <CardContent className="p-3.5">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Machine Utilization</p>
+                  <h3 className="text-lg font-bold text-purple-300 mt-1">
+                    {(activeSchedule?.machine_utilization_pct ?? optimizationResult?.metrics?.machine_utilization_pct) != null
+                      ? `${(activeSchedule?.machine_utilization_pct ?? optimizationResult?.metrics?.machine_utilization_pct ?? 0).toFixed(1)}%`
+                      : 'Active'}
+                  </h3>
+                  <div className="w-full bg-slate-800 h-1 rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className="bg-purple-400 h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, activeSchedule?.machine_utilization_pct ?? optimizationResult?.metrics?.machine_utilization_pct ?? 60)}%`,
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0b0e17]/80 border-slate-800">
+                <CardContent className="p-3.5">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Solver Runtime</p>
+                  <h3 className="text-lg font-bold text-slate-200 mt-1">
+                    {((activeSchedule?.runtime_seconds ?? ((optimizationResult?.metrics?.solver_runtime_ms ?? 0) / 1000)) * 1000).toFixed(0)} ms
+                  </h3>
+                  <p className="text-[10px] text-slate-500">Google OR-Tools CP-SAT</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Timeline / Gantt Swimlane View */}
+          {activeSchedule && activeSchedule.tasks && activeSchedule.tasks.length > 0 ? (
+            <div className="bg-[#0b0e17]/80 rounded-2xl border border-slate-800/80 p-5 backdrop-blur shadow-2xl space-y-4">
+              {/* Timeline Header & Group Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white">Interactive Production Timeline (Gantt)</h3>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-slate-400">Group Swimlanes By:</span>
+                  <div className="inline-flex rounded-lg bg-[#111625] p-0.5 border border-slate-800">
+                    <button
+                      onClick={() => setTimelineGroupBy('worker')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                        timelineGroupBy === 'worker' ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Artisans
+                    </button>
+                    <button
+                      onClick={() => setTimelineGroupBy('machine')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                        timelineGroupBy === 'machine' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Machinery
+                    </button>
+                    <button
+                      onClick={() => setTimelineGroupBy('order')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                        timelineGroupBy === 'order' ? 'bg-blue-500/20 text-blue-300' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Orders
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gantt Matrix */}
+              {(() => {
+                const tasks = activeSchedule.tasks || [];
+                const baseTimeMs = activeSchedule.start_date
+                  ? new Date(activeSchedule.start_date).getTime()
+                  : tasks.length > 0
+                  ? new Date(tasks[0].start_time).getTime()
+                  : Date.now();
+
+                const getStartHour = (t: ScheduledTask): number => {
+                  if (t.start_hour !== undefined) return t.start_hour;
+                  return Math.max(0, (new Date(t.start_time).getTime() - baseTimeMs) / (3600 * 1000));
+                };
+
+                const getEndHour = (t: ScheduledTask): number => {
+                  if (t.end_hour !== undefined) return t.end_hour;
+                  return Math.max(getStartHour(t) + (t.duration_hours || 1), (new Date(t.end_time).getTime() - baseTimeMs) / (3600 * 1000));
+                };
+
+                const maxHour = Math.max(...tasks.map((t) => getEndHour(t)), 24);
+                const totalDays = Math.ceil(maxHour / 24);
+
+                // Group tasks
+                const groups: { [key: string]: { label: string; sub: string; tasks: ScheduledTask[] } } = {};
+
+                if (timelineGroupBy === 'worker') {
+                  tasks.forEach((t) => {
+                    const key = t.worker_id || 'unassigned';
+                    if (!groups[key]) {
+                      groups[key] = {
+                        label: t.worker_name || 'Unassigned Artisan',
+                        sub: t.operation_name,
+                        tasks: [],
+                      };
+                    }
+                    groups[key].tasks.push(t);
+                  });
+                } else if (timelineGroupBy === 'machine') {
+                  tasks.forEach((t) => {
+                    const key = t.machine_id || 'unassigned';
+                    if (!groups[key]) {
+                      groups[key] = {
+                        label: t.machine_name || 'Manual Benchwork',
+                        sub: t.operation_name,
+                        tasks: [],
+                      };
+                    }
+                    groups[key].tasks.push(t);
+                  });
+                } else {
+                  tasks.forEach((t) => {
+                    const key = t.order_id;
+                    if (!groups[key]) {
+                      groups[key] = {
+                        label: t.design_name || `Order #${t.order_id.slice(0, 8)}`,
+                        sub: `${t.quantity} units`,
+                        tasks: [],
+                      };
+                    }
+                    groups[key].tasks.push(t);
+                  });
+                }
+
+                return (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[800px]">
+                      {/* Timeline Day Header */}
+                      <div className="grid grid-cols-12 gap-0 border-b border-slate-800 pb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        <div className="col-span-3">Resource / Swimlane</div>
+                        <div className="col-span-9 grid grid-flow-col auto-cols-fr gap-1 text-center">
+                          {Array.from({ length: totalDays }).map((_, d) => (
+                            <div key={d} className="bg-slate-900/60 rounded py-1 border border-slate-800/80">
+                              Day {d + 1}
+                              <span className="block text-[9px] text-slate-500 font-normal">
+                                {d * 24}h - {(d + 1) * 24}h
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Swimlane Rows */}
+                      <div className="divide-y divide-slate-800/60 mt-2">
+                        {Object.entries(groups).map(([groupId, group]) => (
+                          <div key={groupId} className="grid grid-cols-12 gap-0 py-3 items-center hover:bg-slate-900/30 transition-colors">
+                            {/* Swimlane Label */}
+                            <div className="col-span-3 pr-4">
+                              <p className="text-xs font-bold text-white truncate">{group.label}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{group.sub}</p>
+                            </div>
+
+                            {/* Task Track */}
+                            <div className="col-span-9 relative h-12 bg-slate-950/40 rounded-lg border border-slate-800/50 overflow-hidden">
+                              {/* Background Day Guides */}
+                              <div className="absolute inset-0 grid grid-flow-col auto-cols-fr pointer-events-none divide-x divide-slate-800/20">
+                                {Array.from({ length: totalDays }).map((_, d) => (
+                                  <div key={d} className="h-full" />
+                                ))}
+                              </div>
+
+                              {/* Task Blocks */}
+                              {group.tasks.map((task) => {
+                                const startH = getStartHour(task);
+                                const endH = getEndHour(task);
+                                const leftPct = (startH / (totalDays * 24)) * 100;
+                                const widthPct = Math.max(((endH - startH) / (totalDays * 24)) * 100, 3);
+
+                                const opColors: Record<string, string> = {
+                                  casting: 'from-amber-600/80 to-amber-500/80 border-amber-400/50 text-amber-100',
+                                  stone_setting: 'from-blue-600/80 to-cyan-500/80 border-cyan-400/50 text-cyan-100',
+                                  polishing: 'from-purple-600/80 to-pink-500/80 border-pink-400/50 text-pink-100',
+                                  finishing: 'from-emerald-600/80 to-teal-500/80 border-emerald-400/50 text-emerald-100',
+                                };
+                                const colorClass = opColors[task.operation_name.toLowerCase()] || 'from-slate-700 to-slate-600 border-slate-500 text-slate-100';
+
+                                return (
+                                  <div
+                                    key={task.id || `${task.order_id}-${task.sequence_order}`}
+                                    onClick={() => setSelectedTaskDetail(task)}
+                                    style={{
+                                      left: `${leftPct}%`,
+                                      width: `${widthPct}%`,
+                                    }}
+                                    className={`absolute top-1.5 bottom-1.5 rounded-md bg-gradient-to-r ${colorClass} border shadow-lg cursor-pointer px-2 py-0.5 flex items-center justify-between overflow-hidden hover:brightness-125 transition-all text-xs z-10`}
+                                    title={`${task.operation_name} (${task.design_name || 'Design'}) — ${task.duration_hours}h [${startH.toFixed(1)}h -> ${endH.toFixed(1)}h]`}
+                                  >
+                                    <div className="truncate font-semibold text-[11px] leading-tight">
+                                      <span>{task.operation_name}</span>
+                                      <span className="text-[9px] opacity-80 block truncate">
+                                        {task.design_name || `Qty ${task.quantity}`}
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] font-mono shrink-0 pl-1">
+                                      {task.duration_hours}h
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className="py-20 text-center bg-[#0b0e17]/50 rounded-2xl border border-slate-800/80 p-8">
+              <Sparkles className="w-12 h-12 text-amber-400/60 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-white">No Schedule Generated Yet</h3>
+              <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
+                Select your planning horizon and time limit above, then click &quot;Run Production Solver&quot; to compute an optimal manufacturing schedule.
+              </p>
+              <Button
+                variant="gold"
+                size="sm"
+                className="mt-5 font-semibold"
+                onClick={handleRunOptimization}
+                disabled={optimizing}
+              >
+                <Play className="w-4 h-4 mr-1.5 fill-current" />
+                Run Production Optimizer Now
+              </Button>
+            </div>
+          )}
+
+          {/* Task Detail Modal */}
+          {selectedTaskDetail && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+              <div className="bg-[#0b0e17] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-amber-400" />
+                    Operation Details: {selectedTaskDetail.operation_name}
+                  </h3>
+                  <button onClick={() => setSelectedTaskDetail(null)} className="text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">Design Item:</span>
+                    <span className="font-bold text-white">{selectedTaskDetail.design_name || 'Jewellery Design'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">Batch Quantity:</span>
+                    <span className="font-bold text-amber-300">{selectedTaskDetail.quantity} units</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">Sequence Stage:</span>
+                    <span className="font-bold text-white">Step {selectedTaskDetail.sequence_order}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">Assigned Artisan:</span>
+                    <span className="font-bold text-blue-300">{selectedTaskDetail.worker_name || 'Unassigned'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">Assigned Equipment:</span>
+                    <span className="font-bold text-purple-300">{selectedTaskDetail.machine_name || 'Manual Bench'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">Start Time:</span>
+                    <span className="font-mono text-white">
+                      {new Date(selectedTaskDetail.start_time).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                    <span className="text-slate-400">End Time:</span>
+                    <span className="font-mono text-white">
+                      {new Date(selectedTaskDetail.end_time).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-400">Duration:</span>
+                    <span className="font-bold text-amber-400">{selectedTaskDetail.duration_hours} hours</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedTaskDetail(null)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

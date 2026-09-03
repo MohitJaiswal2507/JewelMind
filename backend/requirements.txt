@@ -22,3 +22,6 @@ bcrypt>=4.2.0
 pytest>=8.3.0
 httpx>=0.28.0
 freezegun>=1.5.1
+
+# Phase 12 Production Optimization (OR-Tools CP-SAT)
+ortools>=9.10.0

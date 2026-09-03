@@ -162,6 +162,40 @@ export class ProductionService {
   public async deleteMachine(id: string): Promise<void> {
     return apiClient.delete<void>(`/api/v1/production/machines/${id}`);
   }
+
+  // -------------------------------------------------------------------------
+  // Optimization & Schedules (OR-Tools CP-SAT)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Generates an optimized production schedule using OR-Tools CP-SAT.
+   */
+  public async optimizeProduction(data: import('../../types/production').OptimizationRequest): Promise<import('../../types/production').OptimizationResponse> {
+    return apiClient.post<import('../../types/production').OptimizationResponse>('/api/v1/production/optimize', data);
+  }
+
+  /**
+   * Retrieves paginated saved production schedules.
+   */
+  public async getSchedules(limit: number = 20, offset: number = 0): Promise<import('../../types/production').ProductionScheduleListResponse> {
+    return apiClient.get<import('../../types/production').ProductionScheduleListResponse>('/api/v1/production/schedules', {
+      params: { limit, offset },
+    });
+  }
+
+  /**
+   * Retrieves a specific saved production schedule with all task allocations.
+   */
+  public async getSchedule(id: string): Promise<import('../../types/production').ProductionSchedule> {
+    return apiClient.get<import('../../types/production').ProductionSchedule>(`/api/v1/production/schedules/${id}`);
+  }
+
+  /**
+   * Deletes a saved production schedule.
+   */
+  public async deleteSchedule(id: string): Promise<void> {
+    return apiClient.delete<void>(`/api/v1/production/schedules/${id}`);
+  }
 }
 
 export const productionService = new ProductionService();
