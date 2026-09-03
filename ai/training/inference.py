@@ -13,6 +13,77 @@ from diffusers import ControlNetModel, StableDiffusionControlNetPipeline
 from ai.rendering.preprocessing.lineart import LineArtProcessor
 
 
+def load_peft_lora_to_unet(unet, lora_dir: str, adapter_name: str = "default") -> None:
+    """Loads a PEFT-trained LoRA adapter into a UNet2DConditionModel preserving exact saved hyperparameters."""
+    lora_path = Path(lora_dir)
+    if not lora_path.exists():
+        raise FileNotFoundError(f"LoRA path does not exist: {lora_dir}")
+
+    if lora_path.is_file():
+        model_dir = lora_path.parent
+        weights_file = lora_path
+    else:
+        model_dir = lora_path
+        if (lora_path / "adapter_model.safetensors").exists():
+            weights_file = lora_path / "adapter_model.safetensors"
+        elif (lora_path / "pytorch_lora_weights.safetensors").exists():
+            weights_file = lora_path / "pytorch_lora_weights.safetensors"
+        elif (lora_path / "adapter_model.bin").exists():
+            weights_file = lora_path / "adapter_model.bin"
+        else:
+            weights_file = None
+
+    adapter_config_file = model_dir / "adapter_config.json"
+
+    if adapter_config_file.exists() and weights_file is not None:
+        print(f"[INFO] Loading PEFT LoRA adapter with saved config from: {model_dir}")
+        from peft import LoraConfig, inject_adapter_in_model, set_peft_model_state_dict
+        from safetensors.torch import load_file
+
+        peft_config = LoraConfig.from_pretrained(str(model_dir))
+        if weights_file.suffix == ".safetensors":
+            state_dict = load_file(str(weights_file))
+        else:
+            state_dict = torch.load(str(weights_file), map_location="cpu")
+
+        inject_adapter_in_model(peft_config, unet, adapter_name=adapter_name)
+        set_peft_model_state_dict(unet, state_dict, adapter_name=adapter_name)
+        unet._hf_peft_config_loaded = True
+    else:
+        weight_name = weights_file.name if weights_file else None
+        print(f"[INFO] Loading PEFT LoRA adapter into UNet from: {lora_dir} (weight_name={weight_name})")
+        unet.load_lora_adapter(
+            str(model_dir),
+            weight_name=weight_name,
+            prefix="base_model.model",
+            adapter_name=adapter_name,
+        )
+
+    # Diagnostic verification
+    peft_configs = getattr(unet, "peft_config", {})
+    active_adapters = unet.active_adapters() if callable(getattr(unet, "active_adapters", None)) else getattr(unet, "active_adapters", None)
+
+    lora_modules = [name for name, mod in unet.named_modules() if hasattr(mod, "lora_A")]
+    total_lora_params = sum(
+        p.numel() for mod in unet.modules() if hasattr(mod, "lora_A")
+        for p in list(mod.lora_A.parameters()) + list(mod.lora_B.parameters())
+    )
+
+    if len(lora_modules) == 0:
+        raise RuntimeError(f"LoRA adapter injection failed: 0 LoRA modules found in UNet after loading {lora_dir}")
+
+    print("[DIAGNOSTIC] PEFT LoRA Adapter Successfully Injected into UNet:")
+    print(f"  - Adapter Name: {adapter_name}")
+    print(f"  - Active Adapters: {active_adapters}")
+    print(f"  - Injected LoRA Modules: {len(lora_modules)}")
+    print(f"  - Total Injected LoRA Parameters: {total_lora_params:,}")
+    if adapter_name in peft_configs:
+        cfg = peft_configs[adapter_name]
+        targets = sorted(list(cfg.target_modules)) if isinstance(cfg.target_modules, (set, list)) else cfg.target_modules
+        print(f"  - PEFT Config [{adapter_name}]: rank={cfg.r}, alpha={cfg.lora_alpha}, dropout={cfg.lora_dropout}, target_modules={targets}")
+    print(f"  - Sample Injected Modules: {lora_modules[:4]}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Inference with Base Model + ControlNet + LoRA")
     parser.add_argument("--sketch", type=str, required=True, help="Input sketch path")
@@ -46,8 +117,7 @@ def main():
     ).to("cuda")
 
     if args.lora_dir and Path(args.lora_dir).exists():
-        print(f"[INFO] Applying jewellery LoRA adapter from: {args.lora_dir}")
-        pipe.load_lora_weights(args.lora_dir)
+        load_peft_lora_to_unet(pipe.unet, args.lora_dir)
 
     generator = torch.Generator(device="cuda").manual_seed(args.seed)
     print(f"[INFO] Rendering: '{args.prompt}'")

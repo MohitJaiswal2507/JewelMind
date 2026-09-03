@@ -72,7 +72,8 @@ def test_checkpoint_save_and_restore_state(tmp_path: Path):
     model = nn.Linear(10, 2)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
-    scaler = torch.cuda.amp.GradScaler(enabled=False)
+    device_type = "cuda" if torch.cuda.is_available() else "cpu"
+    scaler = torch.amp.GradScaler(device_type, enabled=False)
 
     # Modify optimizer state
     loss = model(torch.randn(4, 10)).sum()
