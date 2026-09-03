@@ -1,4 +1,5 @@
 import uuid
+import uuid
 from typing import TYPE_CHECKING, List
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,6 +9,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.models.design import Design
     from app.models.production import ProductionOrder, Worker, Machine
+    from app.models.schedule import ProductionSchedule
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -59,6 +61,11 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     machines: Mapped[List["Machine"]] = relationship(
         "Machine",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    production_schedules: Mapped[List["ProductionSchedule"]] = relationship(
+        "ProductionSchedule",
         back_populates="user",
         cascade="all, delete-orphan",
     )

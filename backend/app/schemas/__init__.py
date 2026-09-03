@@ -43,6 +43,15 @@ from .production import (
     MachineListResponse,
     ProductionSummaryResponse,
 )
+from .optimization import (
+    SolverStatusEnum,
+    OptimizationRequest,
+    ScheduledTaskResponse,
+    OptimizationMetrics,
+    OptimizationResponse,
+    ProductionScheduleResponse,
+    ProductionScheduleListResponse,
+)
 
 __all__ = [
     "ApiResponse",
@@ -82,4 +91,11 @@ __all__ = [
     "MachineResponse",
     "MachineListResponse",
     "ProductionSummaryResponse",
+    "SolverStatusEnum",
+    "OptimizationRequest",
+    "ScheduledTaskResponse",
+    "OptimizationMetrics",
+    "OptimizationResponse",
+    "ProductionScheduleResponse",
+    "ProductionScheduleListResponse",
 ]
