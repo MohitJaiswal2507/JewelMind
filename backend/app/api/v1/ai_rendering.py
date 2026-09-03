@@ -64,12 +64,13 @@ def get_rendering_pipeline() -> JewelleryRenderingPipeline:
 )
 async def render_jewellery_sketch(
     file: UploadFile = File(..., description="Jewellery sketch blueprint (PNG, JPG, or WEBP)"),
+    category: Optional[str] = Form(None, description="Controlled jewellery category ('ring', 'earring', 'pendant', 'necklace', 'bracelet', 'bangle', 'brooch', 'other')"),
     prompt: Optional[str] = Form(None, description="Optional custom prompt additions"),
     negative_prompt: Optional[str] = Form(None, description="Optional custom negative prompt overrides"),
     material: str = Form("18k yellow gold", description="Base jewellery precious metal"),
     gemstone: str = Form("round brilliant diamond", description="Gemstone specification"),
     control_type: str = Form("lineart", description="Conditioning adapter: 'lineart' or 'canny'"),
-    control_strength: float = Form(0.8, ge=0.1, le=1.0, description="ControlNet guidance scale"),
+    control_strength: float = Form(1.0, ge=0.1, le=1.0, description="ControlNet guidance scale"),
     steps: int = Form(20, ge=10, le=50, description="Denoising steps"),
     guidance_scale: float = Form(7.5, ge=1.0, le=15.0, description="Classifier-Free Guidance (CFG) scale"),
     seed: Optional[int] = Form(None, ge=0, description="Seed for deterministic generation"),
@@ -110,20 +111,27 @@ async def render_jewellery_sketch(
             detail="Failed to decode image data. Please upload a valid image file.",
         ) from exc
 
-    # Construct request
-    req = RenderRequest(
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        material=material,
-        gemstone=gemstone,
-        control_type=control_type,
-        control_strength=control_strength,
-        steps=steps,
-        guidance_scale=guidance_scale,
-        seed=seed,
-        width=width,
-        height=height,
-    )
+    # Construct request with validation handling
+    try:
+        req = RenderRequest(
+            category=category,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            material=material,
+            gemstone=gemstone,
+            control_type=control_type,
+            control_strength=control_strength,
+            steps=steps,
+            guidance_scale=guidance_scale,
+            seed=seed,
+            width=width,
+            height=height,
+        )
+    except Exception as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid render parameters: {str(val_err)}",
+        ) from val_err
 
     pipeline = get_rendering_pipeline()
 

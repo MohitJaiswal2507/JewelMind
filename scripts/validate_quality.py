@@ -70,7 +70,7 @@ def run_quality_validation():
         {
             "id": "val_ring_solitaire",
             "file": candidate_files[0],
-            "category": "Ring",
+            "category": "ring",
             "material": "18k yellow gold",
             "gemstone": "round brilliant diamond",
             "seed": 42,
@@ -80,7 +80,7 @@ def run_quality_validation():
         {
             "id": "val_ring_sapphire",
             "file": candidate_files[1] if len(candidate_files) > 1 else candidate_files[0],
-            "category": "Ring",
+            "category": "ring",
             "material": "platinum",
             "gemstone": "blue sapphire",
             "seed": 108,
@@ -90,7 +90,7 @@ def run_quality_validation():
         {
             "id": "val_pendant_emerald",
             "file": candidate_files[2] if len(candidate_files) > 2 else candidate_files[0],
-            "category": "Pendant/Earring",
+            "category": "pendant",
             "material": "rose gold",
             "gemstone": "emerald",
             "seed": 2026,
@@ -106,10 +106,11 @@ def run_quality_validation():
         sketch = Image.open(item["file"])
 
         req = RenderRequest(
+            category=item["category"],
             material=item["material"],
             gemstone=item["gemstone"],
             control_type=item["control_type"],
-            control_strength=0.8,
+            control_strength=1.0,
             steps=20,
             guidance_scale=7.5,
             seed=item["seed"],
