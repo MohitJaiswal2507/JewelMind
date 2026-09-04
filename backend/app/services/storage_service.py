@@ -92,20 +92,23 @@ class StorageService:
 
         # Basic magic bytes sanity check
         if detected_mime == "image/png" and not file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-            # Check if extension mismatch
-            if ext not in [".png"]:
-                raise AppException(
-                    message="File content does not match PNG signature.",
-                    code="CORRUPT_FILE_CONTENT",
-                    status_code=400,
-                )
-        elif detected_mime == "image/jpeg" and not file_bytes.startswith(b"\xff\xd8\xff"):
-            if ext not in [".jpg", ".jpeg"]:
-                raise AppException(
-                    message="File content does not match JPEG signature.",
-                    code="CORRUPT_FILE_CONTENT",
-                    status_code=400,
-                )
+            raise AppException(
+                message="File content does not match PNG signature.",
+                code="CORRUPT_FILE_CONTENT",
+                status_code=400,
+            )
+        elif detected_mime in ("image/jpeg", "image/jpg") and not file_bytes.startswith(b"\xff\xd8\xff"):
+            raise AppException(
+                message="File content does not match JPEG signature.",
+                code="CORRUPT_FILE_CONTENT",
+                status_code=400,
+            )
+        elif detected_mime == "image/webp" and not (file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]):
+            raise AppException(
+                message="File content does not match WEBP signature.",
+                code="CORRUPT_FILE_CONTENT",
+                status_code=400,
+            )
 
         return detected_mime.lower()
 

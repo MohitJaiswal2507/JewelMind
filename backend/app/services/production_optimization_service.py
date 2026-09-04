@@ -505,9 +505,9 @@ class ProductionOptimizationService:
         # Check positive durations
         for t in tasks:
             if t.duration_hours <= 0:
-                raise AppException("SCHEDULE_VALIDATION_FAILED", f"Task duration must be > 0: {t.operation_name}")
+                raise AppException(message=f"Task duration must be > 0: {t.operation_name}", code="SCHEDULE_VALIDATION_FAILED", status_code=422)
             if t.end_time <= t.start_time:
-                raise AppException("SCHEDULE_VALIDATION_FAILED", f"Task end time must be after start time: {t.operation_name}")
+                raise AppException(message=f"Task end time must be after start time: {t.operation_name}", code="SCHEDULE_VALIDATION_FAILED", status_code=422)
 
         # Check worker overlaps
         worker_tasks: Dict[uuid.UUID, List[ScheduledTaskResponse]] = {}
@@ -520,8 +520,9 @@ class ProductionOptimizationService:
             for i in range(len(sorted_wt) - 1):
                 if sorted_wt[i].end_time > sorted_wt[i + 1].start_time:
                     raise AppException(
-                        "SCHEDULE_VALIDATION_FAILED",
-                        f"Worker conflict detected between tasks {sorted_wt[i].operation_name} and {sorted_wt[i+1].operation_name}",
+                        message=f"Worker conflict detected between tasks {sorted_wt[i].operation_name} and {sorted_wt[i+1].operation_name}",
+                        code="SCHEDULE_VALIDATION_FAILED",
+                        status_code=422,
                     )
 
         # Check machine overlaps
@@ -535,8 +536,9 @@ class ProductionOptimizationService:
             for i in range(len(sorted_mt) - 1):
                 if sorted_mt[i].end_time > sorted_mt[i + 1].start_time:
                     raise AppException(
-                        "SCHEDULE_VALIDATION_FAILED",
-                        f"Machine conflict detected between tasks {sorted_mt[i].operation_name} and {sorted_mt[i+1].operation_name}",
+                        message=f"Machine conflict detected between tasks {sorted_mt[i].operation_name} and {sorted_mt[i+1].operation_name}",
+                        code="SCHEDULE_VALIDATION_FAILED",
+                        status_code=422,
                     )
 
     def get_user_schedules(
@@ -591,7 +593,7 @@ class ProductionOptimizationService:
         ).scalar_one_or_none()
 
         if not schedule:
-            raise AppException("SCHEDULE_NOT_FOUND", "Production schedule not found or access denied.", status_code=404)
+            raise AppException(message="Production schedule not found or access denied.", code="SCHEDULE_NOT_FOUND", status_code=404)
 
         return self._to_schedule_response(schedule)
 
@@ -610,7 +612,7 @@ class ProductionOptimizationService:
         ).scalar_one_or_none()
 
         if not schedule:
-            raise AppException("SCHEDULE_NOT_FOUND", "Production schedule not found or access denied.", status_code=404)
+            raise AppException(message="Production schedule not found or access denied.", code="SCHEDULE_NOT_FOUND", status_code=404)
 
         db.delete(schedule)
         db.commit()
