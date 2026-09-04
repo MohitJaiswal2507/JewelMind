@@ -255,6 +255,8 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           onClose={() => setIsAiRenderOpen(false)}
           sketchUrl={item.thumbnailUrl}
           designTitle={item.title}
+          category={item.category}
+          designId={item.designId}
         />
       )}
     </aside>

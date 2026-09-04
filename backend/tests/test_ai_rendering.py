@@ -130,7 +130,7 @@ def test_render_success_mock(mock_get_pipeline, auth_client):
     assert data["model_version"] == "runwayml/stable-diffusion-v1-5"
     assert data["control_strength"] == 1.0
     assert data["seed"] == 42
-    assert data["output_url"].startswith("/api/v1/ai/render/outputs/")
+    assert data["output_url"].startswith("/api/v1/ai/render/outputs/") or "jewelmind-assets" in data["output_url"]
     # Ensure default control_strength of 1.0 is passed to pipeline request
     call_req = mock_pipeline.render.call_args.kwargs["request"]
     assert call_req.control_strength == 1.0

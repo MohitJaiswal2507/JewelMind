@@ -23,6 +23,7 @@ import { DesignModal } from '../components/designs/DesignModal';
 import { DesignDeleteModal } from '../components/designs/DesignDeleteModal';
 import { SketchUploadDropzone } from '../components/designs/SketchUploadDropzone';
 import { SketchDeleteModal } from '../components/designs/SketchDeleteModal';
+import { AiRenderModal } from '../components/studio/AiRenderModal';
 import { designService } from '../services/api/designService';
 import { 
   Design, 
@@ -75,6 +76,7 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [isSketchDeleteModalOpen, setIsSketchDeleteModalOpen] = useState<boolean>(false);
+  const [isAiRenderOpen, setIsAiRenderOpen] = useState<boolean>(false);
 
   // Sketch replacement mode
   const [showReplaceUpload, setShowReplaceUpload] = useState<boolean>(false);
@@ -259,7 +261,7 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
               </div>
               <CardDescription className="text-xs">
                 {design.sketch_image_url 
-                  ? 'Active sketch asset stored in Supabase bucket jewel-sketches'
+                  ? 'Active sketch asset stored in Supabase Storage bucket jewelmind-assets'
                   : 'Upload your hand-drawn sketch or line drawing'}
               </CardDescription>
             </div>
@@ -339,14 +341,28 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
 
         {/* AI Photorealistic Render Section */}
         <Card className="bg-[#0b0f19] border-slate-800 flex flex-col justify-between overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2 text-amber-400">
-              <Sparkles className="w-5 h-5" />
-              <CardTitle className="text-base">Photorealistic Render</CardTitle>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2 text-amber-400">
+                <Sparkles className="w-5 h-5" />
+                <CardTitle className="text-base">Photorealistic Render</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Generative ControlNet + Diffusion preview
+              </CardDescription>
             </div>
-            <CardDescription className="text-xs">
-              Generative ControlNet + Diffusion preview
-            </CardDescription>
+
+            {design.sketch_image_url && (
+              <Button
+                variant="gold"
+                size="sm"
+                onClick={() => setIsAiRenderOpen(true)}
+                className="h-8 text-xs font-bold shadow bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 hover:brightness-110"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                AI Render
+              </Button>
+            )}
           </CardHeader>
           <Separator />
           <CardContent className="p-6 flex-1 flex flex-col items-center justify-center min-h-[300px]">
@@ -361,10 +377,21 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
                 <div className="p-3.5 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 w-fit mx-auto">
                   <Sparkles className="w-7 h-7" />
                 </div>
-                <div className="text-xs font-semibold text-white">AI Generation Pending</div>
+                <div className="text-xs font-semibold text-white">Generative Diffusion Active</div>
                 <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[11px] text-amber-300/90 leading-relaxed max-w-sm">
-                  Photorealistic AI rendering using local RTX 4060 GPU diffusion conditioning on the sketch blueprint will be activated in Phase 7.
+                  Photorealistic AI rendering with ControlNet conditioning is active. Generate metallic and gemstone previews from this sketch.
                 </div>
+                {design.sketch_image_url && (
+                  <Button
+                    variant="gold"
+                    size="sm"
+                    onClick={() => setIsAiRenderOpen(true)}
+                    className="font-bold text-xs shadow-md bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 hover:brightness-110"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                    Render Now
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
@@ -379,7 +406,7 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
             <CardTitle className="text-base">Generative Diffusion Prompt</CardTitle>
           </div>
           <CardDescription className="text-xs">
-            Prompt instructions prepared for future inference worker
+            Conditioning prompt parameters for generative inference
           </CardDescription>
         </CardHeader>
         <Separator />
@@ -419,6 +446,24 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
         onConfirm={handleDeleteSketch}
         designName={design.name}
       />
+
+      {/* AI Render Modal */}
+      {design.sketch_image_url && (
+        <AiRenderModal
+          isOpen={isAiRenderOpen}
+          onClose={() => {
+            setIsAiRenderOpen(false);
+            fetchDesign();
+          }}
+          sketchUrl={design.sketch_image_url}
+          designTitle={design.name}
+          category={design.category}
+          designId={design.id}
+          onSuccess={() => {
+            fetchDesign();
+          }}
+        />
+      )}
     </div>
   );
 };

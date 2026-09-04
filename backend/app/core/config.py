@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
-    SUPABASE_STORAGE_BUCKET: str = "jewel-sketches"
+    SUPABASE_STORAGE_BUCKET: str = "jewelmind-assets"
     
     # Maximum upload size in bytes (10MB)
     MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024

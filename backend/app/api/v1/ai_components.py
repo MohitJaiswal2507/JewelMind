@@ -1,13 +1,8 @@
-"""AI Component Detection API Endpoint.
-
-Provides authenticated inference service for jewellery component segmentation.
-Does NOT run training jobs or block the FastAPI event loop.
-"""
-
 import sys
 from pathlib import Path
 from typing import Optional
 import cv2
+import httpx
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
@@ -17,6 +12,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from app.api.deps import get_current_active_user
+from app.core.config import settings
 from app.models.user import User
 
 try:
@@ -33,16 +29,10 @@ router = APIRouter(prefix="/ai/components", tags=["AI - Component Detection"])
 _detector_instance = None
 
 
-def get_detector() -> JewelleryComponentDetector:
+def get_detector() -> Optional[JewelleryComponentDetector]:
     global _detector_instance
-    if _detector_instance is None:
-        if JewelleryComponentDetector is not None:
-            _detector_instance = JewelleryComponentDetector()
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI Vision module is currently unavailable on this host.",
-            )
+    if _detector_instance is None and JewelleryComponentDetector is not None:
+        _detector_instance = JewelleryComponentDetector()
     return _detector_instance
 
 
@@ -74,15 +64,40 @@ async def detect_jewellery_components(
             detail="Uploaded file is empty.",
         )
 
-    # Decode image to numpy array
-    nparr = np.frombuffer(contents, np.uint8)
-    img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img_np is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Failed to decode image data. Please ensure it is a valid image file.",
-        )
-
     detector = get_detector()
-    result = detector.detect(img_np, conf_threshold=conf)
-    return result
+    if detector is not None:
+        # Decode image to numpy array
+        nparr = np.frombuffer(contents, np.uint8)
+        img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img_np is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Failed to decode image data. Please ensure it is a valid image file.",
+            )
+        result = detector.detect(img_np, conf_threshold=conf)
+        return result
+    else:
+        # Proxy to AI worker
+        worker_url = f"{settings.AI_WORKER_URL.rstrip('/')}/detect"
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                files_payload = {"file": (file.filename or "sketch.png", contents, file.content_type or "image/png")}
+                params = {"conf": str(conf)}
+                resp = await client.post(worker_url, files=files_payload, data=params)
+                if resp.status_code == 200:
+                    return resp.json()
+                elif resp.status_code == 422:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=resp.json().get("error", "Failed to decode image data."),
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"AI Vision Worker error: {resp.text}",
+                    )
+        except (httpx.ConnectError, httpx.TimeoutException) as conn_err:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI vision worker is offline. Start the local RTX 4060 worker.",
+            ) from conn_err

@@ -72,7 +72,7 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
       {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: `Prompt staged for ${designCategory || 'Jewellery'} design "${designName || 'Untitled'}". When you click "Save Sketch", this generative prompt and your sketch blueprint will be synced for Phase 7 GPU diffusion inference.`,
+        text: `Prompt staged for ${designCategory || 'Jewellery'} design "${designName || 'Untitled'}". When you click "Save Sketch", this generative prompt and your sketch blueprint will be synced for GPU ControlNet diffusion inference.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);

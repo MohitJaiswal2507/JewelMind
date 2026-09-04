@@ -29,6 +29,7 @@ export interface RenderResultResponse {
 
 export interface RenderOptions {
   category?: 'ring' | 'earring' | 'pendant' | 'necklace' | 'bracelet' | 'bangle' | 'brooch' | 'other' | string;
+  design_id?: string;
   prompt?: string;
   negative_prompt?: string;
   material?: string;
@@ -54,6 +55,7 @@ export const aiRenderingService = {
     formData.append('file', file, 'sketch.png');
 
     if (options.category) formData.append('category', options.category);
+    if (options.design_id) formData.append('design_id', options.design_id);
     if (options.prompt) formData.append('prompt', options.prompt);
     if (options.negative_prompt) formData.append('negative_prompt', options.negative_prompt);
     if (options.material) formData.append('material', options.material);

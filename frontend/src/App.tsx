@@ -71,14 +71,18 @@ const MainLayout: React.FC = () => {
     setCurrentView('dashboard');
   };
 
-  const handleSelectDesign = (design: Design) => {
+  const handleSelectDesign = (design: Design | { id: string }) => {
     setSelectedDesignId(design.id);
     setCurrentView('design-detail');
   };
 
-  const handleOpenCanvas = (designId: string) => {
-    setSelectedDesignId(designId);
-    setCurrentView('canvas');
+  const handleOpenCanvas = (designId?: string) => {
+    if (designId) {
+      setSelectedDesignId(designId);
+      setCurrentView('canvas');
+    } else {
+      setCurrentView('designs');
+    }
   };
 
   const handleBackToDesigns = () => {
@@ -147,7 +151,7 @@ const MainLayout: React.FC = () => {
                   JewelMind
                 </span>
                 <Badge variant="gold" className="text-[10px] uppercase font-bold tracking-wider">
-                  Phase 5
+                  Phase 13
                 </Badge>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">AI Jewellery Design & Production Platform</p>
@@ -276,6 +280,9 @@ const MainLayout: React.FC = () => {
             onLogout={() => setCurrentView('landing')} 
             onNavigateToDesigns={() => setCurrentView('designs')}
             onSelectDesign={handleSelectDesign}
+            onNavigateToStudio={() => setCurrentView('studio')}
+            onNavigateToProduction={() => setCurrentView('production')}
+            onOpenCanvas={handleOpenCanvas}
           />
         )}
 
@@ -318,7 +325,7 @@ const MainLayout: React.FC = () => {
             <section className="text-center space-y-6 max-w-3xl mx-auto pt-4">
               <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
                 <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Phase 5: Interactive Sketch Canvas & Studio Active</span>
+                <span>Phase 13: Complete Dashboard & AI Workflow Active</span>
               </div>
 
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
@@ -378,7 +385,7 @@ const MainLayout: React.FC = () => {
               </div>
             </section>
 
-            {/* Phase 5 Status Card */}
+            {/* Phase 13 Status Card */}
             <section>
               <Card className="bg-gradient-to-br from-slate-900/90 to-[#0d121f] border-slate-800 shadow-xl">
                 <CardHeader className="pb-4">
@@ -386,10 +393,10 @@ const MainLayout: React.FC = () => {
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                        <CardTitle className="text-lg sm:text-xl">Phase 5: Interactive Sketch Canvas & Studio Deployed</CardTitle>
+                        <CardTitle className="text-lg sm:text-xl">Phase 13: Complete Dashboard & AI Workflow Active</CardTitle>
                       </div>
                       <CardDescription className="text-xs sm:text-sm">
-                        Full HTML5 drawing canvas with symmetry guides, geometric shapes, undo/redo history, direct Supabase Storage sync, and Studio media inspector.
+                        Unified executive command center connecting HTML5 Canvas, ControlNet generative diffusion, YOLO CV component segmentation, and OR-Tools CP-SAT workshop optimization.
                       </CardDescription>
                     </div>
                     {lastChecked && (
@@ -403,20 +410,20 @@ const MainLayout: React.FC = () => {
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Drawing Canvas</div>
-                      <div className="text-sm font-semibold text-emerald-400">HTML5 2D Engine</div>
+                      <div className="text-xs text-slate-400 font-medium">Design & Canvas</div>
+                      <div className="text-sm font-semibold text-emerald-400">HTML5 Studio Engine</div>
                     </div>
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Cloud Storage</div>
-                      <div className="text-sm font-semibold text-emerald-400">Supabase jewel-sketches</div>
+                      <div className="text-xs text-slate-400 font-medium">AI Generative Render</div>
+                      <div className="text-sm font-semibold text-amber-300">ControlNet + Diffusion</div>
                     </div>
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Creative Tools</div>
-                      <div className="text-sm font-semibold text-amber-300">Brush, Symmetry, Shapes</div>
+                      <div className="text-xs text-slate-400 font-medium">Component Detection</div>
+                      <div className="text-sm font-semibold text-cyan-400">YOLO11 Segmentation</div>
                     </div>
                     <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/70 space-y-1">
-                      <div className="text-xs text-slate-400 font-medium">Studio Inspector</div>
-                      <div className="text-sm font-semibold text-slate-200">Media Library + SKUs</div>
+                      <div className="text-xs text-slate-400 font-medium">Workshop Scheduling</div>
+                      <div className="text-sm font-semibold text-purple-400">OR-Tools CP-SAT</div>
                     </div>
                   </div>
                 </CardContent>
@@ -499,7 +506,7 @@ const MainLayout: React.FC = () => {
                     <CardTitle className="text-base">Cloud Storage Integration</CardTitle>
                   </div>
                   <CardDescription className="text-xs leading-relaxed">
-                    Drawings and uploaded sketches are serialized directly into Supabase Storage <code>jewel-sketches</code> with multi-tenant isolation.
+                    Drawings and uploaded sketches are serialized directly into Supabase Storage <code>jewelmind-assets</code> with multi-tenant isolation.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 text-xs font-mono text-slate-500 border-t border-slate-800/80">
@@ -520,7 +527,7 @@ const MainLayout: React.FC = () => {
             <span>•</span>
             <span>RTX 4060 Accelerated</span>
             <span>•</span>
-            <span>Phase 5 Interactive Design Canvas</span>
+            <span>Phase 13 Complete Dashboard</span>
           </div>
         </div>
       </footer>

@@ -1,338 +1,290 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  User as UserIcon, 
-  ShieldCheck, 
-  LogOut, 
-  Key, 
-  Mail, 
-  Calendar, 
+import React, { useEffect, useState, useCallback } from 'react';
+import {
   Sparkles,
   Layers,
-  Sliders,
-  Clock,
-  Loader2, 
+  LogOut,
+  RefreshCw,
+  Loader2,
   AlertCircle,
-  ArrowRight,
-  Plus
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Separator } from '../components/ui/separator';
 import { useAuth } from '../hooks/useAuth';
-import { authService } from '../services/api/authService';
-import { designService } from '../services/api/designService';
-import { User } from '../types/auth';
+import { dashboardService } from '../services/api/dashboardService';
+import { DashboardOverviewResponse } from '../types/dashboard';
 import { Design } from '../types/design';
+import { DashboardKpiCards } from '../components/dashboard/DashboardKpiCards';
+import { DashboardQuickActions } from '../components/dashboard/DashboardQuickActions';
+import { DashboardRecentRenders } from '../components/dashboard/DashboardRecentRenders';
+import { DashboardComponentDetectionWidget } from '../components/dashboard/DashboardComponentDetectionWidget';
+import { ComponentDetectionModal } from '../components/dashboard/ComponentDetectionModal';
+import { DashboardProductionOverview } from '../components/dashboard/DashboardProductionOverview';
+import { DashboardDesignAnalytics } from '../components/dashboard/DashboardDesignAnalytics';
+import { AiRenderModal } from '../components/studio/AiRenderModal';
 
 interface DashboardPageProps {
   onLogout: () => void;
   onNavigateToDesigns: () => void;
-  onSelectDesign?: (design: Design) => void;
+  onSelectDesign?: (design: Design | { id: string; name?: string }) => void;
+  onNavigateToStudio?: () => void;
+  onNavigateToProduction?: (tab?: string) => void;
+  onOpenCanvas?: (designId?: string) => void;
 }
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ 
-  onLogout, 
+export const DashboardPage: React.FC<DashboardPageProps> = ({
+  onLogout,
   onNavigateToDesigns,
-  onSelectDesign 
+  onSelectDesign,
+  onNavigateToStudio = () => {},
+  onNavigateToProduction = () => {},
+  onOpenCanvas = () => {},
 }) => {
-  const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<User | null>(user);
-  const [loading, setLoading] = useState(false);
+  const { logout } = useAuth();
+  const [data, setData] = useState<DashboardOverviewResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<string>('');
 
-  // Recent designs preview
-  const [recentDesigns, setRecentDesigns] = useState<Design[]>([]);
-  const [totalDesigns, setTotalDesigns] = useState<number>(0);
-  const [loadingDesigns, setLoadingDesigns] = useState<boolean>(true);
+  // Modals state
+  const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
+  const [renderSketchUrl, setRenderSketchUrl] = useState<string>('');
+  const [renderDesignTitle, setRenderDesignTitle] = useState<string>('Jewellery Sketch');
+
+  const [isDetectionModalOpen, setIsDetectionModalOpen] = useState<boolean>(false);
+  const [detectionImageUrl, setDetectionImageUrl] = useState<string | null>(null);
+  const [detectionDesignTitle, setDetectionDesignTitle] = useState<string>('Jewellery Blueprint');
+
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await dashboardService.getOverview();
+      setData(res);
+      setLastRefreshed(new Date().toLocaleTimeString());
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load dashboard overview metrics.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchLatestProfile = async () => {
-      setLoading(true);
-      try {
-        const data = await authService.getMe();
-        setProfile(data);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to load protected profile';
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchRecentDesigns = async () => {
-      setLoadingDesigns(true);
-      try {
-        const res = await designService.getDesigns({ page: 1, page_size: 4 });
-        setRecentDesigns(res.items);
-        setTotalDesigns(res.total);
-      } catch {
-        // Silently handle if design fetch fails on dashboard
-      } finally {
-        setLoadingDesigns(false);
-      }
-    };
-
-    fetchLatestProfile();
-    fetchRecentDesigns();
-  }, []);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const handleLogout = async () => {
     await logout();
     onLogout();
   };
 
+  const handleOpenRenderModalWithAsset = (sketchUrl?: string, title?: string) => {
+    if (sketchUrl) {
+      setRenderSketchUrl(sketchUrl);
+      setRenderDesignTitle(title || 'Jewellery Sketch');
+    } else if (data?.recent_renders && data.recent_renders.length > 0 && data.recent_renders[0].sketch_image_url) {
+      setRenderSketchUrl(data.recent_renders[0].sketch_image_url);
+      setRenderDesignTitle(data.recent_renders[0].name);
+    } else {
+      setRenderSketchUrl('');
+      setRenderDesignTitle('Jewellery Sketch');
+    }
+    setIsRenderModalOpen(true);
+  };
+
+  const handleOpenDetectionModalWithAsset = (imageUrl?: string | null, title?: string) => {
+    if (imageUrl) {
+      setDetectionImageUrl(imageUrl);
+      setDetectionDesignTitle(title || 'Jewellery Blueprint');
+    } else if (data?.recent_designs && data.recent_designs.length > 0) {
+      const firstWithSketch = data.recent_designs.find((d) => d.sketch_image_url || d.rendered_image_url);
+      if (firstWithSketch) {
+        setDetectionImageUrl(firstWithSketch.sketch_image_url || firstWithSketch.rendered_image_url);
+        setDetectionDesignTitle(firstWithSketch.name);
+      }
+    }
+    setIsDetectionModalOpen(true);
+  };
+
+  const handleSelectDesignById = (designId: string) => {
+    if (onSelectDesign) {
+      onSelectDesign({ id: designId });
+    } else {
+      onNavigateToDesigns();
+    }
+  };
+
+  if (loading && !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 text-slate-400">
+        <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
+        <span className="text-sm font-medium">Aggregating JewelMind workshop intelligence...</span>
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 space-y-6">
+        <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-3">
+          <div className="flex items-center space-x-2 font-bold">
+            <AlertCircle className="w-5 h-5" />
+            <span>Dashboard Service Error</span>
+          </div>
+          <p className="text-xs">{error}</p>
+          <Button variant="outline" size="sm" onClick={fetchDashboardData} className="border-rose-500/40 text-xs">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry Connection
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto py-6">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-br from-slate-900/90 to-[#0d121f] p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-xl">
-        <div className="flex items-center space-x-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 p-[1px] shadow-lg shadow-amber-500/20 shrink-0">
+    <div className="space-y-8 max-w-7xl mx-auto py-4 sm:py-6">
+      {/* 1. Header Banner & Executive Greeting */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-br from-slate-900/90 via-[#0d121f] to-[#080b12] p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-2xl relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center space-x-4 z-10">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 p-[1px] shadow-xl shadow-amber-500/20 shrink-0">
             <div className="w-full h-full bg-[#0b0e17] rounded-[15px] flex items-center justify-center">
-              <UserIcon className="w-7 h-7 text-amber-400" />
+              <Sparkles className="w-7 h-7 text-amber-400" />
             </div>
           </div>
           <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Welcome back, {profile?.full_name || 'Artisan'}
+            <div className="flex items-center space-x-2.5">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                {data?.user.full_name ? `Welcome back, ${data.user.full_name}` : 'JewelMind Executive Command'}
               </h1>
-              <Badge variant="gold" className="text-xs">
-                {profile?.role.toUpperCase() || 'USER'}
+              <Badge variant="gold" className="text-xs uppercase font-bold tracking-wider">
+                {data?.user.role || 'USER'}
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Phase 3 Jewellery Design Workspace Active • Connected to JewelMind API
+            <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2">
+              <span>Phase 13 Unified Intelligence Active</span>
+              <span>•</span>
+              <span className="text-emerald-400 font-mono">RTX 4060 GPU Accelerated</span>
+              {lastRefreshed && (
+                <>
+                  <span>•</span>
+                  <span className="text-slate-500 font-mono text-[11px]">Synced: {lastRefreshed}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2.5 z-10">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchDashboardData}
+            disabled={loading}
+            className="h-8 text-xs border-slate-700 text-slate-300 hover:text-white"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+
           <Button
             variant="gold"
             size="sm"
             onClick={onNavigateToDesigns}
-            className="font-bold shadow-md shadow-amber-500/10"
+            className="h-8 font-bold text-xs shadow-md shadow-amber-500/10"
           >
-            <Layers className="w-4 h-4 mr-1.5" />
-            Open Designs ({totalDesigns})
+            <Layers className="w-3.5 h-3.5 mr-1.5" />
+            Designs ({data?.kpis.total_designs || 0})
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={handleLogout}
-            className="border-slate-700 hover:border-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+            className="h-8 text-xs border-slate-700 hover:border-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
           >
-            <LogOut className="w-4 h-4 mr-2" />
+            <LogOut className="w-3.5 h-3.5 mr-1.5" />
             Sign Out
           </Button>
         </div>
       </div>
 
-      {/* Quick Launch & Jewellery Collection Status */}
-      <Card className="bg-gradient-to-br from-[#0d1222] to-[#080b12] border-slate-800 shadow-lg">
-        <CardHeader className="p-6 pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2 text-amber-400">
-                <Layers className="w-5 h-5" />
-                <CardTitle className="text-base sm:text-lg">Your Jewellery Design Portfolio</CardTitle>
-              </div>
-              <CardDescription className="text-xs">
-                Manage your rings, necklaces, earrings, bangles, and pendants
-              </CardDescription>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onNavigateToDesigns}
-              className="text-xs font-semibold self-start sm:self-auto"
-            >
-              <span>View All Designs</span>
-              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6 pt-3">
-          {loadingDesigns ? (
-            <div className="flex items-center space-x-2 text-slate-400 text-xs py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-              <span>Loading collection summary...</span>
-            </div>
-          ) : recentDesigns.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {recentDesigns.map((design) => (
-                <div
-                  key={design.id}
-                  onClick={() => {
-                    if (onSelectDesign) {
-                      onSelectDesign(design);
-                    } else {
-                      onNavigateToDesigns();
-                    }
-                  }}
-                  className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 cursor-pointer transition space-y-2 group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-amber-300">
-                      {design.category}
-                    </span>
-                    <span className="text-[10px] text-slate-500 uppercase">{design.status}</span>
-                  </div>
-                  <div className="text-xs font-bold text-white group-hover:text-amber-300 transition truncate">
-                    {design.name}
-                  </div>
-                  <div className="text-[11px] text-slate-400 line-clamp-1">
-                    {design.description || 'No description'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-6 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center space-y-3">
-              <p className="text-xs text-slate-400">You haven't created any jewellery designs yet.</p>
-              <Button
-                variant="gold"
-                size="sm"
-                onClick={onNavigateToDesigns}
-                className="font-bold text-xs"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Create Your First Design
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* 2. Executive KPI Cards */}
+      {data && (
+        <DashboardKpiCards
+          kpis={data.kpis}
+          onNavigateToDesigns={onNavigateToDesigns}
+          onNavigateToProduction={onNavigateToProduction}
+        />
+      )}
 
-      {/* Profile & Security Information */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-[#0b0f19] border-slate-800">
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2 text-amber-400">
-              <ShieldCheck className="w-5 h-5" />
-              <CardTitle className="text-base">Identity & Profile</CardTitle>
-            </div>
-            <CardDescription className="text-xs">Verified account credentials</CardDescription>
-          </CardHeader>
-          <Separator />
-          <CardContent className="pt-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5" /> Email
-              </span>
-              <span className="font-mono text-slate-200">{profile?.email}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <UserIcon className="w-3.5 h-3.5" /> Status
-              </span>
-              <Badge variant={profile?.is_active ? 'success' : 'destructive'} className="text-[10px]">
-                {profile?.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" /> Registered
-              </span>
-              <span className="text-slate-300">
-                {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Today'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* 3. Quick Action Command Hub */}
+      <DashboardQuickActions
+        onOpenCanvas={() => onOpenCanvas()}
+        onNavigateToDesigns={onNavigateToDesigns}
+        onNavigateToStudio={onNavigateToStudio}
+        onOpenRenderModal={() => handleOpenRenderModalWithAsset()}
+        onOpenDetectionModal={() => handleOpenDetectionModalWithAsset()}
+        onOpenNewOrderModal={() => onNavigateToProduction('orders')}
+        onNavigateToOptimization={() => onNavigateToProduction('optimization')}
+      />
 
-        <Card className="bg-[#0b0f19] border-slate-800 md:col-span-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2 text-amber-400">
-              <Key className="w-5 h-5" />
-              <CardTitle className="text-base">Protected API Verification</CardTitle>
-            </div>
-            <CardDescription className="text-xs">
-              Response from secure endpoint: <code>GET /api/v1/auth/me</code>
-            </CardDescription>
-          </CardHeader>
-          <Separator />
-          <CardContent className="pt-4">
-            {loading ? (
-              <div className="flex items-center space-x-2 text-slate-400 text-xs py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                <span>Loading latest profile data...</span>
-              </div>
-            ) : error ? (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center space-x-2 text-rose-300 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-lg bg-slate-950/80 border border-slate-800/80 font-mono text-xs text-emerald-400 overflow-x-auto">
-                <pre>{JSON.stringify(profile, null, 2)}</pre>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* 4. AI Renderings & Blueprint Showcase */}
+      {data && (
+        <DashboardRecentRenders
+          renders={data.recent_renders}
+          onNavigateToStudio={onNavigateToStudio}
+          onSelectDesign={handleSelectDesignById}
+          onOpenRenderModal={handleOpenRenderModalWithAsset}
+        />
+      )}
 
-      {/* Upcoming Workflows (Phase 4+) */}
-      <div className="space-y-4 pt-4">
-        <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">AI & Production Architecture</h2>
-          <p className="text-xs text-slate-400">Features unlocked in subsequent phases</p>
-        </div>
+      {/* 5. YOLO Component Detection Widget */}
+      <DashboardComponentDetectionWidget
+        onOpenDetectionModal={() => handleOpenDetectionModalWithAsset()}
+        recentSketchUrl={data?.recent_designs[0]?.sketch_image_url}
+        recentDesignName={data?.recent_designs[0]?.name}
+      />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-[#0b0f19] border-slate-800 border-amber-500/30 shadow-md">
-            <CardHeader className="p-5 space-y-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Design Workspace</CardTitle>
-                <Badge variant="gold" className="text-[10px]">Phase 3 Active</Badge>
-              </div>
-              <CardDescription className="text-xs leading-relaxed">
-                Full CRUD, category filters, and design metadata management.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+      {/* 6. Workshop Operations & CP-SAT Schedule Overview */}
+      {data && (
+        <DashboardProductionOverview
+          kpis={data.kpis}
+          deadlines={data.upcoming_deadlines}
+          latestSchedule={data.latest_schedule}
+          onNavigateToProduction={onNavigateToProduction}
+          onSelectDesign={handleSelectDesignById}
+        />
+      )}
 
-          <Card className="bg-[#0b0f19] border-slate-800 opacity-90">
-            <CardHeader className="p-5 space-y-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <CardTitle className="text-sm">AI Rendering</CardTitle>
-              <CardDescription className="text-xs leading-relaxed">
-                Phase 7: ControlNet photorealistic gold, silver & gemstone visual generation.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+      {/* 7. Category & Distribution Analytics */}
+      {data && (
+        <DashboardDesignAnalytics
+          categories={data.categories}
+          statuses={data.statuses}
+          priorities={data.priorities}
+        />
+      )}
 
-          <Card className="bg-[#0b0f19] border-slate-800 opacity-90">
-            <CardHeader className="p-5 space-y-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
-                <Sliders className="w-4 h-4" />
-              </div>
-              <CardTitle className="text-sm">Cost & Time ML</CardTitle>
-              <CardDescription className="text-xs leading-relaxed">
-                Phase 9: XGBoost metal weight, crafting hours, and precious scrap estimation.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+      {/* Modals */}
+      {isRenderModalOpen && (
+        <AiRenderModal
+          isOpen={isRenderModalOpen}
+          onClose={() => setIsRenderModalOpen(false)}
+          sketchUrl={renderSketchUrl}
+          designTitle={renderDesignTitle}
+        />
+      )}
 
-          <Card className="bg-[#0b0f19] border-slate-800 opacity-90">
-            <CardHeader className="p-5 space-y-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
-                <Clock className="w-4 h-4" />
-              </div>
-              <CardTitle className="text-sm">OR-Tools Scheduling</CardTitle>
-              <CardDescription className="text-xs leading-relaxed">
-                Phase 12: Automated workshop schedule and artisan task optimization.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
+      {isDetectionModalOpen && (
+        <ComponentDetectionModal
+          isOpen={isDetectionModalOpen}
+          onClose={() => setIsDetectionModalOpen(false)}
+          initialImageUrl={detectionImageUrl}
+          designTitle={detectionDesignTitle}
+        />
+      )}
     </div>
   );
 };
