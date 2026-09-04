@@ -6,21 +6,27 @@ conditioned on sketches via ControlNet + Stable Diffusion.
 
 import io
 import sys
+import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 import cv2
+import httpx
 import numpy as np
 from PIL import Image
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 
 # Ensure workspace root is in sys.path
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, get_db
+from app.core.config import settings
 from app.models.user import User
+from app.models.design import Design
+from app.services.storage_service import storage_service
 
 try:
     from ai.rendering.config import DEFAULT_OUTPUT_DIR
@@ -42,16 +48,10 @@ router = APIRouter(prefix="/ai/render", tags=["AI - Generative Rendering"])
 _pipeline_instance = None
 
 
-def get_rendering_pipeline() -> JewelleryRenderingPipeline:
+def get_rendering_pipeline() -> Optional[JewelleryRenderingPipeline]:
     global _pipeline_instance
-    if _pipeline_instance is None:
-        if JewelleryRenderingPipeline is not None:
-            _pipeline_instance = JewelleryRenderingPipeline()
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI Generative Rendering module is currently unavailable on this host.",
-            )
+    if _pipeline_instance is None and JewelleryRenderingPipeline is not None:
+        _pipeline_instance = JewelleryRenderingPipeline()
     return _pipeline_instance
 
 
@@ -65,6 +65,7 @@ def get_rendering_pipeline() -> JewelleryRenderingPipeline:
 async def render_jewellery_sketch(
     file: UploadFile = File(..., description="Jewellery sketch blueprint (PNG, JPG, or WEBP)"),
     category: Optional[str] = Form(None, description="Controlled jewellery category ('ring', 'earring', 'pendant', 'necklace', 'bracelet', 'bangle', 'brooch', 'other')"),
+    design_id: Optional[uuid.UUID] = Form(None, description="Optional design ID to link and persist the render directly"),
     prompt: Optional[str] = Form(None, description="Optional custom prompt additions"),
     negative_prompt: Optional[str] = Form(None, description="Optional custom negative prompt overrides"),
     material: str = Form("18k yellow gold", description="Base jewellery precious metal"),
@@ -77,6 +78,7 @@ async def render_jewellery_sketch(
     width: int = Form(512, ge=256, le=768, description="Output image width in pixels"),
     height: int = Form(512, ge=256, le=768, description="Output image height in pixels"),
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """Execute ControlNet conditioned diffusion generation on an uploaded jewellery sketch."""
     valid_content_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
@@ -134,25 +136,104 @@ async def render_jewellery_sketch(
         ) from val_err
 
     pipeline = get_rendering_pipeline()
+    rendered_image_bytes = None
+    render_dict = None
 
-    try:
-        _, result = pipeline.render(pil_image, request=req)
-        return result
-    except RenderingOutOfMemoryError as oom_err:
-        raise HTTPException(
-            status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
-            detail="Rendering exceeded available GPU memory. Try a lower resolution or wait for current GPU jobs to finish.",
-        ) from oom_err
-    except RuntimeError as run_err:
-        if "busy" in str(run_err).lower():
+    if pipeline is not None:
+        try:
+            rendered_pil, result = pipeline.render(pil_image, request=req)
+            if hasattr(rendered_pil, "save"):
+                buf = io.BytesIO()
+                rendered_pil.save(buf, format="PNG")
+                rendered_image_bytes = buf.getvalue()
+            render_dict = result.model_dump() if hasattr(result, "model_dump") else (dict(result) if isinstance(result, dict) else {})
+        except RenderingOutOfMemoryError as oom_err:
+            raise HTTPException(
+                status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+                detail="Rendering exceeded available GPU memory. Try a lower resolution or wait for current GPU jobs to finish.",
+            ) from oom_err
+        except RuntimeError as run_err:
+            if "busy" in str(run_err).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Rendering engine is busy processing another job. Please retry shortly.",
+                ) from run_err
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Rendering pipeline failed: {str(run_err)}",
+            ) from run_err
+    else:
+        # Proxy request to dedicated AI Worker running in tgpu environment
+        worker_url = f"{settings.AI_WORKER_URL.rstrip('/')}/render"
+        try:
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                files_payload = {"file": (file.filename or "sketch.png", contents, file.content_type or "image/png")}
+                form_payload = {
+                    "category": category or "",
+                    "prompt": prompt or "",
+                    "negative_prompt": negative_prompt or "",
+                    "material": material,
+                    "gemstone": gemstone,
+                    "control_type": control_type,
+                    "control_strength": str(control_strength),
+                    "steps": str(steps),
+                    "guidance_scale": str(guidance_scale),
+                    "seed": str(seed) if seed is not None else "",
+                    "width": str(width),
+                    "height": str(height),
+                }
+                resp = await client.post(worker_url, files=files_payload, data=form_payload)
+                if resp.status_code == 200:
+                    render_dict = resp.json()
+                    # Read generated PNG from disk if available
+                    out_name = Path(render_dict.get("output_url", "")).name
+                    local_target = Path(DEFAULT_OUTPUT_DIR) / out_name
+                    if local_target.exists() and local_target.is_file():
+                        rendered_image_bytes = local_target.read_bytes()
+                elif resp.status_code == 507:
+                    raise HTTPException(
+                        status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+                        detail=resp.json().get("error", "GPU VRAM exceeded during rendering."),
+                    )
+                elif resp.status_code == 422:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=resp.json().get("error", "Invalid rendering parameters."),
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"AI Worker returned error: {resp.text}",
+                    )
+        except (httpx.ConnectError, httpx.TimeoutException) as conn_err:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Rendering engine is busy processing another job. Please retry shortly.",
-            ) from run_err
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Rendering pipeline failed: {str(run_err)}",
-        ) from run_err
+                detail="AI rendering worker is offline. Start the local RTX 4060 worker.",
+            ) from conn_err
+
+    # Upload rendered image to Supabase Storage if image bytes available
+    if rendered_image_bytes and render_dict:
+        try:
+            public_supabase_url, _ = await storage_service.upload_rendered_image(
+                file_bytes=rendered_image_bytes,
+                user_id=current_user.id,
+                design_id=design_id,
+            )
+            render_dict["output_url"] = public_supabase_url
+
+            # Automatically persist to design if design_id was provided
+            if design_id:
+                design = db.query(Design).filter(Design.id == design_id, Design.user_id == current_user.id).first()
+                if design:
+                    design.rendered_image_url = public_supabase_url
+                    design.status = "ready"
+                    db.commit()
+                    db.refresh(design)
+        except Exception as storage_err:
+            # Fallback to local output URL if storage upload failed
+            pass
+
+    return render_dict
 
 
 @router.get(

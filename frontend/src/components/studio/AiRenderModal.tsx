@@ -17,6 +17,7 @@ import {
   RenderResultResponse,
   RenderOptions,
 } from '../../services/api/aiRenderingService';
+import { designService } from '../../services/api/designService';
 import { ApiClientError } from '../../services/api/client';
 
 interface AiRenderModalProps {
@@ -24,7 +25,21 @@ interface AiRenderModalProps {
   onClose: () => void;
   sketchUrl: string;
   designTitle: string;
+  category?: string;
+  designId?: string;
+  onSuccess?: (renderedUrl: string) => void;
 }
+
+const CATEGORIES = [
+  { id: 'ring', label: 'Ring' },
+  { id: 'earring', label: 'Earring' },
+  { id: 'pendant', label: 'Pendant' },
+  { id: 'necklace', label: 'Necklace' },
+  { id: 'bracelet', label: 'Bracelet' },
+  { id: 'bangle', label: 'Bangle' },
+  { id: 'brooch', label: 'Brooch' },
+  { id: 'other', label: 'Other Jewellery' },
+];
 
 const MATERIALS = [
   { id: '18k yellow gold', label: '18K Yellow Gold' },
@@ -47,7 +62,11 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   onClose,
   sketchUrl,
   designTitle,
+  category: initialCategory = 'ring',
+  designId,
+  onSuccess,
 }) => {
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory.toLowerCase());
   const [material, setMaterial] = useState<string>('18k yellow gold');
   const [gemstone, setGemstone] = useState<string>('round brilliant diamond');
   const [controlType, setControlType] = useState<'lineart' | 'canny'>('lineart');
@@ -78,6 +97,8 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
       const blob = await response.blob();
 
       const options: RenderOptions = {
+        category: selectedCategory,
+        design_id: designId,
         material,
         gemstone,
         control_type: controlType,
@@ -89,6 +110,20 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
 
       const result = await aiRenderingService.renderSketch(blob, options);
       setRenderResult(result);
+
+      if (designId) {
+        try {
+          await designService.updateDesign(designId, {
+            rendered_image_url: result.output_url,
+            status: 'ready',
+          });
+          if (onSuccess) {
+            onSuccess(result.output_url);
+          }
+        } catch (saveErr) {
+          console.warn('Design persistence warning:', saveErr);
+        }
+      }
     } catch (err: unknown) {
       if (err instanceof ApiClientError) {
         if (err.status === 507) {
@@ -96,16 +131,16 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
             'Rendering exceeded available GPU memory. Try a lower resolution or wait for the current GPU job to finish.'
           );
         } else if (err.status === 503) {
-          setError('Rendering model is busy or not available. Check the local AI environment.');
+          setError('AI rendering worker is offline. Start the local RTX 4060 worker.');
         } else if (err.status === 422) {
           setError('Please upload a valid jewellery sketch.');
         } else {
-          setError(err.message || 'AI rendering service encountered an error.');
+          setError(err.message || 'AI rendering worker is offline. Start the local RTX 4060 worker.');
         }
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('AI rendering service is unavailable.');
+        setError('AI rendering worker is offline. Start the local RTX 4060 worker.');
       }
     } finally {
       setIsRendering(false);
@@ -136,7 +171,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
               <h2 className="text-sm font-bold text-white tracking-wide flex items-center space-x-2">
                 <span>AI Jewellery Generative Rendering</span>
                 <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
-                  Phase 7 Local Diffusion
+                  RTX 4060 ControlNet Diffusion
                 </Badge>
               </h2>
               <p className="text-[11px] text-slate-400">
@@ -286,6 +321,24 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
           {/* Right Column: Parameters & Controls */}
           <div className="md:col-span-5 flex flex-col justify-between space-y-5">
             <div className="space-y-4 text-xs">
+              {/* Category Selection */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300 uppercase tracking-wider text-[10px]">
+                  Jewellery Category
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-medium capitalize"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Material Selection */}
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-300 uppercase tracking-wider text-[10px]">

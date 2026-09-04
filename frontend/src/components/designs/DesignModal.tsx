@@ -210,7 +210,7 @@ export const DesignModal: React.FC<DesignModalProps> = ({
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
               <span>Generative AI Prompt (Optional)</span>
-              <span className="text-[10px] text-amber-400/80 font-normal">For Phase 7 AI diffusion</span>
+              <span className="text-[10px] text-amber-400/80 font-normal">For ControlNet AI diffusion</span>
             </label>
             <Textarea
               value={aiPrompt}

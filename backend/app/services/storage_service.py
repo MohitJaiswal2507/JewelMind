@@ -212,6 +212,45 @@ class StorageService:
         public_url = self.get_public_url(storage_path)
         return public_url, storage_path
 
+    async def upload_rendered_image(
+        self,
+        file_bytes: bytes,
+        user_id: Union[str, uuid.UUID],
+        design_id: Optional[Union[str, uuid.UUID]] = None,
+        filename: Optional[str] = None,
+    ) -> Tuple[str, str]:
+        """
+        Uploads an AI generated render image to Supabase Storage bucket.
+        Returns (public_url, storage_path).
+        """
+        ext = ".png"
+        unique_filename = f"render_{uuid.uuid4().hex[:12]}{ext}"
+        if design_id:
+            storage_path = f"{str(user_id)}/{str(design_id)}/{unique_filename}"
+        else:
+            storage_path = f"{str(user_id)}/renders/{unique_filename}"
+
+        if not self._is_mock_or_test_mode():
+            url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{storage_path}"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "apikey": self.api_key,
+                "Content-Type": "image/png",
+                "x-upsert": "true",
+            }
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(url, content=file_bytes, headers=headers)
+                    if response.status_code not in (200, 201):
+                        logger.error(
+                            f"Supabase render upload failed [{response.status_code}]: {response.text}"
+                        )
+            except httpx.RequestError as exc:
+                logger.error(f"Network error during Supabase render upload: {exc}")
+
+        public_url = self.get_public_url(storage_path)
+        return public_url, storage_path
+
     async def delete_sketch(self, storage_path_or_url: Optional[str]) -> bool:
         """
         Deletes a sketch file from Supabase Storage.
