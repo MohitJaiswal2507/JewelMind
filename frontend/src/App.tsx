@@ -71,6 +71,14 @@ const MainLayout: React.FC = () => {
     setCurrentView('dashboard');
   };
 
+  // Enforce route protection for private application views
+  useEffect(() => {
+    const protectedViews: ViewMode[] = ['dashboard', 'designs', 'design-detail', 'studio', 'canvas', 'production'];
+    if (!isAuthenticated && protectedViews.includes(currentView)) {
+      setCurrentView('login');
+    }
+  }, [isAuthenticated, currentView]);
+
   const handleSelectDesign = (design: Design | { id: string }) => {
     setSelectedDesignId(design.id);
     setCurrentView('design-detail');

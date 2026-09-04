@@ -95,6 +95,15 @@ async def render_jewellery_sketch(
             detail=f"Resolution ({width}x{height}) must have dimensions divisible by 8.",
         )
 
+    # Validate design existence and ownership upfront if design_id is provided
+    if design_id:
+        target_design = db.query(Design).filter(Design.id == design_id, Design.user_id == current_user.id).first()
+        if not target_design:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Design with id '{design_id}' was not found or access is denied.",
+            )
+
     # Read binary bytes
     contents = await file.read()
     if not contents:
