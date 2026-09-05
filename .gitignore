@@ -133,6 +133,8 @@ ai/vision/datasets/processed/*
 ai/vision/datasets/jewelmind_components/*
 !ai/vision/datasets/jewelmind_components/.gitkeep
 !ai/vision/datasets/jewelmind_components/README.md
+ai/vision/datasets/jewellery_v2/*
+!ai/vision/datasets/jewellery_v2/README.md
 ai/vision/datasets/sample/
 ai/vision/datasets/previews/
 *.cache
