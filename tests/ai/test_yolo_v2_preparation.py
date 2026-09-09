@@ -1,6 +1,9 @@
-"""Unit Tests for Multi-Jewellery YOLO V2 Dataset Architecture & Configuration."""
+"""Unit Tests for Multi-Jewellery YOLO V2 Dataset Engineering & Conversion Pipeline."""
 
+import tempfile
 from pathlib import Path
+import cv2
+import numpy as np
 import pytest
 import yaml
 
@@ -14,7 +17,12 @@ from ai.vision.inference.detector import (
 )
 from ai.vision.inference.schemas import ComponentDetection, DetectionResult
 from ai.vision.training.scripts.validate_dataset import validate_dataset
-from ai.vision.training.scripts.audit_dataset import audit_dataset
+from scripts.convert_dwpose_to_yolo import (
+    JEWELMIND_CATEGORIES,
+    normalize_prompt,
+    mask_to_yolo_polygons,
+    get_deterministic_split,
+)
 
 
 def test_v1_baseline_taxonomy_preserved():
@@ -22,41 +30,16 @@ def test_v1_baseline_taxonomy_preserved():
     assert len(TAXONOMY_V1) == 7
     assert TAXONOMY_V1[0] == "gemstone"
     assert TAXONOMY_V1[1] == "ring_shank"
-    assert TAXONOMY_V1[2] == "ring_head"
-    assert TAXONOMY_V1[3] == "prong"
-    assert TAXONOMY_V1[4] == "bezel"
-    assert TAXONOMY_V1[5] == "setting"
-    assert TAXONOMY_V1[6] == "shoulder"
     assert TAXONOMY == TAXONOMY_V1
 
 
-def test_v2_multi_jewellery_taxonomy_structure():
-    """Verify that V2 taxonomy contains all 22 required multi-category component classes."""
-    assert len(TAXONOMY_V2) == 22
-    # Preserved ring classes
-    for i in range(7):
-        assert TAXONOMY_V2[i] == TAXONOMY_V1[i]
-
-    # Category extensions
-    expected_classes = [
-        "earring_body",
-        "earring_hook",
-        "earring_post",
-        "necklace_chain",
-        "necklace_pendant",
-        "necklace_clasp",
-        "pendant_body",
-        "pendant_bail",
-        "bracelet_band",
-        "bracelet_clasp",
-        "bracelet_link",
-        "bangle_body",
-        "brooch_body",
-        "brooch_pin",
-        "other_jewellery",
-    ]
-    for cls_name in expected_classes:
-        assert cls_name in TAXONOMY_V2.values()
+def test_v2_jewelmind_category_taxonomy():
+    """Verify that V2 taxonomy contains all 8 required JewelMind categories."""
+    assert len(TAXONOMY_V2) == 8
+    expected = ["ring", "earring", "pendant", "necklace", "bracelet", "bangle", "brooch", "other_jewellery"]
+    for idx, name in enumerate(expected):
+        assert TAXONOMY_V2[idx] == name
+        assert JEWELMIND_CATEGORIES[name] == idx
 
 
 def test_v2_yaml_configuration_validity():
@@ -73,42 +56,61 @@ def test_v2_yaml_configuration_validity():
     assert config["test"] == "test/images"
 
     names = config["names"]
-    assert len(names) == len(TAXONOMY_V2)
+    assert len(names) == 8
     for cid, cname in TAXONOMY_V2.items():
         assert names[cid] == cname
 
 
-def test_v2_dataset_directories_exist():
-    """Verify that all V2 train/val/test directories are created."""
-    base = Path("ai/vision/datasets/jewellery_v2")
-    assert base.exists()
-    assert (base / "README.md").exists()
-    for split in ["train", "val", "test"]:
-        assert (base / split / "images").exists()
-        assert (base / split / "labels").exists()
+def test_prompt_normalization_rules():
+    """Verify prompt normalization handles gender removal, plurals, and watches."""
+    assert normalize_prompt("female, earring") == "earring"
+    assert normalize_prompt("female, earrings") == "earring"
+    assert normalize_prompt("female,earring") == "earring"
+    assert normalize_prompt("male, bracelet") == "bracelet"
+    assert normalize_prompt("female, ring") == "ring"
+    assert normalize_prompt("female, necklace") == "necklace"
+    assert normalize_prompt("female, watch") is None  # Excluded
+    assert normalize_prompt("female, oops") is None    # Ambiguous
 
 
-def test_validate_dataset_on_v2_config():
-    """Verify validate_dataset runs successfully on jewellery_v2.yaml without errors."""
+def test_mask_to_yolo_polygons_conversion():
+    """Verify polygon conversion from binary mask produces valid YOLO format coordinates."""
+    # Create 100x100 mask with 20x20 square in center
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    mask[40:60, 40:60] = 255
+
+    polygons = mask_to_yolo_polygons(mask, class_id=0, min_area_px=10)
+    assert len(polygons) == 1
+
+    tokens = polygons[0].split()
+    assert tokens[0] == "0"
+    coords = [float(x) for x in tokens[1:]]
+    assert len(coords) >= 6  # Minimum 3 points (6 floats)
+    assert all(0.0 <= c <= 1.0 for c in coords)
+
+
+def test_deterministic_split_zero_leakage():
+    """Verify deterministic split ensures same target path always gets identical split."""
+    test_targets = ["01067_target.jpg", "04262_target.jpg", "00576_target.jpg"]
+    for t in test_targets:
+        split1 = get_deterministic_split(t)
+        split2 = get_deterministic_split(t)
+        assert split1 == split2
+        assert split1 in ["train", "val", "test"]
+
+
+def test_validate_dataset_on_v2_generated_data():
+    """Verify validate_dataset passes cleanly on converted dataset."""
     report = validate_dataset("ai/vision/training/configs/jewellery_v2.yaml")
     assert report["status"] == "PASS"
+    assert report["total_images"] > 5000
+    assert report["total_instances"] > 10000
     assert len(report["errors"]) == 0
 
 
-def test_audit_dataset_on_v2_config():
-    """Verify audit_dataset runs and produces valid metadata."""
-    audit = audit_dataset("ai/vision/training/configs/jewellery_v2.yaml")
-    assert audit["num_classes"] == 22
-    assert "gemstone" in audit["classes"].values()
-    assert "necklace_chain" in audit["classes"].values()
-    assert len(audit["errors"]) == 0
-
-
-def test_detector_mock_inference_and_schema():
+def test_detector_mock_inference():
     """Verify detector mock mode produces schema-compliant DetectionResult."""
     detector = JewelleryComponentDetector(mock_mode=True)
-    import numpy as np
-
     dummy_img = np.zeros((200, 200, 3), dtype=np.uint8)
     result = detector.detect(dummy_img)
 

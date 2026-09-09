@@ -9,37 +9,13 @@ train: train/images
 val: val/images
 test: test/images
 
-# Multi-Jewellery V2 Class Taxonomy (22 Component Classes across 8 Categories)
-# Preserves all 7 V1 Ring micro-components + expands to Earring, Necklace, Pendant, Bracelet, Bangle, Brooch
+# Class Taxonomy (8 JewelMind Jewellery Categories)
 names:
-  # Universal & Shared Components
-  0: gemstone
-  # Ring Components (V1 Backwards Compatible)
-  1: ring_shank
-  2: ring_head
-  3: prong
-  4: bezel
-  5: setting
-  6: shoulder
-  # Earring Components
-  7: earring_body
-  8: earring_hook
-  9: earring_post
-  # Necklace Components
-  10: necklace_chain
-  11: necklace_pendant
-  12: necklace_clasp
-  # Pendant Components
-  13: pendant_body
-  14: pendant_bail
-  # Bracelet Components
-  15: bracelet_band
-  16: bracelet_clasp
-  17: bracelet_link
-  # Bangle Components
-  18: bangle_body
-  # Brooch Components
-  19: brooch_body
-  20: brooch_pin
-  # Macro Jewellery Categories / Fallback
-  21: other_jewellery
+  0: ring
+  1: earring
+  2: pendant
+  3: necklace
+  4: bracelet
+  5: bangle
+  6: brooch
+  7: other_jewellery

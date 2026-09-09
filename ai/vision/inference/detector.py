@@ -32,39 +32,16 @@ TAXONOMY_V1: Dict[int, str] = {
     6: "shoulder",
 }
 
-# V2 Multi-Jewellery Taxonomy (22 Components across 8 Categories)
+# V2 Multi-Jewellery Taxonomy (8 JewelMind Categories)
 TAXONOMY_V2: Dict[int, str] = {
-    # Universal
-    0: "gemstone",
-    # Ring
-    1: "ring_shank",
-    2: "ring_head",
-    3: "prong",
-    4: "bezel",
-    5: "setting",
-    6: "shoulder",
-    # Earring
-    7: "earring_body",
-    8: "earring_hook",
-    9: "earring_post",
-    # Necklace
-    10: "necklace_chain",
-    11: "necklace_pendant",
-    12: "necklace_clasp",
-    # Pendant
-    13: "pendant_body",
-    14: "pendant_bail",
-    # Bracelet
-    15: "bracelet_band",
-    16: "bracelet_clasp",
-    17: "bracelet_link",
-    # Bangle
-    18: "bangle_body",
-    # Brooch
-    19: "brooch_body",
-    20: "brooch_pin",
-    # Fallback / General
-    21: "other_jewellery",
+    0: "ring",
+    1: "earring",
+    2: "pendant",
+    3: "necklace",
+    4: "bracelet",
+    5: "bangle",
+    6: "brooch",
+    7: "other_jewellery",
 }
 
 # Default backwards-compatible alias
@@ -82,22 +59,14 @@ CLASS_COLORS_V1: Dict[int, tuple] = {
 }
 
 CLASS_COLORS_V2: Dict[int, tuple] = {
-    **CLASS_COLORS_V1,
-    7: (255, 100, 100),   # earring_body
-    8: (255, 150, 50),    # earring_hook
-    9: (200, 180, 50),    # earring_post
-    10: (50, 200, 100),   # necklace_chain
-    11: (50, 220, 220),   # necklace_pendant
-    12: (50, 150, 255),   # necklace_clasp
-    13: (120, 100, 255),  # pendant_body
-    14: (180, 80, 255),   # pendant_bail
-    15: (220, 50, 200),   # bracelet_band
-    16: (255, 50, 120),   # bracelet_clasp
-    17: (200, 100, 150),  # bracelet_link
-    18: (150, 200, 80),   # bangle_body
-    19: (80, 180, 200),   # brooch_body
-    20: (120, 120, 180),  # brooch_pin
-    21: (180, 180, 180),  # other_jewellery
+    0: (0, 215, 255),     # ring: Gold
+    1: (0, 100, 255),     # earring: Coral/Orange
+    2: (255, 200, 0),     # pendant: Cyan
+    3: (255, 0, 255),     # necklace: Magenta
+    4: (50, 220, 50),     # bracelet: Green
+    5: (180, 0, 180),     # bangle: Purple
+    6: (255, 120, 120),   # brooch: Light blue
+    7: (180, 180, 180),   # other_jewellery: Gray
 }
 
 CLASS_COLORS = CLASS_COLORS_V1
