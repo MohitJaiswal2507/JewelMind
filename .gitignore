@@ -71,6 +71,12 @@ venv.bak/
 conda-env/
 
 # --------------------------------------------------
+# Jupyter Notebook Checkpoints & Cache
+# --------------------------------------------------
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# --------------------------------------------------
 # Testing, Coverage & Static Analysis
 # --------------------------------------------------
 htmlcov/
@@ -200,6 +206,14 @@ ai/vision/datasets/rendering_v2/*
 ai/vision/datasets/sample/
 ai/vision/datasets/previews/
 *.cache
+
+# AI Rendering datasets (Ignore generated large image pairs, preserve manifests/metadata)
+ai/rendering/datasets/*
+!ai/rendering/datasets/.gitkeep
+!ai/rendering/datasets/README.md
+!ai/rendering/datasets/**/manifests/
+!ai/rendering/datasets/**/DATASET_MANIFEST.json
+!ai/rendering/datasets/**/metadata.jsonl
 
 # --------------------------------------------------
 # Pipelines Outputs, Renders, Logs & Scratch

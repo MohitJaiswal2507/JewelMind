@@ -1,0 +1,116 @@
+# JewelMind Rendering V2 — Machine-Readable Planning Configuration
+# This file is a configuration and planning specification document.
+# It does NOT trigger training or modify existing weights.
+
+version: "2.0.0"
+phase: "PHASE_RENDERING_V2_PREPARATION"
+target_hardware:
+  gpu: "NVIDIA GeForce RTX 4060 Laptop GPU"
+  vram_gb: 8
+  precision: "fp16"
+  budget_inr: 0
+
+modes:
+  - id: "sketch_to_render"
+    name: "Sketch -> Photorealistic Render"
+    conditioning: "neural_lineart"
+    default_control_scale: 0.85
+    description: "Converts 2D designer sketches into photorealistic renders while maintaining exact silhouette geometry."
+  
+  - id: "text_to_render"
+    name: "Text -> Photorealistic Render"
+    conditioning: "unconditioned_text"
+    default_control_scale: 0.0
+    description: "Generates high-fashion studio jewellery directly from text prompts for ideation."
+
+  - id: "photo_to_render"
+    name: "Photo -> Redesigned Render"
+    conditioning: "yolo_v2_crop_and_lineart"
+    default_control_scale: 0.75
+    description: "Extracts jewellery from photos using YOLO V2 segmentation, suppresses background, and restyles materials."
+
+base_models:
+  diffusion_foundation:
+    model_id: "runwayml/stable-diffusion-v1-5"
+    local_path: "models/diffusion/models--runwayml--stable-diffusion-v1-5"
+    status: "frozen"
+    precision: "fp16"
+  
+  controlnet_v1_baseline:
+    local_path: "outputs/controlnet_jewellery_300/controlnet_jewellery_final"
+    type: "lineart"
+    status: "production_frozen"
+  
+  controlnet_v2_target:
+    output_dir: "outputs/controlnet_jewellery_v2"
+    type: "lineart_multicategory"
+    target_steps: 500
+    learning_rate: 1.0e-5
+    batch_size: 1
+    gradient_accumulation_steps: 4
+    mixed_precision: "fp16"
+    gradient_checkpointing: true
+
+  appearance_lora_baseline:
+    local_path: "outputs/appearance_lora/jewellery_lora_final"
+    rank: 16
+    status: "production_active"
+
+  segmentation_engine:
+    model: "YOLO11m-seg"
+    local_path: "runs/segment/runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v2-continued/weights/best.pt"
+    task: "multi_jewellery_instance_segmentation"
+    num_classes: 8
+
+categories:
+  0: "ring"
+  1: "earring"
+  2: "pendant"
+  3: "necklace"
+  4: "bracelet"
+  5: "bangle"
+  6: "brooch"
+  7: "other_jewellery"
+
+dataset_plan:
+  output_path: "ai/vision/datasets/rendering_v2"
+  resolution: 512
+  sources:
+    - name: "MET Jewellery Archive"
+      local_path: "ai/vision/datasets/raw/met_jewellery"
+      target_pairs: 650
+      license: "CC0"
+    - name: "DWPose Jewellery Crops"
+      local_path: "ai/vision/datasets/raw/jewelry-dwpose"
+      target_pairs: 400
+      license: "MIT"
+    - name: "ControlNet Paired V1"
+      local_path: "datasets/controlnet_paired"
+      target_pairs: 164
+      license: "Internal"
+  splits:
+    train_ratio: 0.80
+    val_ratio: 0.12
+    test_ratio: 0.08
+  edge_density_limits:
+    min_density: 0.015
+    max_density: 0.35
+
+evaluation_benchmarks:
+  total_prompts: 20
+  categories_covered: 8
+  metrics:
+    - "geometry_preservation"
+    - "structural_fidelity"
+    - "category_correctness"
+    - "prompt_adherence"
+    - "material_correctness"
+    - "gemstone_correctness"
+    - "fine_detail"
+    - "product_realism"
+    - "background_cleanliness"
+    - "zero_hallucination"
+    - "human_suppression"
+    - "visual_consistency"
+    - "inference_latency"
+    - "vram_safety"
