@@ -1,0 +1,81 @@
+# ====================================================================
+# JewelMind Rendering V2 — Multi-Category ControlNet Main Training Config
+# Covers 8 Canonical Categories: ring, earring, pendant, necklace,
+# bracelet, bangle, brooch, other_jewellery
+# Optimized for NVIDIA GeForce RTX 4060 Laptop GPU (8GB VRAM)
+# ====================================================================
+
+# Base Diffusion Model and ControlNet Specification
+model:
+  pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+  revision: "main"
+  variant: "fp16"
+  pretrained_controlnet_name_or_path: "lllyasviel/control_v11p_sd15_lineart"
+  conditioning_channels: 3
+  controlnet_conditioning: "canny_structural"
+  taxonomy_categories:
+    - "ring"
+    - "earring"
+    - "pendant"
+    - "necklace"
+    - "bracelet"
+    - "bangle"
+    - "brooch"
+    - "other_jewellery"
+
+# Paired Multi-Category Dataset Specification (Verified Rendering V2 Dataset)
+dataset:
+  train_data_dir: "ai/rendering/datasets/rendering_v2/train"
+  train_metadata_file: "ai/rendering/datasets/rendering_v2/train/metadata.jsonl"
+  val_data_dir: "ai/rendering/datasets/rendering_v2/val"
+  val_metadata_file: "ai/rendering/datasets/rendering_v2/val/metadata.jsonl"
+  test_data_dir: "ai/rendering/datasets/rendering_v2/test"
+  test_metadata_file: "ai/rendering/datasets/rendering_v2/test/metadata.jsonl"
+  resolution: 512             # 512x512 native resolution
+  keep_aspect_ratio: true     # Preserves exact physical geometry with neutral padding
+  center_crop: false          # Strictly FALSE: retain complete jewelry contours
+  random_flip: true           # Horizontal flip invariance for symmetrical designs
+  max_train_samples: null
+
+# Main Production Training Hyperparameters
+training:
+  seed: 42
+  train_batch_size: 1             # Strictly 1 on 8GB VRAM to guarantee zero CUDA OOM
+  gradient_accumulation_steps: 4  # Effective batch size = 4
+  gradient_checkpointing: false   # Set true if VRAM headroom is tight (<1.5GB free)
+  mixed_precision: "fp16"         # Float16 mixed precision via torch.amp
+  learning_rate: 1.0e-5           # ControlNet fine-tuning rate
+  scale_lr: false
+  lr_scheduler: "cosine"
+  lr_warmup_steps: 50
+  max_train_steps: 300            # Main training ceiling: candidate stops at 300 / 500 / 600 / 1000
+  checkpointing_steps: 100        # Save checkpoint every 100 optimizer steps
+  checkpoints_total_limit: 10     # Retain up to 10 latest checkpoints
+  resume_from_checkpoint: null    # null for fresh run, or path / 'latest'
+  validation_steps: 100           # Run multi-category validation at step boundaries
+  validation_samples: 8           # 1 validation sample per canonical category
+  max_grad_norm: 1.0              # Gradient clipping norm
+  num_workers: 0                  # Safe worker count for Windows OS
+
+# Memory & Hardware Optimizations (RTX 4060 8GB)
+memory:
+  enable_gradient_checkpointing: false
+  enable_sdpa: true               # PyTorch Scaled Dot-Product Attention (SDPA)
+  allow_tf32: true                # TF32 on Ampere/Ada Lovelace GPU
+  attention_slicing: true         # Cuts peak memory during attention
+  vae_slicing: true               # Slices VAE decoding during validation
+  empty_cache_at_step: true       # Clears torch.cuda.empty_cache() every accumulation cycle
+
+# Optimizer Configuration
+optimizer:
+  name: "AdamW"
+  beta1: 0.9
+  beta2: 0.999
+  weight_decay: 1.0e-2
+  epsilon: 1.0e-8
+
+# Output and Logging Directories (Strictly Isolated from V1 Artifacts)
+output:
+  output_dir: "outputs/rendering_v2_controlnet"
+  logging_dir: "outputs/rendering_v2_controlnet/logs"
+  report_to: "tensorboard"

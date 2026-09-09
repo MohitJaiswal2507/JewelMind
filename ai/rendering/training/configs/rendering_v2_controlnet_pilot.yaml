@@ -1,0 +1,81 @@
+# ====================================================================
+# JewelMind Rendering V2 — Multi-Category ControlNet 100-Step Pilot Config
+# Covers 8 Canonical Categories: ring, earring, pendant, necklace,
+# bracelet, bangle, brooch, other_jewellery
+# Target: 100-step controlled pilot on NVIDIA RTX 4060 (8GB VRAM)
+# ====================================================================
+
+# Base Diffusion Model and ControlNet Specification
+model:
+  pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+  revision: "main"
+  variant: "fp16"
+  pretrained_controlnet_name_or_path: "lllyasviel/control_v11p_sd15_lineart"
+  conditioning_channels: 3
+  controlnet_conditioning: "canny_structural"
+  taxonomy_categories:
+    - "ring"
+    - "earring"
+    - "pendant"
+    - "necklace"
+    - "bracelet"
+    - "bangle"
+    - "brooch"
+    - "other_jewellery"
+
+# Paired Multi-Category Dataset Specification (Verified Rendering V2 Dataset)
+dataset:
+  train_data_dir: "ai/rendering/datasets/rendering_v2/train"
+  train_metadata_file: "ai/rendering/datasets/rendering_v2/train/metadata.jsonl"
+  val_data_dir: "ai/rendering/datasets/rendering_v2/val"
+  val_metadata_file: "ai/rendering/datasets/rendering_v2/val/metadata.jsonl"
+  test_data_dir: "ai/rendering/datasets/rendering_v2/test"
+  test_metadata_file: "ai/rendering/datasets/rendering_v2/test/metadata.jsonl"
+  resolution: 512             # 512x512 native resolution
+  keep_aspect_ratio: true     # Preserves exact physical geometry with neutral padding
+  center_crop: false          # Strictly FALSE: retain complete jewelry contours
+  random_flip: true           # Horizontal flip invariance for symmetrical designs
+  max_train_samples: null
+
+# Pilot Training Hyperparameters
+training:
+  seed: 42
+  train_batch_size: 1             # Strictly 1 on 8GB VRAM
+  gradient_accumulation_steps: 4  # Effective batch size = 4
+  gradient_checkpointing: false   # Disabled for 2x faster throughput (6.2GB fits in 8GB)
+  mixed_precision: "fp16"         # Float16 mixed precision via torch.amp
+  learning_rate: 1.0e-5           # ControlNet fine-tuning rate
+  scale_lr: false
+  lr_scheduler: "cosine"
+  lr_warmup_steps: 10
+  max_train_steps: 100            # Exactly 100 steps for pilot
+  checkpointing_steps: 50         # Save checkpoint at step 50 and step 100
+  checkpoints_total_limit: 3      # Keep up to 3 checkpoints
+  resume_from_checkpoint: null    # null for fresh pilot run
+  validation_steps: 50            # Run multi-category validation at step 50 and 100
+  validation_samples: 8           # 1 validation sample per canonical category (8 total)
+  max_grad_norm: 1.0              # Gradient clipping norm
+  num_workers: 0                  # Safe worker count for Windows OS
+
+# Memory & Hardware Optimizations (RTX 4060 8GB)
+memory:
+  enable_gradient_checkpointing: false
+  enable_sdpa: true               # PyTorch Scaled Dot-Product Attention (SDPA)
+  allow_tf32: true                # TF32 on Ampere/Ada Lovelace GPU
+  attention_slicing: true         # Cuts peak memory during attention
+  vae_slicing: true               # Slices VAE decoding during validation
+  empty_cache_at_step: true       # Clears torch.cuda.empty_cache() each step
+
+# Optimizer Configuration
+optimizer:
+  name: "AdamW"
+  beta1: 0.9
+  beta2: 0.999
+  weight_decay: 1.0e-2
+  epsilon: 1.0e-8
+
+# Output and Logging Directories (Isolated Pilot Directory)
+output:
+  output_dir: "outputs/rendering_v2_controlnet_pilot"
+  logging_dir: "outputs/rendering_v2_controlnet_pilot/logs"
+  report_to: "tensorboard"
