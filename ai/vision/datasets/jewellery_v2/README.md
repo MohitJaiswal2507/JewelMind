@@ -1,6 +1,42 @@
-# JewelMind Multi-Jewellery V2 Dataset Architecture
+# JewelMind Multi-Jewellery V2 Dataset
 
-This directory is designated for the **JewelMind Multi-Jewellery YOLO V2 Instance Segmentation Dataset**.
+This dataset is engineered from the high-resolution **Jewelry-DWPose** paired dataset for multi-class jewellery instance segmentation in JewelMind.
+
+---
+
+## 📊 Dataset Statistics
+
+- **Total Usable Unique Images:** 7,066
+- **Total Segmentation Instances:** 11,484
+- **Multi-Instance Images:** 3,425 (images containing 2+ jewellery items)
+- **Discarded Non-Jewellery Images:** 571 (watch-only samples)
+- **Data Leakage:** 0% (strict deterministic split enforced at unique target image level)
+
+### Split Breakdown
+
+| Split | Images | % Images | Total Instances | % Instances |
+|---|:---:|:---:|:---:|:---:|
+| **Train** | 4,925 | 69.7% | 7,991 | 69.6% |
+| **Validation** | 1,446 | 20.5% | 2,357 | 20.5% |
+| **Test** | 695 | 9.8% | 1,136 | 9.9% |
+| **Total** | **7,066** | **100.0%** | **11,484** | **100.0%** |
+
+---
+
+## 🏷️ Category Taxonomy (8 JewelMind Categories)
+
+| Class ID | Class Name | Instances in Dataset | Status |
+|:---:|---|:---:|---|
+| `0` | `ring` | 3,589 | Fully Populated |
+| `1` | `earring` | 2,822 | Fully Populated |
+| `2` | `pendant` | 0 | Pending Targeted Dataset Source |
+| `3` | `necklace` | 2,366 | Fully Populated |
+| `4` | `bracelet` | 2,707 | Fully Populated |
+| `5` | `bangle` | 0 | Pending Targeted Dataset Source |
+| `6` | `brooch` | 0 | Pending Targeted Dataset Source |
+| `7` | `other_jewellery` | 0 | Fallback Class |
+
+> **Completeness Notice:** DWPose is a foundation source dataset providing deep coverage for Rings, Earrings, Necklaces, and Bracelets. Targeted augmentation for Pendants, Bangles, and Brooches will be integrated from CC0 museum / synthetic sources.
 
 ---
 
@@ -9,29 +45,14 @@ This directory is designated for the **JewelMind Multi-Jewellery YOLO V2 Instanc
 ```text
 jewellery_v2/
 ├── train/
-│   ├── images/      # Training JPEG/PNG jewellery images
-│   └── labels/      # YOLO segmentation polygon labels (.txt)
+│   ├── images/      # 4,925 JPEG images
+│   └── labels/      # 4,925 YOLO polygon label files (.txt)
 ├── val/
-│   ├── images/      # Validation JPEG/PNG images
-│   └── labels/      # Validation polygon labels (.txt)
+│   ├── images/      # 1,446 JPEG images
+│   └── labels/      # 1,446 YOLO polygon label files (.txt)
 ├── test/
-│   ├── images/      # Independent test evaluation images
-│   └── labels/      # Test polygon labels (.txt)
-└── README.md        # Dataset specifications & provenance documentation
+│   ├── images/      # 695 JPEG images
+│   └── labels/      # 695 YOLO polygon label files (.txt)
+├── conversion_stats.json # Machine-readable conversion metrics
+└── README.md        # This specification
 ```
-
----
-
-## 🏷️ Label Format (YOLO Instance Segmentation)
-
-Each label file (`<image_name>.txt`) contains one line per annotated instance:
-```text
-<class_id> <x1> <y1> <x2> <y2> <x3> <y3> ... <xn> <yn>
-```
-- `<class_id>`: Integer between `0` and `21` matching `jewellery_v2.yaml`.
-- Coordinates `(x, y)`: Normalized polygon vertices in range `[0.0, 1.0]`. Minimum 3 points (6 floats).
-
----
-
-## 🔒 Baseline Protection Notice
-The V1 sample dataset located at `ai/vision/datasets/sample/` and the trained V1 weights at `runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt` are **protected production baselines** and must never be overwritten.

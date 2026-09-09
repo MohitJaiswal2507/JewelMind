@@ -1,8 +1,11 @@
-# ==========================================
+# ====================================================================
 # JewelMind Master .gitignore
-# ==========================================
+# Complete Repository Configuration for Full-Stack AI & Cloud Platform
+# ====================================================================
 
-# Environments & Secrets
+# --------------------------------------------------
+# Environments, Secrets & Credentials
+# --------------------------------------------------
 .env
 .env.*
 .env.local
@@ -10,19 +13,32 @@
 .env.test.local
 .env.production.local
 !.env.example
+!.env.test
 *.pem
 *.key
 *.cert
+*.crt
+*.p12
+*.pfx
+*.secret
+*.credentials
 
-# Python
+# --------------------------------------------------
+# Python Runtime, Bytecode & Build Artifacts
+# --------------------------------------------------
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
+*.dll
 .Python
 build/
+**/build/
 develop-eggs/
 dist/
+**/dist/
 downloads/
 eggs/
 .eggs/
@@ -34,19 +50,29 @@ var/
 wheels/
 share/python-wheels/
 *.egg-info/
+**/*.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# Virtual Environments
+# --------------------------------------------------
+# Python Virtual Environments (Root & Subdirectories)
+# --------------------------------------------------
 .venv/
+**/.venv/
 venv/
+**/venv/
 ENV/
+**/ENV/
 env/
+**/env/
 env.bak/
 venv.bak/
+conda-env/
 
-# Testing & Coverage
+# --------------------------------------------------
+# Testing, Coverage & Static Analysis
+# --------------------------------------------------
 htmlcov/
 .tox/
 .nox/
@@ -59,41 +85,60 @@ coverage.xml
 *.py.cover
 .hypothesis/
 .pytest_cache/
+**/.pytest_cache/
 cover/
-
-# Type Checking & Linting
 .mypy_cache/
+**/.mypy_cache/
 .dmypy.json
 dmypy.json
 .pyre/
 .pytype/
 .ruff_cache/
+**/.ruff_cache/
 
-# Node & Frontend
+# --------------------------------------------------
+# Node & Frontend (React / Vite / TypeScript)
+# --------------------------------------------------
 node_modules/
+**/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+.pnpm-store/
+**/.pnpm-store/
+.vite/
+**/.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-.pnpm-store/
-.vite/
-dist-ssr/
 *.local
 
-# IDE & Editor Configurations
+# --------------------------------------------------
+# IDEs, Text Editors & OS System Files
+# --------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+!.vscode/launch.json
 .idea/
+**/.idea/
+.cursor/
+**/.cursor/
 *.swp
 *.swo
 *~
 .DS_Store
 Thumbs.db
+ehthumbs.db
+desktop.ini
 tempCodeRunnerFile.py
+*.tmp
+*.bak
 
-# AI & Machine Learning Artifacts (Model Weights)
+# --------------------------------------------------
+# AI / ML Model Weights, Checkpoints & Artifacts
+# --------------------------------------------------
 *.pt
 *.pth
 *.ckpt
@@ -108,13 +153,23 @@ tempCodeRunnerFile.py
 *.pkl
 *.pickle
 checkpoints/
+**/checkpoints/
 runs/
+**/runs/
 wandb/
+**/wandb/
+mlruns/
+**/mlruns/
 models/diffusion/
 models/cache/
+models/yolo/
+models/checkpoints/
+weights/
 
-
-# Datasets & Outputs (Keep structure, ignore bulky data)
+# --------------------------------------------------
+# Computer Vision & Rendering Datasets (Keep Docs & Metadata)
+# --------------------------------------------------
+# Root datasets
 datasets/raw/*
 !datasets/raw/.gitkeep
 !datasets/raw/README.md
@@ -124,6 +179,8 @@ datasets/processed/*
 datasets/annotations/*
 !datasets/annotations/.gitkeep
 !datasets/annotations/README.md
+
+# AI Vision datasets
 ai/vision/datasets/raw/*
 !ai/vision/datasets/raw/.gitkeep
 !ai/vision/datasets/raw/README.md
@@ -135,15 +192,38 @@ ai/vision/datasets/jewelmind_components/*
 !ai/vision/datasets/jewelmind_components/README.md
 ai/vision/datasets/jewellery_v2/*
 !ai/vision/datasets/jewellery_v2/README.md
+!ai/vision/datasets/jewellery_v2/.gitkeep
+ai/vision/datasets/rendering_v2/*
+!ai/vision/datasets/rendering_v2/README.md
+!ai/vision/datasets/rendering_v2/.gitkeep
+!ai/vision/datasets/rendering_v2/DATASET_MANIFEST.json
 ai/vision/datasets/sample/
 ai/vision/datasets/previews/
 *.cache
+
+# --------------------------------------------------
+# Pipelines Outputs, Renders, Logs & Scratch
+# --------------------------------------------------
 outputs/
+**/outputs/
 generated/
-
-
-# Temporary / Scratch
+**/generated/
 scratch/
+**/scratch/
 tmp/
+**/tmp/
 temp/
+**/temp/
+logs/
+**/logs/
 *.log
+*.tfevents.*
+events.out.tfevents.*
+
+# --------------------------------------------------
+# Database Files & SQLite
+# --------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+backend/app.db
