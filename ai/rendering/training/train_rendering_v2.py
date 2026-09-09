@@ -278,10 +278,12 @@ def run_multi_category_validation(
             beta_end=0.012,
             beta_schedule="scaled_linear",
         )
-    eval_scheduler.set_timesteps(num_inference_steps, device=device)
 
     with torch.no_grad():
         for cat_idx, (cat_name, sample) in enumerate(category_samples.items(), start=1):
+            # Reset scheduler state and timesteps cleanly for each validation sample
+            eval_scheduler.set_timesteps(num_inference_steps, device=device)
+
             cond_tensor = sample["conditioning_pixel_values"].unsqueeze(0).to(device, dtype=model_dtype)
             prompt_text = sample.get("prompt", "")
             target_path_str = sample.get("target_path", "")
