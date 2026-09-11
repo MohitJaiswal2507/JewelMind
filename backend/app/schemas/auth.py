@@ -4,12 +4,20 @@ Pydantic Schemas for Authentication and User Management
 
 import uuid
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from typing import Optional, Union
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+try:
+    import email_validator
+    from pydantic import EmailStr
+except ImportError:
+    from pydantic import StringConstraints
+    from typing_extensions import Annotated
+    EmailStr = Annotated[str, StringConstraints(pattern=r"^[^@]+@[^@]+\.[^@]+$")]
 
 
 class UserBase(BaseModel):
-    email: EmailStr = Field(..., description="User email address")
+    email: Union[EmailStr, str] = Field(..., description="User email address")
     full_name: str = Field(..., min_length=2, max_length=100, description="Full name of user")
 
 
@@ -30,7 +38,7 @@ class UserCreate(UserBase):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr = Field(..., description="Registered email address")
+    email: Union[EmailStr, str] = Field(..., description="Registered email address")
     password: str = Field(..., description="User password")
 
     @field_validator("email", mode="after")

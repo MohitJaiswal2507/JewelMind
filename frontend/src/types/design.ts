@@ -9,6 +9,7 @@ export type DesignCategory =
   | 'Bracelet'
   | 'Bangle'
   | 'Pendant'
+  | 'Brooch'
   | 'Other';
 
 export const DESIGN_CATEGORIES: DesignCategory[] = [
@@ -18,6 +19,7 @@ export const DESIGN_CATEGORIES: DesignCategory[] = [
   'Bracelet',
   'Bangle',
   'Pendant',
+  'Brooch',
   'Other',
 ];
 

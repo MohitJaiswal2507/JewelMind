@@ -103,23 +103,33 @@ class JewelleryComponentDetector:
         else:
             self.device_str = f"cuda:{device}" if isinstance(device, int) else str(device)
 
-        # Environment-driven model preference (v1 or v2)
-        model_pref = os.getenv("JEWELRY_VISION_MODEL", "v1").strip().lower()
+        # Environment-driven model preference (defaults to production v2 multi-jewellery model)
+        model_pref = os.getenv("JEWELRY_VISION_MODEL", "v2").strip().lower()
+        env_model_path = os.getenv("JEWELMIND_YOLO_MODEL_PATH") or os.getenv("JEWELMIND_YOLO_PATH")
+        runs_dir = Path(os.getenv("JEWELMIND_RUNS_DIR", str(_ROOT / "runs")))
 
         # Locate model weights
-        candidate_paths = []
+        candidate_paths: List[Union[str, Path]] = []
         if model_path:
             candidate_paths.append(model_path)
+        if env_model_path and env_model_path.strip():
+            candidate_paths.append(env_model_path.strip())
 
-        if model_pref == "v2":
-            candidate_paths.extend([
-                "runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v2/weights/best.pt",
-                "runs/jewellery/yolo11m-seg-jewelmind-v2/weights/best.pt",
-                "runs/jewellery/yolo11s-seg-jewelmind-v2/weights/best.pt",
-            ])
-
-        # Protected baseline V1 candidates
+        # Production Multi-Jewellery V2 Continued Model (Highest Priority)
         candidate_paths.extend([
+            runs_dir / "segment" / "runs" / "segment" / "runs" / "jewellery" / "yolo11m-seg-jewelmind-v2-continued" / "weights" / "best.pt",
+            _ROOT / "runs" / "segment" / "runs" / "segment" / "runs" / "jewellery" / "yolo11m-seg-jewelmind-v2-continued" / "weights" / "best.pt",
+            "runs/segment/runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v2-continued/weights/best.pt",
+            runs_dir / "segment" / "runs" / "jewellery" / "yolo11m-seg-jewelmind-v2" / "weights" / "best.pt",
+            "runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v2/weights/best.pt",
+            "runs/jewellery/yolo11m-seg-jewelmind-v2/weights/best.pt",
+            "runs/jewellery/yolo11s-seg-jewelmind-v2/weights/best.pt",
+        ])
+
+        # Protected baseline V1 candidates (Secondary / Fallback)
+        candidate_paths.extend([
+            runs_dir / "segment" / "runs" / "jewellery" / "yolo11m-seg-jewelmind-v1" / "weights" / "best.pt",
+            _ROOT / "runs" / "segment" / "runs" / "jewellery" / "yolo11m-seg-jewelmind-v1" / "weights" / "best.pt",
             "runs/segment/runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt",
             "runs/jewellery/yolo11m-seg-jewelmind-v1/weights/best.pt",
             "runs/jewellery/yolo11s-seg-jewelmind-v1/weights/best.pt",
@@ -130,8 +140,9 @@ class JewelleryComponentDetector:
 
         resolved_path = None
         for p in candidate_paths:
-            if p and Path(p).exists():
-                resolved_path = str(Path(p).resolve())
+            p_obj = Path(p) if isinstance(p, str) else p
+            if p_obj and p_obj.exists():
+                resolved_path = str(p_obj.resolve())
                 break
 
         if resolved_path:
