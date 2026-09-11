@@ -35,9 +35,9 @@ export const SketchDeleteModal: React.FC<SketchDeleteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-md bg-[#0b0e17] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5"
+        className="w-full max-w-md bg-[#0E111A] border border-white/10 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center space-x-3.5">
@@ -45,16 +45,16 @@ export const SketchDeleteModal: React.FC<SketchDeleteModalProps> = ({
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white tracking-tight">Delete Sketch Image?</h2>
-            <p className="text-xs text-slate-400">This action cannot be undone.</p>
+            <h2 className="font-serif text-lg font-medium text-white tracking-tight">Delete Sketch Blueprint?</h2>
+            <p className="text-xs text-slate-400 font-light">This action cannot be undone.</p>
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 text-xs">
-          <div className="text-slate-400">Target Design:</div>
+        <div className="p-4 rounded-xl bg-[#080A10] border border-white/5 space-y-1.5 text-xs">
+          <div className="text-slate-400 font-light">Target Blueprint:</div>
           <div className="text-sm font-semibold text-white truncate">{designName || 'Jewellery Design'}</div>
-          <p className="text-[11px] text-slate-500 pt-1">
-            The sketch asset will be permanently purged from Supabase Storage. The design record and metadata will remain intact.
+          <p className="text-[11px] text-slate-500 pt-1 font-light">
+            The sketch asset will be permanently purged from cloud storage. The design record and metadata will remain intact.
           </p>
         </div>
 
@@ -70,7 +70,7 @@ export const SketchDeleteModal: React.FC<SketchDeleteModalProps> = ({
             variant="outline"
             onClick={onClose}
             disabled={loading}
-            className="border-slate-700"
+            className="border-white/10"
           >
             Cancel
           </Button>

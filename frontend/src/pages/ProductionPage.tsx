@@ -456,21 +456,21 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       )}
 
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#1E2333]">
         <div>
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500/20 via-amber-400/20 to-yellow-300/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500/20 via-amber-400/20 to-yellow-300/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#E6CA65]">
               <Factory className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <h1 className="text-2xl font-serif font-light tracking-wide text-[#F3F4F6] flex items-center gap-2.5">
                 Production Management
-                <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-400 border-amber-500/30 font-semibold">
+                <Badge variant="outline" className="text-xs bg-[#D4AF37]/10 text-[#E6CA65] border-[#D4AF37]/30 font-semibold">
                   Phase 11
                 </Badge>
               </h1>
               <p className="text-sm text-slate-400">
-                Manufacturing orders, workshop artisans, equipment capacity & deadline tracking.
+                Artisan allocation, precision machinery capacity, and CP-SAT mathematical makespan optimization.
               </p>
             </div>
           </div>
@@ -486,7 +486,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
               fetchWorkers();
               fetchMachines();
             }}
-            className="border-slate-800 hover:bg-slate-800/60 text-slate-300"
+            className="border-[#1E2333] hover:bg-[#161B26]/60 text-slate-300"
           >
             <RefreshCw className="w-4 h-4 mr-1.5" />
             Refresh
@@ -500,7 +500,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 setEditingOrder(null);
                 setIsOrderModalOpen(true);
               }}
-              className="font-semibold shadow-lg shadow-amber-500/10"
+              className="font-semibold shadow-lg shadow-[#D4AF37]/10"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               New Order
@@ -515,7 +515,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 setEditingWorker(null);
                 setIsWorkerModalOpen(true);
               }}
-              className="font-semibold shadow-lg shadow-amber-500/10"
+              className="font-semibold shadow-lg shadow-[#D4AF37]/10"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               Add Artisan
@@ -530,7 +530,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 setEditingMachine(null);
                 setIsMachineModalOpen(true);
               }}
-              className="font-semibold shadow-lg shadow-amber-500/10"
+              className="font-semibold shadow-lg shadow-[#D4AF37]/10"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               Add Machine
@@ -543,7 +543,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
               size="sm"
               onClick={handleRunOptimization}
               disabled={optimizing}
-              className="font-semibold shadow-lg shadow-amber-500/10"
+              className="font-semibold shadow-lg shadow-[#D4AF37]/10"
             >
               {optimizing ? (
                 <>
@@ -563,7 +563,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
       {/* KPI Metrics Dashboard Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
-        <Card className="bg-[#0b0e17]/80 border-slate-800/80 backdrop-blur">
+        <Card className="bg-[#0E111A]/80 border-[#1E2333]/80 backdrop-blur">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Active Orders</p>
@@ -574,13 +574,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 {summary?.pending_orders ?? 0} Pending &bull; {summary?.in_progress_orders ?? 0} In Progress
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#E6CA65]">
               <TrendingUp className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0b0e17]/80 border-slate-800/80 backdrop-blur">
+        <Card className="bg-[#0E111A]/80 border-[#1E2333]/80 backdrop-blur">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Overdue Orders</p>
@@ -591,13 +591,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 {summary?.completed_orders ?? 0} Completed Total
               </p>
             </div>
-            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${summary && summary.overdue_orders > 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-slate-800/50 border-slate-700/50 text-slate-400'}`}>
+            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${summary && summary.overdue_orders > 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-[#161B26]/50 border-[#262C40]/50 text-slate-400'}`}>
               <AlertTriangle className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0b0e17]/80 border-slate-800/80 backdrop-blur">
+        <Card className="bg-[#0E111A]/80 border-[#1E2333]/80 backdrop-blur">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Workshop Artisans</p>
@@ -614,7 +614,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0b0e17]/80 border-slate-800/80 backdrop-blur">
+        <Card className="bg-[#0E111A]/80 border-[#1E2333]/80 backdrop-blur">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Machinery & Tools</p>
@@ -633,18 +633,18 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 border-b border-slate-800 my-6 overflow-x-auto">
+      <div className="flex space-x-1 border-b border-[#1E2333] my-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab('orders')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'orders'
-              ? 'border-amber-400 text-amber-400 bg-amber-400/5'
+              ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
           <Factory className="w-4 h-4" />
           <span>Production Orders</span>
-          <Badge variant="secondary" className="text-[10px] ml-1 bg-slate-800">
+          <Badge variant="secondary" className="text-[10px] ml-1 bg-[#161B26]">
             {totalOrders}
           </Badge>
         </button>
@@ -653,13 +653,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           onClick={() => setActiveTab('workers')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'workers'
-              ? 'border-amber-400 text-amber-400 bg-amber-400/5'
+              ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
           <Users className="w-4 h-4" />
           <span>Workshop Artisans</span>
-          <Badge variant="secondary" className="text-[10px] ml-1 bg-slate-800">
+          <Badge variant="secondary" className="text-[10px] ml-1 bg-[#161B26]">
             {workers.length}
           </Badge>
         </button>
@@ -668,13 +668,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           onClick={() => setActiveTab('machines')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'machines'
-              ? 'border-amber-400 text-amber-400 bg-amber-400/5'
+              ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
           <Cpu className="w-4 h-4" />
           <span>Machinery & Tools</span>
-          <Badge variant="secondary" className="text-[10px] ml-1 bg-slate-800">
+          <Badge variant="secondary" className="text-[10px] ml-1 bg-[#161B26]">
             {machines.length}
           </Badge>
         </button>
@@ -683,13 +683,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           onClick={() => setActiveTab('optimization')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'optimization'
-              ? 'border-amber-400 text-amber-400 bg-amber-400/5'
+              ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Sparkles className="w-4 h-4 text-amber-400" />
+          <Sparkles className="w-4 h-4 text-[#E6CA65]" />
           <span>AI Optimization & Schedule</span>
-          <Badge variant="outline" className="text-[10px] ml-1 bg-amber-500/10 text-amber-300 border-amber-500/30">
+          <Badge variant="outline" className="text-[10px] ml-1 bg-[#D4AF37]/10 text-[#F3DB7C] border-[#D4AF37]/30">
             OR-Tools
           </Badge>
         </button>
@@ -701,7 +701,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {activeTab === 'orders' && (
         <div>
           {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-[#0b0e17]/80 p-3 rounded-xl border border-slate-800/80 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-[#0E111A]/80 p-3 rounded-xl border border-[#1E2333]/80 mb-6">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
@@ -711,7 +711,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   setOrderSearch(e.target.value);
                   setOrderPage(1);
                 }}
-                className="pl-9 bg-[#111625] border-slate-800 text-sm h-9"
+                className="pl-9 bg-[#111625] border-[#1E2333] text-sm h-9"
               />
             </div>
 
@@ -722,7 +722,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   setStatusFilter(e.target.value as OrderStatus | '');
                   setOrderPage(1);
                 }}
-                className="bg-[#111625] border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-amber-500"
+                className="bg-[#111625] border border-[#1E2333] text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37]"
               >
                 <option value="">All Statuses</option>
                 {ORDER_STATUSES.map((s) => (
@@ -738,7 +738,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   setPriorityFilter(e.target.value as OrderPriority | '');
                   setOrderPage(1);
                 }}
-                className="bg-[#111625] border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-amber-500"
+                className="bg-[#111625] border border-[#1E2333] text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37]"
               >
                 <option value="">All Priorities</option>
                 {ORDER_PRIORITIES.map((p) => (
@@ -753,11 +753,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           {/* Orders Table */}
           {loadingOrders ? (
             <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center">
-              <RefreshCw className="w-8 h-8 animate-spin text-amber-400 mb-3" />
+              <RefreshCw className="w-8 h-8 animate-spin text-[#E6CA65] mb-3" />
               <p className="text-sm">Loading production orders...</p>
             </div>
           ) : orders.length === 0 ? (
-            <div className="py-20 text-center bg-[#0b0e17]/50 rounded-2xl border border-slate-800/80 p-8">
+            <div className="py-20 text-center bg-[#0E111A]/50 rounded-2xl border border-[#1E2333]/80 p-8">
               <Factory className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <h3 className="text-base font-semibold text-white">No Production Orders Found</h3>
               <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
@@ -779,10 +779,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-800/80 bg-[#0b0e17]/80 backdrop-blur">
+            <div className="overflow-x-auto rounded-xl border border-[#1E2333]/80 bg-[#0E111A]/80 backdrop-blur">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400 bg-slate-900/40">
+                  <tr className="border-b border-[#1E2333] text-xs uppercase tracking-wider text-slate-400 bg-[#121622]/40">
                     <th className="py-3 px-4">Design Item</th>
                     <th className="py-3 px-4">Quantity</th>
                     <th className="py-3 px-4">Priority</th>
@@ -803,9 +803,9 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     });
 
                     return (
-                      <tr key={order.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={order.id} className="hover:bg-[#161B26]/30 transition-colors">
                         <td className="py-3.5 px-4 font-medium text-white flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-lg bg-[#121622] border border-[#1E2333] overflow-hidden shrink-0 flex items-center justify-center">
                             {order.design_thumbnail_url ? (
                               <img
                                 src={order.design_thumbnail_url}
@@ -825,7 +825,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <span className="font-bold text-amber-300">{order.quantity}</span>{' '}
+                          <span className="font-bold text-[#F3DB7C]">{order.quantity}</span>{' '}
                           <span className="text-xs text-slate-500">units</span>
                         </td>
 
@@ -866,7 +866,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                                 setEditingOrder(order);
                                 setIsOrderModalOpen(true);
                               }}
-                              className="h-8 w-8 p-0 text-slate-400 hover:text-amber-400"
+                              className="h-8 w-8 p-0 text-slate-400 hover:text-[#E6CA65]"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
@@ -903,11 +903,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
         <div>
           {loadingWorkers ? (
             <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center">
-              <RefreshCw className="w-8 h-8 animate-spin text-amber-400 mb-3" />
+              <RefreshCw className="w-8 h-8 animate-spin text-[#E6CA65] mb-3" />
               <p className="text-sm">Loading artisan roster...</p>
             </div>
           ) : workers.length === 0 ? (
-            <div className="py-20 text-center bg-[#0b0e17]/50 rounded-2xl border border-slate-800/80 p-8">
+            <div className="py-20 text-center bg-[#0E111A]/50 rounded-2xl border border-[#1E2333]/80 p-8">
               <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <h3 className="text-base font-semibold text-white">No Workshop Artisans Registered</h3>
               <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
@@ -932,10 +932,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 const skillObj = WORKER_SKILLS.find((s) => s.value === worker.skill);
 
                 return (
-                  <Card key={worker.id} className="bg-[#0b0e17]/80 border-slate-800 hover:border-slate-700 transition-all">
+                  <Card key={worker.id} className="bg-[#0E111A]/80 border-[#1E2333] hover:border-[#262C40] transition-all">
                     <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold">
+                        <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#E6CA65] font-bold">
                           {worker.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -954,7 +954,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                             setEditingWorker(worker);
                             setIsWorkerModalOpen(true);
                           }}
-                          className="h-8 w-8 p-0 text-slate-400 hover:text-amber-400"
+                          className="h-8 w-8 p-0 text-slate-400 hover:text-[#E6CA65]"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </Button>
@@ -976,10 +976,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     </CardHeader>
 
                     <CardContent className="p-4 pt-2">
-                      <div className="bg-slate-900/60 rounded-lg p-3 my-2 border border-slate-800/80 flex items-center justify-between">
+                      <div className="bg-[#121622]/60 rounded-lg p-3 my-2 border border-[#1E2333]/80 flex items-center justify-between">
                         <div>
                           <p className="text-[11px] text-slate-500 uppercase tracking-wider">Productive Capacity</p>
-                          <p className="text-base font-bold text-amber-300 mt-0.5">
+                          <p className="text-base font-bold text-[#F3DB7C] mt-0.5">
                             {worker.capacity_hours_per_day}{' '}
                             <span className="text-xs font-normal text-slate-400">hours / day</span>
                           </p>
@@ -990,7 +990,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                           className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                             worker.is_available
                               ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
-                              : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                              : 'bg-[#161B26] text-slate-400 border-[#262C40] hover:bg-slate-700'
                           }`}
                         >
                           <span className={`w-2 h-2 rounded-full ${worker.is_available ? 'bg-emerald-400' : 'bg-slate-500'}`} />
@@ -1017,7 +1017,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
               <p className="text-sm">Loading equipment registry...</p>
             </div>
           ) : machines.length === 0 ? (
-            <div className="py-20 text-center bg-[#0b0e17]/50 rounded-2xl border border-slate-800/80 p-8">
+            <div className="py-20 text-center bg-[#0E111A]/50 rounded-2xl border border-[#1E2333]/80 p-8">
               <Cpu className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <h3 className="text-base font-semibold text-white">No Workshop Machinery Registered</h3>
               <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
@@ -1042,7 +1042,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 const typeObj = MACHINE_TYPES.find((t) => t.value === machine.machine_type);
 
                 return (
-                  <Card key={machine.id} className="bg-[#0b0e17]/80 border-slate-800 hover:border-slate-700 transition-all">
+                  <Card key={machine.id} className="bg-[#0E111A]/80 border-[#1E2333] hover:border-[#262C40] transition-all">
                     <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 font-bold">
@@ -1086,7 +1086,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     </CardHeader>
 
                     <CardContent className="p-4 pt-2">
-                      <div className="bg-slate-900/60 rounded-lg p-3 my-2 border border-slate-800/80 flex items-center justify-between">
+                      <div className="bg-[#121622]/60 rounded-lg p-3 my-2 border border-[#1E2333]/80 flex items-center justify-between">
                         <div>
                           <p className="text-[11px] text-slate-500 uppercase tracking-wider">Operational Capacity</p>
                           <p className="text-base font-bold text-purple-300 mt-0.5">
@@ -1121,11 +1121,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {activeTab === 'optimization' && (
         <div className="space-y-6">
           {/* Optimization Controls & Schedule Selector Bar */}
-          <div className="bg-[#0b0e17]/80 p-5 rounded-2xl border border-slate-800/80 backdrop-blur shadow-xl">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+          <div className="bg-[#0E111A]/80 p-5 rounded-2xl border border-[#1E2333]/80 backdrop-blur shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#1E2333]/80">
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <Sparkles className="w-5 h-5 text-[#E6CA65]" />
                   Google OR-Tools CP-SAT Production Optimizer
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -1151,7 +1151,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                       }
                     }
                   }}
-                  className="bg-[#111625] border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-amber-500 max-w-xs truncate"
+                  className="bg-[#111625] border border-[#1E2333] text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37] max-w-xs truncate"
                 >
                   {schedules.length === 0 ? (
                     <option value="">No saved schedules</option>
@@ -1186,13 +1186,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                  <Calendar className="w-3.5 h-3.5 text-[#E6CA65]" />
                   Planning Horizon (Days)
                 </label>
                 <select
                   value={horizonDays}
                   onChange={(e) => setHorizonDays(parseInt(e.target.value, 10))}
-                  className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-amber-500"
+                  className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-[#D4AF37]"
                 >
                   <option value={3}>3 Days (Express Run)</option>
                   <option value={7}>7 Days (1 Week)</option>
@@ -1204,13 +1204,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                  <Timer className="w-3.5 h-3.5 text-amber-400" />
+                  <Timer className="w-3.5 h-3.5 text-[#E6CA65]" />
                   Solver Time Limit
                 </label>
                 <select
                   value={timeLimitSec}
                   onChange={(e) => setTimeLimitSec(parseInt(e.target.value, 10))}
-                  className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-amber-500"
+                  className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-xs rounded-lg px-3 py-2.5 outline-none focus:border-[#D4AF37]"
                 >
                   <option value={5}>5 Seconds (Fast)</option>
                   <option value={10}>10 Seconds (Recommended)</option>
@@ -1220,14 +1220,14 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                  <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                  <Sliders className="w-3.5 h-3.5 text-[#E6CA65]" />
                   Schedule Name (Optional)
                 </label>
                 <Input
                   placeholder="e.g. Diwali Rush 2026 Run A"
                   value={optScheduleName}
                   onChange={(e) => setOptScheduleName(e.target.value)}
-                  className="bg-[#111625] border-slate-800 text-xs h-9"
+                  className="bg-[#111625] border-[#1E2333] text-xs h-9"
                 />
               </div>
 
@@ -1237,7 +1237,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   size="sm"
                   onClick={handleRunOptimization}
                   disabled={optimizing}
-                  className="w-full h-9 font-semibold shadow-lg shadow-amber-500/20 text-xs flex items-center justify-center space-x-2"
+                  className="w-full h-9 font-semibold shadow-lg shadow-[#D4AF37]/20 text-xs flex items-center justify-center space-x-2"
                 >
                   {optimizing ? (
                     <>
@@ -1288,7 +1288,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           {/* KPI Dashboard for Active / Optimized Schedule */}
           {(activeSchedule || optimizationResult?.metrics) && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <Card className="bg-[#0b0e17]/80 border-slate-800">
+              <Card className="bg-[#0E111A]/80 border-[#1E2333]">
                 <CardContent className="p-3.5">
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Status</p>
                   <div className="mt-1">
@@ -1308,10 +1308,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#0b0e17]/80 border-slate-800">
+              <Card className="bg-[#0E111A]/80 border-[#1E2333]">
                 <CardContent className="p-3.5">
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Makespan</p>
-                  <h3 className="text-lg font-bold text-amber-300 mt-1">
+                  <h3 className="text-lg font-bold text-[#F3DB7C] mt-1">
                     {activeSchedule?.makespan_hours ?? optimizationResult?.metrics?.makespan_hours ?? 0}h
                   </h3>
                   <p className="text-[10px] text-slate-500">
@@ -1320,7 +1320,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#0b0e17]/80 border-slate-800">
+              <Card className="bg-[#0E111A]/80 border-[#1E2333]">
                 <CardContent className="p-3.5">
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Scheduled Tasks</p>
                   <h3 className="text-lg font-bold text-white mt-1">
@@ -1332,7 +1332,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#0b0e17]/80 border-slate-800">
+              <Card className="bg-[#0E111A]/80 border-[#1E2333]">
                 <CardContent className="p-3.5">
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Artisan Utilization</p>
                   <h3 className="text-lg font-bold text-blue-300 mt-1">
@@ -1340,7 +1340,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                       ? `${(activeSchedule?.worker_utilization_pct ?? optimizationResult?.metrics?.worker_utilization_pct ?? 0).toFixed(1)}%`
                       : 'Active'}
                   </h3>
-                  <div className="w-full bg-slate-800 h-1 rounded-full mt-1.5 overflow-hidden">
+                  <div className="w-full bg-[#161B26] h-1 rounded-full mt-1.5 overflow-hidden">
                     <div
                       className="bg-blue-400 h-full rounded-full transition-all"
                       style={{
@@ -1351,7 +1351,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#0b0e17]/80 border-slate-800">
+              <Card className="bg-[#0E111A]/80 border-[#1E2333]">
                 <CardContent className="p-3.5">
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Machine Utilization</p>
                   <h3 className="text-lg font-bold text-purple-300 mt-1">
@@ -1359,7 +1359,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                       ? `${(activeSchedule?.machine_utilization_pct ?? optimizationResult?.metrics?.machine_utilization_pct ?? 0).toFixed(1)}%`
                       : 'Active'}
                   </h3>
-                  <div className="w-full bg-slate-800 h-1 rounded-full mt-1.5 overflow-hidden">
+                  <div className="w-full bg-[#161B26] h-1 rounded-full mt-1.5 overflow-hidden">
                     <div
                       className="bg-purple-400 h-full rounded-full transition-all"
                       style={{
@@ -1370,7 +1370,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-[#0b0e17]/80 border-slate-800">
+              <Card className="bg-[#0E111A]/80 border-[#1E2333]">
                 <CardContent className="p-3.5">
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">Solver Runtime</p>
                   <h3 className="text-lg font-bold text-slate-200 mt-1">
@@ -1384,21 +1384,21 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
           {/* Timeline / Gantt Swimlane View */}
           {activeSchedule && activeSchedule.tasks && activeSchedule.tasks.length > 0 ? (
-            <div className="bg-[#0b0e17]/80 rounded-2xl border border-slate-800/80 p-5 backdrop-blur shadow-2xl space-y-4">
+            <div className="bg-[#0E111A]/80 rounded-2xl border border-[#1E2333]/80 p-5 backdrop-blur shadow-2xl space-y-4">
               {/* Timeline Header & Group Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1E2333]">
                 <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-amber-400" />
+                  <Calendar className="w-4 h-4 text-[#E6CA65]" />
                   <h3 className="text-sm font-bold text-white">Interactive Production Timeline (Gantt)</h3>
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <span className="text-xs text-slate-400">Group Swimlanes By:</span>
-                  <div className="inline-flex rounded-lg bg-[#111625] p-0.5 border border-slate-800">
+                  <div className="inline-flex rounded-lg bg-[#111625] p-0.5 border border-[#1E2333]">
                     <button
                       onClick={() => setTimelineGroupBy('worker')}
                       className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                        timelineGroupBy === 'worker' ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-white'
+                        timelineGroupBy === 'worker' ? 'bg-[#D4AF37]/20 text-[#F3DB7C]' : 'text-slate-400 hover:text-white'
                       }`}
                     >
                       Artisans
@@ -1490,11 +1490,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   <div className="overflow-x-auto">
                     <div className="min-w-[800px]">
                       {/* Timeline Day Header */}
-                      <div className="grid grid-cols-12 gap-0 border-b border-slate-800 pb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      <div className="grid grid-cols-12 gap-0 border-b border-[#1E2333] pb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                         <div className="col-span-3">Resource / Swimlane</div>
                         <div className="col-span-9 grid grid-flow-col auto-cols-fr gap-1 text-center">
                           {Array.from({ length: totalDays }).map((_, d) => (
-                            <div key={d} className="bg-slate-900/60 rounded py-1 border border-slate-800/80">
+                            <div key={d} className="bg-[#121622]/60 rounded py-1 border border-[#1E2333]/80">
                               Day {d + 1}
                               <span className="block text-[9px] text-slate-500 font-normal">
                                 {d * 24}h - {(d + 1) * 24}h
@@ -1507,7 +1507,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                       {/* Swimlane Rows */}
                       <div className="divide-y divide-slate-800/60 mt-2">
                         {Object.entries(groups).map(([groupId, group]) => (
-                          <div key={groupId} className="grid grid-cols-12 gap-0 py-3 items-center hover:bg-slate-900/30 transition-colors">
+                          <div key={groupId} className="grid grid-cols-12 gap-0 py-3 items-center hover:bg-[#121622]/30 transition-colors">
                             {/* Swimlane Label */}
                             <div className="col-span-3 pr-4">
                               <p className="text-xs font-bold text-white truncate">{group.label}</p>
@@ -1515,7 +1515,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                             </div>
 
                             {/* Task Track */}
-                            <div className="col-span-9 relative h-12 bg-slate-950/40 rounded-lg border border-slate-800/50 overflow-hidden">
+                            <div className="col-span-9 relative h-12 bg-slate-950/40 rounded-lg border border-[#1E2333]/50 overflow-hidden">
                               {/* Background Day Guides */}
                               <div className="absolute inset-0 grid grid-flow-col auto-cols-fr pointer-events-none divide-x divide-slate-800/20">
                                 {Array.from({ length: totalDays }).map((_, d) => (
@@ -1531,7 +1531,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                                 const widthPct = Math.max(((endH - startH) / (totalDays * 24)) * 100, 3);
 
                                 const opColors: Record<string, string> = {
-                                  casting: 'from-amber-600/80 to-amber-500/80 border-amber-400/50 text-amber-100',
+                                  casting: 'from-amber-600/80 to-amber-500/80 border-[#D4AF37]/50 text-amber-100',
                                   stone_setting: 'from-blue-600/80 to-cyan-500/80 border-cyan-400/50 text-cyan-100',
                                   polishing: 'from-purple-600/80 to-pink-500/80 border-pink-400/50 text-pink-100',
                                   finishing: 'from-emerald-600/80 to-teal-500/80 border-emerald-400/50 text-emerald-100',
@@ -1571,8 +1571,8 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
               })()}
             </div>
           ) : (
-            <div className="py-20 text-center bg-[#0b0e17]/50 rounded-2xl border border-slate-800/80 p-8">
-              <Sparkles className="w-12 h-12 text-amber-400/60 mx-auto mb-3" />
+            <div className="py-20 text-center bg-[#0E111A]/50 rounded-2xl border border-[#1E2333]/80 p-8">
+              <Sparkles className="w-12 h-12 text-[#E6CA65]/60 mx-auto mb-3" />
               <h3 className="text-base font-semibold text-white">No Schedule Generated Yet</h3>
               <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
                 Select your planning horizon and time limit above, then click &quot;Run Production Solver&quot; to compute an optimal manufacturing schedule.
@@ -1593,10 +1593,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           {/* Task Detail Modal */}
           {selectedTaskDetail && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-              <div className="bg-[#0b0e17] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="bg-[#0E111A] border border-[#1E2333] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-[#1E2333] pb-3">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-amber-400" />
+                    <Layers className="w-4 h-4 text-[#E6CA65]" />
                     Operation Details: {selectedTaskDetail.operation_name}
                   </h3>
                   <button onClick={() => setSelectedTaskDetail(null)} className="text-slate-400 hover:text-white">
@@ -1605,33 +1605,33 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Design Item:</span>
                     <span className="font-bold text-white">{selectedTaskDetail.design_name || 'Jewellery Design'}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Batch Quantity:</span>
-                    <span className="font-bold text-amber-300">{selectedTaskDetail.quantity} units</span>
+                    <span className="font-bold text-[#F3DB7C]">{selectedTaskDetail.quantity} units</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Sequence Stage:</span>
                     <span className="font-bold text-white">Step {selectedTaskDetail.sequence_order}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Assigned Artisan:</span>
                     <span className="font-bold text-blue-300">{selectedTaskDetail.worker_name || 'Unassigned'}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Assigned Equipment:</span>
                     <span className="font-bold text-purple-300">{selectedTaskDetail.machine_name || 'Manual Bench'}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Start Time:</span>
                     <span className="font-mono text-white">
                       {new Date(selectedTaskDetail.start_time).toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
+                  <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">End Time:</span>
                     <span className="font-mono text-white">
                       {new Date(selectedTaskDetail.end_time).toLocaleString()}
@@ -1639,7 +1639,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   </div>
                   <div className="flex justify-between py-1">
                     <span className="text-slate-400">Duration:</span>
-                    <span className="font-bold text-amber-400">{selectedTaskDetail.duration_hours} hours</span>
+                    <span className="font-bold text-[#E6CA65]">{selectedTaskDetail.duration_hours} hours</span>
                   </div>
                 </div>
 
@@ -1659,10 +1659,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {/* ===================================================================== */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#0b0e17] border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-[#0E111A] border border-[#1E2333] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-[#1E2333] flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Factory className="w-5 h-5 text-amber-400" />
+                <Factory className="w-5 h-5 text-[#E6CA65]" />
                 {editingOrder ? 'Edit Production Order' : 'Create Production Order'}
               </h3>
               <button
@@ -1683,14 +1683,14 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     Associated Jewellery Design <span className="text-rose-400">*</span>
                   </label>
                   {userDesigns.length === 0 ? (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-300">
+                    <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3 text-xs text-[#F3DB7C]">
                       No saved designs found. Please create a design in the Studio first.
                     </div>
                   ) : (
                     <select
                       name="design_id"
                       required
-                      className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-amber-500"
+                      className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-[#D4AF37]"
                     >
                       <option value="">-- Choose a jewellery design --</option>
                       {userDesigns.map((d) => (
@@ -1714,7 +1714,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     min="1"
                     defaultValue={editingOrder?.quantity ?? 1}
                     required
-                    className="bg-[#111625] border-slate-800"
+                    className="bg-[#111625] border-[#1E2333]"
                   />
                 </div>
 
@@ -1725,7 +1725,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   <select
                     name="priority"
                     defaultValue={editingOrder?.priority ?? 'medium'}
-                    className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-amber-500 h-10"
+                    className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37] h-10"
                   >
                     {ORDER_PRIORITIES.map((p) => (
                       <option key={p.value} value={p.value}>
@@ -1744,7 +1744,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   <select
                     name="status"
                     defaultValue={editingOrder?.status ?? 'pending'}
-                    className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-amber-500 h-10"
+                    className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37] h-10"
                   >
                     {ORDER_STATUSES.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -1767,7 +1767,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                         ? new Date(editingOrder.deadline).toISOString().split('T')[0]
                         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
                     }
-                    className="bg-[#111625] border-slate-800 text-sm"
+                    className="bg-[#111625] border-[#1E2333] text-sm"
                   />
                 </div>
               </div>
@@ -1781,11 +1781,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   rows={3}
                   placeholder="Special client requirements, metal alloy karatage, pavé specifications..."
                   defaultValue={editingOrder?.notes ?? ''}
-                  className="bg-[#111625] border-slate-800 text-sm"
+                  className="bg-[#111625] border-[#1E2333] text-sm"
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end space-x-3 pt-4 border-t border-[#1E2333]">
                 <Button
                   type="button"
                   variant="outline"
@@ -1811,10 +1811,10 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {/* ===================================================================== */}
       {isWorkerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#0b0e17] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-[#0E111A] border border-[#1E2333] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-[#1E2333] flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-amber-400" />
+                <Users className="w-5 h-5 text-[#E6CA65]" />
                 {editingWorker ? 'Edit Artisan Profile' : 'Add Workshop Artisan'}
               </h3>
               <button
@@ -1838,7 +1838,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   placeholder="e.g. Anand Verma"
                   defaultValue={editingWorker?.name ?? ''}
                   required
-                  className="bg-[#111625] border-slate-800"
+                  className="bg-[#111625] border-[#1E2333]"
                 />
               </div>
 
@@ -1849,7 +1849,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 <select
                   name="skill"
                   defaultValue={editingWorker?.skill ?? 'stone_setting'}
-                  className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-amber-500 h-10"
+                  className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37] h-10"
                 >
                   {WORKER_SKILLS.map((s) => (
                     <option key={s.value} value={s.value}>
@@ -1871,7 +1871,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   max="24"
                   defaultValue={editingWorker?.capacity_hours_per_day ?? 8.0}
                   required
-                  className="bg-[#111625] border-slate-800"
+                  className="bg-[#111625] border-[#1E2333]"
                 />
               </div>
 
@@ -1881,14 +1881,14 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   id="worker_available"
                   name="is_available"
                   defaultChecked={editingWorker?.is_available ?? true}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500"
+                  className="w-4 h-4 rounded border-[#262C40] bg-[#121622] text-[#D4AF37] focus:ring-amber-500"
                 />
                 <label htmlFor="worker_available" className="text-sm font-medium text-slate-300">
                   Currently active and present in workshop
                 </label>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end space-x-3 pt-4 border-t border-[#1E2333]">
                 <Button
                   type="button"
                   variant="outline"
@@ -1914,8 +1914,8 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {/* ===================================================================== */}
       {isMachineModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#0b0e17] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-[#0E111A] border border-[#1E2333] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-[#1E2333] flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-purple-400" />
                 {editingMachine ? 'Edit Machine Details' : 'Register Workshop Machine'}
@@ -1941,7 +1941,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   placeholder="e.g. Sisma Fiber Laser Marking System"
                   defaultValue={editingMachine?.name ?? ''}
                   required
-                  className="bg-[#111625] border-slate-800"
+                  className="bg-[#111625] border-[#1E2333]"
                 />
               </div>
 
@@ -1952,7 +1952,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                 <select
                   name="machine_type"
                   defaultValue={editingMachine?.machine_type ?? 'laser_engraver'}
-                  className="w-full bg-[#111625] border border-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-amber-500 h-10"
+                  className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-[#D4AF37] h-10"
                 >
                   {MACHINE_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -1974,7 +1974,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   max="24"
                   defaultValue={editingMachine?.capacity_hours_per_day ?? 8.0}
                   required
-                  className="bg-[#111625] border-slate-800"
+                  className="bg-[#111625] border-[#1E2333]"
                 />
               </div>
 
@@ -1984,14 +1984,14 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                   id="machine_available"
                   name="is_available"
                   defaultChecked={editingMachine?.is_available ?? true}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-purple-500 focus:ring-purple-500"
+                  className="w-4 h-4 rounded border-[#262C40] bg-[#121622] text-purple-500 focus:ring-purple-500"
                 />
                 <label htmlFor="machine_available" className="text-sm font-medium text-slate-300">
                   Operational and ready for manufacturing runs
                 </label>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end space-x-3 pt-4 border-t border-[#1E2333]">
                 <Button
                   type="button"
                   variant="outline"
@@ -2017,7 +2017,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {/* ===================================================================== */}
       {deletingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#0b0e17] border border-rose-900/50 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center">
+          <div className="bg-[#0E111A] border border-rose-900/50 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto mb-4">
               <AlertTriangle className="w-6 h-6" />
             </div>

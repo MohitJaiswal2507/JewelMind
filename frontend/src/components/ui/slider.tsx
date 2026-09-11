@@ -23,12 +23,12 @@ export const Slider: React.FC<SliderProps> = ({
   const percentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
 
   return (
-    <div className={cn('relative flex items-center select-none touch-none w-full h-5', className)}>
+    <div className={cn('relative flex items-center select-none touch-none w-full h-5 group', className)}>
       {/* Background Track */}
-      <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+      <div className="relative w-full h-1.5 bg-[#161B26] border border-white/5 rounded-full overflow-hidden">
         {/* Filled Range */}
         <div
-          className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all"
+          className="h-full bg-gradient-to-r from-amber-500/80 via-amber-400 to-yellow-300 rounded-full transition-all"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -42,15 +42,15 @@ export const Slider: React.FC<SliderProps> = ({
         value={value}
         disabled={disabled}
         onChange={(e) => onValueChange && onValueChange(parseFloat(e.target.value))}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
         {...props}
       />
 
       {/* Visual Thumb */}
       <div
         className={cn(
-          'absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-amber-400 border-2 border-[#0b0f19] rounded-full shadow-md pointer-events-none transition-transform duration-75',
-          'group-hover:scale-110'
+          'absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-gradient-to-tr from-amber-400 to-yellow-200 border-2 border-[#0E111A] rounded-full shadow-lg shadow-amber-500/20 pointer-events-none transition-transform duration-100',
+          'group-hover:scale-115'
         )}
         style={{ left: `calc(${percentage}% - 8px)` }}
       />

@@ -25,9 +25,9 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
   onSelectCategory,
 }) => {
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#050811] p-4 sm:p-6 space-y-5">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#08090D] p-5 sm:p-7 space-y-6">
       {/* Top Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.07]">
         {/* Search Field */}
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -35,8 +35,8 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by title, category, or SKU..."
-            className="pl-9 bg-slate-900/80 border-slate-800 text-xs text-white placeholder:text-slate-500 rounded-xl"
+            placeholder="Search lookbook by title, category, or SKU..."
+            className="pl-9.5 bg-[#0E111A] border-white/10 text-xs text-white placeholder:text-slate-500 rounded-xl focus-visible:ring-amber-400/50"
           />
         </div>
 
@@ -46,10 +46,10 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
             <button
               key={cat}
               onClick={() => onSelectCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                  : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700'
+                  ? 'bg-amber-400/20 text-amber-200 border border-amber-400/40 shadow-sm'
+                  : 'bg-[#0E111A] text-slate-400 border border-white/5 hover:text-white hover:border-white/15'
               }`}
             >
               {cat}
@@ -60,10 +60,10 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
 
       {/* Dynamic Header & Count */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
-          Studio Files <span className="text-amber-400 font-mono">({items.length})</span>
+        <h2 className="text-base font-serif font-medium text-white tracking-wide">
+          Atelier Lookbook <span className="text-amber-300 font-mono text-xs font-normal">({items.length} Assets)</span>
         </h2>
-        <span className="text-[11px] text-slate-400">Showing creative media assets & sketches</span>
+        <span className="text-[11px] text-slate-400 font-light">Fine jewellery blueprints & photorealistic prototypes</span>
       </div>
 
       {/* Media Grid Stream */}
@@ -71,13 +71,13 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-3 text-slate-500">
             <ImageOff className="w-12 h-12 text-slate-600" />
-            <div className="text-sm font-semibold text-slate-300">No Studio Media Found</div>
-            <p className="text-xs text-slate-500 max-w-sm text-center">
+            <div className="text-sm font-serif font-medium text-slate-300">No Studio Media Found</div>
+            <p className="text-xs text-slate-500 max-w-sm text-center font-light">
               No matching jewellery media assets found for your search filters. Upload or draw a sketch to populate your Studio.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-5 pb-8">
             {items.map((item) => (
               <StudioMediaCard
                 key={item.id}

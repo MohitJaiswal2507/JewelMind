@@ -117,7 +117,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
       }
 
       setDesign(updatedDesign);
-      setFeedback({ type: 'success', message: 'Sketch blueprint saved to Supabase Storage successfully.' });
+      setFeedback({ type: 'success', message: 'Blueprint synced to Atelier cloud storage successfully.' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save sketch.';
       setFeedback({ type: 'error', message: msg });
@@ -135,7 +135,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const filename = `${design.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-sketch.png`;
+      const filename = `${design.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-blueprint.png`;
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
@@ -143,7 +143,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setFeedback({ type: 'success', message: `Exported clean sketch as ${filename}` });
+      setFeedback({ type: 'success', message: `Exported clean blueprint as ${filename}` });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to export sketch.';
       setFeedback({ type: 'error', message: msg });
@@ -155,14 +155,13 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
     const file = e.target.files?.[0];
     if (file && canvasRef.current) {
       canvasRef.current.loadFile(file);
-      setFeedback({ type: 'success', message: `Loaded reference image "${file.name}" onto canvas.` });
+      setFeedback({ type: 'success', message: `Loaded reference blueprint "${file.name}" onto canvas.` });
     }
   };
 
   // Global Workspace Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing inside text input/textarea
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea') return;
 
@@ -203,8 +202,8 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] space-y-4 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
-        <span className="text-xs">Initializing jewellery design canvas...</span>
+        <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
+        <span className="text-xs font-light">Initializing jewellery drawing desk...</span>
       </div>
     );
   }
@@ -212,8 +211,8 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
   if (error || !design) {
     return (
       <div className="max-w-xl mx-auto py-16 space-y-4">
-        <Button variant="outline" size="sm" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Designs
+        <Button variant="outline" size="sm" onClick={onBack} className="border-white/10 text-xs">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Catalogue
         </Button>
         <div className="p-5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2.5">
           <AlertCircle className="w-5 h-5 shrink-0" />
@@ -224,7 +223,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 top-[65px] z-40 bg-[#050811] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 top-[72px] z-40 bg-[#08090D] flex flex-col overflow-hidden">
       {/* Hidden File Picker */}
       <input
         ref={fileInputRef}
@@ -269,9 +268,9 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
       {/* Feedback Toast */}
       {feedback && (
         <div
-          className={`absolute top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-150 ${
+          className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-150 ${
             feedback.type === 'success'
-              ? 'bg-emerald-500 text-slate-950 border border-emerald-300'
+              ? 'bg-amber-400 text-slate-950 border border-amber-300'
               : 'bg-rose-600 text-white border border-rose-400'
           }`}
         >
@@ -280,7 +279,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         </div>
       )}
 
-      {/* Main Workspace Body: Split between Canvas (75%) and Chat Panel (25%) */}
+      {/* Main Workspace Body */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Drawing Surface Area */}
         <div className="flex-1 h-full relative overflow-hidden">
@@ -304,7 +303,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         </div>
 
         {/* Right-Side Chat & Diffusion Studio Panel */}
-        <div className="w-full md:w-[320px] lg:w-[380px] h-[340px] md:h-full shrink-0 shadow-2xl border-t md:border-t-0 border-slate-800">
+        <div className="w-full md:w-[320px] lg:w-[380px] h-[340px] md:h-full shrink-0 shadow-2xl border-t md:border-t-0 border-white/[0.07]">
           <DesignChatPanel
             initialPrompt={prompt}
             onPromptChange={setPrompt}

@@ -87,7 +87,6 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   // Dynamic counts for sidebar collections
   const collectionCounts = useMemo(() => {
     const total = allMediaItems.length;
-    // Partition into collections based on month/index deterministically
     const summer = allMediaItems.filter((_, i) => i % 3 === 0).length;
     const spring = allMediaItems.filter((_, i) => i % 3 === 1).length;
     const winter = allMediaItems.filter((_, i) => i % 3 === 2).length;
@@ -111,7 +110,6 @@ export const StudioPage: React.FC<StudioPageProps> = ({
       if (activeSection === 'trash') {
         if (item.status !== 'archived') return false;
       } else if (activeSection === 'recent') {
-        // Only items created in the last 7 days or top 4
         if (index > 4) return false;
       }
 
@@ -142,7 +140,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 top-[65px] z-30 bg-[#050811] flex overflow-hidden">
+    <div className="fixed inset-0 top-[72px] z-30 bg-[#08090D] flex overflow-hidden">
       {/* Left Sidebar */}
       <StudioSidebar
         activeSection={activeSection}
@@ -157,8 +155,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full space-y-3 text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
-            <span className="text-xs">Loading Studio media library...</span>
+            <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
+            <span className="text-xs font-light">Loading Atelier Lookbook...</span>
           </div>
         ) : error ? (
           <div className="p-6 max-w-lg mx-auto my-12 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center space-x-2.5">

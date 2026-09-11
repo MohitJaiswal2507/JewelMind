@@ -62,12 +62,13 @@ interface CanvasToolbarProps {
 
 const PRESET_COLORS = [
   { name: 'Charcoal Noir', value: '#1e293b' },
-  { name: '24K Yellow Gold', value: '#d97706' },
+  { name: '18K Yellow Gold', value: '#d4af37' },
   { name: 'Rose Gold', value: '#f43f5e' },
-  { name: 'Platinum Silver', value: '#64748b' },
-  { name: 'Emerald Green', value: '#059669' },
-  { name: 'Royal Sapphire', value: '#2563eb' },
-  { name: 'Ruby Crimson', value: '#dc2626' },
+  { name: 'Platinum Silver', value: '#94a3b8' },
+  { name: 'Colombian Emerald', value: '#059669' },
+  { name: 'Royal Ceylon Sapphire', value: '#2563eb' },
+  { name: 'Burmese Ruby', value: '#dc2626' },
+  { name: 'Deep Onyx', value: '#0f172a' },
 ];
 
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
@@ -104,7 +105,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   const [showBrushSizePopover, setShowBrushSizePopover] = useState(false);
 
   return (
-    <div className="w-full bg-[#0a0d14] border-b border-slate-800/90 px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-slate-200 select-none shadow-md">
+    <div className="w-full bg-[#0A0C12] border-b border-white/[0.07] px-3.5 py-2 flex flex-wrap items-center justify-between gap-3 text-slate-200 select-none shadow-xl">
       {/* Left Side: Creative Tools */}
       <div className="flex items-center space-x-1 sm:space-x-1.5 flex-wrap">
         {/* Selection / Cursor */}
@@ -133,7 +134,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Button>
         </Tooltip>
 
-        <div className="w-px h-5 bg-slate-800 mx-1" />
+        <div className="w-px h-5 bg-white/10 mx-1" />
 
         {/* Brush */}
         <Tooltip content="Freehand Brush (B)">
@@ -213,7 +214,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Button>
         </Tooltip>
 
-        <div className="w-px h-5 bg-slate-800 mx-1" />
+        <div className="w-px h-5 bg-white/10 mx-1" />
 
         {/* Color Popover */}
         <div className="relative">
@@ -223,11 +224,11 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 setShowColorPopover(!showColorPopover);
                 setShowBrushSizePopover(false);
               }}
-              className="flex items-center space-x-1 px-2 py-1 h-8 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition"
+              className="flex items-center space-x-1.5 px-2 py-1 h-8 rounded-lg bg-[#0E111A] border border-white/10 hover:border-amber-400/30 transition cursor-pointer"
               aria-label="Color Palette"
             >
               <div
-                className="w-4 h-4 rounded-full border border-slate-600 shadow-inner"
+                className="w-4 h-4 rounded-full border border-white/20 shadow-inner"
                 style={{ backgroundColor: strokeColor }}
               />
               <Palette className="w-3.5 h-3.5 text-slate-400" />
@@ -235,8 +236,8 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Tooltip>
 
           {showColorPopover && (
-            <div className="absolute left-0 top-10 z-50 p-3 bg-[#0d121f] border border-slate-800 rounded-xl shadow-2xl space-y-2.5 w-52 animate-in fade-in zoom-in-95">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Jewellery Palette</div>
+            <div className="absolute left-0 top-10 z-50 p-3.5 bg-[#0E111A] border border-white/10 rounded-xl shadow-2xl space-y-2.5 w-56 animate-in fade-in zoom-in-95 backdrop-blur-xl">
+              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Jewellery Palette</div>
               <div className="grid grid-cols-4 gap-2">
                 {PRESET_COLORS.map((c) => (
                   <button
@@ -247,13 +248,13 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                     }}
                     title={c.name}
                     className={`w-8 h-8 rounded-lg border-2 transition ${
-                      strokeColor === c.value ? 'border-amber-400 scale-110' : 'border-slate-800 hover:scale-105'
+                      strokeColor === c.value ? 'border-amber-400 scale-110' : 'border-white/10 hover:scale-105'
                     }`}
                     style={{ backgroundColor: c.value }}
                   />
                 ))}
               </div>
-              <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
                 <span>Custom:</span>
                 <input
                   type="color"
@@ -274,7 +275,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 setShowBrushSizePopover(!showBrushSizePopover);
                 setShowColorPopover(false);
               }}
-              className="flex items-center space-x-1.5 px-2 py-1 h-8 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-mono text-slate-300"
+              className="flex items-center space-x-1.5 px-2.5 py-1 h-8 rounded-lg bg-[#0E111A] border border-white/10 hover:border-amber-400/30 text-xs font-mono text-slate-300 cursor-pointer"
               aria-label="Stroke Width"
             >
               <div
@@ -290,11 +291,11 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Tooltip>
 
           {showBrushSizePopover && (
-            <div className="absolute left-0 top-10 z-50 p-3 bg-[#0d121f] border border-slate-800 rounded-xl shadow-2xl space-y-3 w-56 animate-in fade-in zoom-in-95">
+            <div className="absolute left-0 top-10 z-50 p-4 bg-[#0E111A] border border-white/10 rounded-xl shadow-2xl space-y-3.5 w-60 animate-in fade-in zoom-in-95 backdrop-blur-xl">
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[11px] font-semibold text-slate-300">
                   <span>Brush Width</span>
-                  <span className="font-mono text-amber-400">{strokeWidth}px</span>
+                  <span className="font-mono text-amber-300">{strokeWidth}px</span>
                 </div>
                 <Slider
                   value={strokeWidth}
@@ -305,10 +306,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 />
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-800">
+              <div className="space-y-1.5 pt-2 border-t border-white/5">
                 <div className="flex justify-between text-[11px] font-semibold text-slate-300">
                   <span>Eraser Width</span>
-                  <span className="font-mono text-amber-400">{eraserWidth}px</span>
+                  <span className="font-mono text-amber-300">{eraserWidth}px</span>
                 </div>
                 <Slider
                   value={eraserWidth}
@@ -324,10 +325,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       </div>
 
       {/* Center: Design Breadcrumb */}
-      <div className="hidden lg:flex items-center space-x-2 text-xs font-medium px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-slate-400">
-        <span className="text-amber-400 font-semibold">{designCategory || 'Jewellery'}</span>
+      <div className="hidden lg:flex items-center space-x-2 text-xs font-medium px-3.5 py-1 rounded-full bg-[#0E111A] border border-white/10 text-slate-400">
+        <span className="text-amber-300 font-semibold">{designCategory || 'Jewellery'}</span>
         <span className="text-slate-600">/</span>
-        <span className="text-white truncate max-w-[200px]">{designName || 'Untitled Design'}</span>
+        <span className="text-white truncate max-w-[200px] font-serif">{designName || 'Untitled Design'}</span>
       </div>
 
       {/* Right Side: Canvas Aids, History & Actions */}
@@ -360,7 +361,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Button>
         </Tooltip>
 
-        <div className="w-px h-5 bg-slate-800 mx-1" />
+        <div className="w-px h-5 bg-white/10 mx-1" />
 
         {/* Grid Toggle */}
         <Tooltip content="Toggle Grid Guide">
@@ -393,7 +394,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-lg hover:text-rose-400 hover:bg-rose-500/10"
+            className="h-8 w-8 rounded-lg hover:text-rose-300 hover:bg-rose-500/10"
             onClick={onClearCanvas}
             aria-label="Clear Canvas"
           >
@@ -401,7 +402,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Button>
         </Tooltip>
 
-        <div className="w-px h-5 bg-slate-800 mx-1" />
+        <div className="w-px h-5 bg-white/10 mx-1" />
 
         {/* Zoom Controls */}
         <Tooltip content="Zoom Out">
@@ -419,7 +420,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <button
           onClick={onResetZoom}
           title="Reset Zoom to 100%"
-          className="px-2 h-8 text-[11px] font-mono text-slate-300 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-700"
+          className="px-2.5 h-8 text-[11px] font-mono text-slate-300 bg-[#0E111A] rounded-lg border border-white/10 hover:border-white/20 cursor-pointer"
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -436,7 +437,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Button>
         </Tooltip>
 
-        <Tooltip content="Fit Canvas (100%)">
+        <Tooltip content="Fit Canvas (85%)">
           <Button
             variant="ghost"
             size="icon"
@@ -448,7 +449,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           </Button>
         </Tooltip>
 
-        <div className="w-px h-5 bg-slate-800 mx-1" />
+        <div className="w-px h-5 bg-white/10 mx-1" />
 
         {/* Upload Existing Reference */}
         <Tooltip content="Upload Sketch Reference">
@@ -468,7 +469,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           <Button
             variant="secondary"
             size="sm"
-            className="h-8 px-2.5 text-xs font-semibold"
+            className="h-8 px-3 text-xs font-semibold bg-[#121622] hover:bg-[#181E2E] border-white/5"
             onClick={onExportPng}
             aria-label="Export PNG"
           >
@@ -480,7 +481,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Button
           variant="gold"
           size="sm"
-          className="h-8 px-3 text-xs font-bold shadow-md"
+          className="h-8 px-3.5 text-xs font-semibold shadow-md"
           onClick={onSave}
           disabled={isSaving}
           aria-label="Save Sketch"
