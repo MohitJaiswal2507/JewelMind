@@ -29,6 +29,7 @@ JewelleryCategory = Literal[
     "bracelet",
     "bangle",
     "brooch",
+    "other_jewellery",
     "other",
 ]
 
@@ -38,7 +39,7 @@ class RenderRequest(BaseModel):
 
     category: Optional[JewelleryCategory] = Field(
         default=None,
-        description="Controlled jewellery category ('ring', 'earring', 'pendant', 'necklace', 'bracelet', 'bangle', 'brooch', 'other')",
+        description="Controlled jewellery category ('ring', 'earring', 'pendant', 'necklace', 'bracelet', 'bangle', 'brooch', 'other_jewellery', 'other')",
     )
     prompt: Optional[str] = Field(
         default=None,

@@ -121,10 +121,12 @@ def test_load_peft_lora_missing_directory_raises():
 
 
 def test_real_checkpoint_400_configuration_preserved():
-    """Verifies that loading checkpoint-400 preserves exact r=16, lora_alpha=32, lora_dropout=0.05."""
-    checkpoint_dir = Path("outputs/appearance_lora/checkpoints/checkpoint-400")
+    """Verifies that loading real LoRA checkpoint preserves exact r=16, lora_alpha=32, lora_dropout=0.05."""
+    checkpoint_dir = Path("outputs/appearance_lora/jewellery_lora_final")
     if not checkpoint_dir.exists():
-        pytest.skip("Checkpoint-400 not present in outputs directory.")
+        checkpoint_dir = Path("outputs/appearance_lora/checkpoints/checkpoint-400")
+    if not checkpoint_dir.exists():
+        pytest.skip("No appearance LoRA model present in outputs directory.")
 
     unet = UNet2DConditionModel.from_pretrained(
         "runwayml/stable-diffusion-v1-5",

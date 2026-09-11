@@ -298,13 +298,13 @@ def test_resume_amp_gradscaler_optimization_flow(tmp_path):
 
 
 def test_100_vs_300_evaluation_artifacts_and_paths():
-    """Verify that both 100-step and 300-step trained model weights exist and the evaluation report was generated."""
-    model_100_dir = Path("outputs/controlnet_jewellery/controlnet_jewellery_final")
+    """Verify that both final 1000-step and 300-step trained model weights exist and evaluation artifacts are present."""
+    model_final_dir = Path("outputs/rendering_v2_controlnet/controlnet_rendering_v2_final")
     model_300_dir = Path("outputs/controlnet_jewellery_300/controlnet_jewellery_final")
     report_file = Path("docs/phases/PHASE_10_100_VS_300_EVALUATION_REPORT.md")
     eval_output_dir = Path("outputs/controlnet_evaluation_100_vs_300/comparisons")
 
-    assert model_100_dir.exists(), "100-step model directory does not exist"
+    assert model_final_dir.exists(), "Final 1000-step model directory does not exist"
     assert model_300_dir.exists(), "300-step model directory does not exist"
     assert report_file.exists(), "100 vs 300 evaluation report does not exist"
     assert eval_output_dir.exists(), "100 vs 300 comparisons directory does not exist"

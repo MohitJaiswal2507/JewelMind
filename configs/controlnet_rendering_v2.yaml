@@ -12,7 +12,7 @@ model:
   variant: "fp16"
   pretrained_controlnet_name_or_path: "lllyasviel/control_v11p_sd15_lineart"
   conditioning_channels: 3
-  controlnet_conditioning: "canny_structural"
+  controlnet_conditioning: "lineart_structural"
   taxonomy_categories:
     - "ring"
     - "earring"
@@ -23,26 +23,26 @@ model:
     - "brooch"
     - "other_jewellery"
 
-# Paired Multi-Category Dataset Specification
+# Paired Multi-Category Dataset Specification (Verified Rendering Final Corrected Conditioning)
 dataset:
-  train_data_dir: "ai/vision/datasets/rendering_v2/train"
-  train_metadata_file: "ai/vision/datasets/rendering_v2/train/metadata.jsonl"
-  val_data_dir: "ai/vision/datasets/rendering_v2/val"
-  val_metadata_file: "ai/vision/datasets/rendering_v2/val/metadata.jsonl"
-  test_data_dir: "ai/vision/datasets/rendering_v2/test"
-  test_metadata_file: "ai/vision/datasets/rendering_v2/test/metadata.jsonl"
+  train_data_dir: "ai/rendering/datasets/rendering_final_corrected_conditioning/train"
+  train_metadata_file: "ai/rendering/datasets/rendering_final_corrected_conditioning/metadata/train.jsonl"
+  val_data_dir: "ai/rendering/datasets/rendering_final_corrected_conditioning/val"
+  val_metadata_file: "ai/rendering/datasets/rendering_final_corrected_conditioning/metadata/val.jsonl"
+  test_data_dir: "ai/rendering/datasets/rendering_final_corrected_conditioning/test"
+  test_metadata_file: "ai/rendering/datasets/rendering_final_corrected_conditioning/metadata/test.jsonl"
   resolution: 512             # 512x512 native resolution
-  keep_aspect_ratio: true     # Preserves exact geometry with zero distortion
+  keep_aspect_ratio: true     # Preserves exact physical geometry with neutral padding
   center_crop: false          # Strictly FALSE: retain complete jewelry contours
-  random_flip: true           # Horizontal flip invariance for left/right symmetric designs
+  random_flip: true           # Horizontal flip invariance for symmetrical designs
   max_train_samples: null
 
-# Training Hyperparameters for Rendering V2 Run
+# Main Production Training Hyperparameters (Full 1000-Step Run)
 training:
   seed: 42
   train_batch_size: 1             # Strictly 1 on 8GB VRAM to guarantee zero CUDA OOM
   gradient_accumulation_steps: 4  # Effective batch size = 4
-  gradient_checkpointing: false   # Disabled for 2x faster throughput; 6.2GB VRAM fits in 8GB
+  gradient_checkpointing: false   # Enabled if VRAM headroom < 1.5GB; false yields ~2.5x faster throughput
   mixed_precision: "fp16"         # Float16 mixed precision via torch.amp
   learning_rate: 1.0e-5           # ControlNet fine-tuning rate
   scale_lr: false
@@ -51,7 +51,7 @@ training:
   max_train_steps: 1000           # Full production training target: 1000 steps (~4 epochs)
   checkpointing_steps: 100        # Save checkpoint every 100 optimizer steps
   checkpoints_total_limit: 10     # Retain up to 10 latest checkpoints
-  resume_from_checkpoint: null    # null for fresh V2 training, or path/ 'latest'
+  resume_from_checkpoint: null    # null for fresh run, or path / 'latest'
   validation_steps: 100           # Run multi-category validation at step boundaries
   validation_samples: 8           # 1 validation sample per canonical category
   max_grad_norm: 1.0              # Gradient clipping norm
@@ -62,8 +62,8 @@ memory:
   enable_gradient_checkpointing: false
   enable_sdpa: true               # PyTorch Scaled Dot-Product Attention (SDPA)
   allow_tf32: true                # TF32 on Ampere/Ada Lovelace GPU
-  attention_slicing: true         # Cuts peak memory during self/cross-attention
-  vae_slicing: true               # Slices VAE decoding during validation passes
+  attention_slicing: true         # Cuts peak memory during attention
+  vae_slicing: true               # Slices VAE decoding during validation
   empty_cache_at_step: true       # Clears torch.cuda.empty_cache() every accumulation cycle
 
 # Optimizer Configuration
@@ -76,6 +76,6 @@ optimizer:
 
 # Output and Logging Directories (Strictly Isolated from V1 Artifacts)
 output:
-  output_dir: "outputs/controlnet_rendering_v2"
-  logging_dir: "outputs/controlnet_rendering_v2/logs"
+  output_dir: "outputs/rendering_v2_controlnet"
+  logging_dir: "outputs/rendering_v2_controlnet/logs"
   report_to: "tensorboard"

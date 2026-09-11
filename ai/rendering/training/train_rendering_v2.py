@@ -507,7 +507,9 @@ def main():
 
     # 4. Create Datasets & DataLoaders
     train_dir = cfg["dataset"]["train_data_dir"]
+    train_metadata_file = cfg["dataset"].get("train_metadata_file")
     val_dir = cfg["dataset"]["val_data_dir"]
+    val_metadata_file = cfg["dataset"].get("val_metadata_file")
     max_train_samples = cfg["dataset"].get("max_train_samples")
     if args.smoke_test:
         max_train_samples = 1
@@ -516,12 +518,14 @@ def main():
 
     train_dataset = RenderingV2Dataset(
         split_dir=train_dir,
+        metadata_file=train_metadata_file,
         tokenizer=tokenizer,
         resolution=cfg["dataset"].get("resolution", 512),
         max_samples=max_train_samples,
     )
     val_dataset = RenderingV2Dataset(
         split_dir=val_dir,
+        metadata_file=val_metadata_file,
         tokenizer=tokenizer,
         resolution=cfg["dataset"].get("resolution", 512),
         max_samples=16 if (args.smoke_test or args.pilot) else None,

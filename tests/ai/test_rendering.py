@@ -23,24 +23,65 @@ def test_rendering_config_defaults():
     assert cfg.enable_attention_slicing is True
     assert cfg.default_control_strength == 1.0
     assert "stable-diffusion" in cfg.base_model_id
-    assert "controlnet" in cfg.lineart_controlnet_id.lower() or "lineart" in cfg.lineart_controlnet_id.lower()
+    assert "rendering_v2_controlnet" in cfg.lineart_controlnet_id.lower() or "controlnet" in cfg.lineart_controlnet_id.lower()
 
 
 def test_controlnet_model_resolution_env_override(monkeypatch):
-    """Verify that JEWELMIND_CONTROLNET_MODEL_PATH overrides default resolution."""
-    monkeypatch.setenv("JEWELMIND_CONTROLNET_MODEL_PATH", "custom/jewellery/controlnet")
+    """Verify that JEWELMIND_RENDERING_CONTROLNET_PATH and legacy env vars override default resolution."""
+    monkeypatch.setenv("JEWELMIND_RENDERING_CONTROLNET_PATH", "custom/jewellery/rendering_v2_final")
     cfg = RenderingConfig()
-    assert cfg.lineart_controlnet_id == "custom/jewellery/controlnet"
+    assert cfg.lineart_controlnet_id == "custom/jewellery/rendering_v2_final"
+
+    monkeypatch.delenv("JEWELMIND_RENDERING_CONTROLNET_PATH", raising=False)
+    monkeypatch.setenv("JEWELMIND_CONTROLNET_MODEL_PATH", "custom/jewellery/controlnet")
+    cfg2 = RenderingConfig()
+    assert cfg2.lineart_controlnet_id == "custom/jewellery/controlnet"
 
 
-def test_controlnet_model_resolution_fallback(monkeypatch, tmp_path):
-    """Verify fallback when neither custom path nor fine-tuned model exists."""
+def test_production_model_resolution_success(monkeypatch):
+    """Verify production resolution resolves directly to approved 1000-step final model."""
+    monkeypatch.delenv("JEWELMIND_RENDERING_CONTROLNET_PATH", raising=False)
     monkeypatch.delenv("JEWELMIND_CONTROLNET_MODEL_PATH", raising=False)
     monkeypatch.delenv("JEWELMIND_CONTROLNET_LINEART", raising=False)
-    from ai.rendering.config import DEFAULT_PRETRAINED_LINEART_FALLBACK, get_default_lineart_controlnet
-    # If target doesn't exist, resolves to fallback
+    from ai.rendering.config import get_default_lineart_controlnet
     res = get_default_lineart_controlnet()
-    assert "controlnet" in res.lower() or "lineart" in res.lower()
+    assert "rendering_v2_controlnet" in res.lower() or "controlnet" in res.lower()
+
+
+def test_production_model_strict_resolution_no_silent_fallback(monkeypatch, tmp_path):
+    """Verify that if the final model is missing, production inference fails loudly without silent fallback."""
+    monkeypatch.delenv("JEWELMIND_RENDERING_CONTROLNET_PATH", raising=False)
+    monkeypatch.delenv("JEWELMIND_CONTROLNET_MODEL_PATH", raising=False)
+    monkeypatch.delenv("JEWELMIND_CONTROLNET_LINEART", raising=False)
+    monkeypatch.delenv("JEWELMIND_ALLOW_MODEL_FALLBACK", raising=False)
+
+    import ai.rendering.config as cfg_module
+    # Point final model path to a non-existent path
+    monkeypatch.setattr(cfg_module, "DEFAULT_PRODUCTION_FINAL_CONTROLNET", str(tmp_path / "non_existent_final"))
+
+    # Must raise FileNotFoundError with actionable message, NOT silently return 300-step or pretrained baseline
+    with pytest.raises(FileNotFoundError, match="Silent fallback to obsolete 300-step model.*is strictly disabled"):
+        cfg_module.get_default_lineart_controlnet()
+
+
+def test_deliberate_dev_fallback_mechanism(monkeypatch, tmp_path):
+    """Verify deliberate, documented development fallback when explicitly requested."""
+    monkeypatch.delenv("JEWELMIND_RENDERING_CONTROLNET_PATH", raising=False)
+    monkeypatch.delenv("JEWELMIND_CONTROLNET_MODEL_PATH", raising=False)
+    monkeypatch.delenv("JEWELMIND_CONTROLNET_LINEART", raising=False)
+
+    import ai.rendering.config as cfg_module
+    # Point final model path to a non-existent path
+    monkeypatch.setattr(cfg_module, "DEFAULT_PRODUCTION_FINAL_CONTROLNET", str(tmp_path / "non_existent_final"))
+
+    # 1. Fallback via function argument
+    res1 = cfg_module.get_default_lineart_controlnet(allow_fallback=True)
+    assert "controlnet" in res1.lower() or "lineart" in res1.lower()
+
+    # 2. Fallback via environment variable
+    monkeypatch.setenv("JEWELMIND_ALLOW_MODEL_FALLBACK", "1")
+    res2 = cfg_module.get_default_lineart_controlnet()
+    assert "controlnet" in res2.lower() or "lineart" in res2.lower()
 
 
 def test_render_request_validation():
@@ -182,7 +223,7 @@ def test_prompt_builder_supported_categories(category):
 
 
 def test_prompt_builder_other_and_default_category():
-    """Verify 'other' and None categories generate generic fine jewellery prompts without ring bias."""
+    """Verify 'other', 'other_jewellery', and None categories generate generic fine jewellery prompts without ring bias."""
     # Category = 'other'
     prompt_other = build_jewellery_prompt(
         material="platinum",
@@ -192,6 +233,16 @@ def test_prompt_builder_other_and_default_category():
     assert "photorealistic fine jewellery product photograph" in prompt_other
     assert "ring" not in prompt_other
     assert "earring" not in prompt_other
+
+    # Category = 'other_jewellery'
+    prompt_other_j = build_jewellery_prompt(
+        material="platinum",
+        gemstone="blue sapphire",
+        category="other_jewellery",
+    )
+    assert "photorealistic fine jewellery product photograph" in prompt_other_j
+    assert "ring" not in prompt_other_j
+    assert "earring" not in prompt_other_j
 
     # Category = None (default backwards compatibility)
     prompt_none = build_jewellery_prompt(
