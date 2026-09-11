@@ -5,7 +5,7 @@ Pydantic Schemas for Jewellery Design Management
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -16,7 +16,53 @@ class DesignCategory(str, Enum):
     BRACELET = "Bracelet"
     BANGLE = "Bangle"
     PENDANT = "Pendant"
+    BROOCH = "Brooch"
     OTHER = "Other"
+
+
+# Authoritative Taxonomy Mappings between Backend DesignCategory and AI Pipeline Category
+BACKEND_TO_AI_CATEGORY_MAP = {
+    DesignCategory.RING: "ring",
+    DesignCategory.EARRINGS: "earring",
+    DesignCategory.PENDANT: "pendant",
+    DesignCategory.NECKLACE: "necklace",
+    DesignCategory.BRACELET: "bracelet",
+    DesignCategory.BANGLE: "bangle",
+    DesignCategory.BROOCH: "brooch",
+    DesignCategory.OTHER: "other_jewellery",
+}
+
+AI_TO_BACKEND_CATEGORY_MAP = {
+    "ring": DesignCategory.RING,
+    "earring": DesignCategory.EARRINGS,
+    "earrings": DesignCategory.EARRINGS,
+    "pendant": DesignCategory.PENDANT,
+    "necklace": DesignCategory.NECKLACE,
+    "bracelet": DesignCategory.BRACELET,
+    "bangle": DesignCategory.BANGLE,
+    "brooch": DesignCategory.BROOCH,
+    "other_jewellery": DesignCategory.OTHER,
+    "other": DesignCategory.OTHER,
+}
+
+
+def to_ai_category(category: Optional[Union[str, DesignCategory]]) -> Optional[str]:
+    """Convert a backend or human-facing category to canonical AI rendering category."""
+    if category is None:
+        return None
+    if isinstance(category, DesignCategory):
+        return BACKEND_TO_AI_CATEGORY_MAP.get(category, "other_jewellery")
+
+    cleaned = str(category).strip().lower()
+    return AI_TO_BACKEND_CATEGORY_MAP.get(cleaned, None) and BACKEND_TO_AI_CATEGORY_MAP.get(AI_TO_BACKEND_CATEGORY_MAP[cleaned], "other_jewellery")
+
+
+def from_ai_category(category: Optional[str]) -> Optional[DesignCategory]:
+    """Convert an AI category or raw string to canonical backend DesignCategory."""
+    if category is None:
+        return None
+    cleaned = str(category).strip().lower()
+    return AI_TO_BACKEND_CATEGORY_MAP.get(cleaned, DesignCategory.OTHER)
 
 
 class DesignStatus(str, Enum):
@@ -44,6 +90,17 @@ class DesignBase(BaseModel):
             raise ValueError("Design name cannot be blank or whitespace only.")
         return trimmed
 
+    @field_validator("category", mode="before")
+    @classmethod
+    def normalize_category(cls, v: Union[str, DesignCategory]) -> DesignCategory:
+        if isinstance(v, DesignCategory):
+            return v
+        if isinstance(v, str):
+            res = from_ai_category(v)
+            if res:
+                return res
+        raise ValueError(f"Unsupported jewellery category: '{v}'")
+
 
 class DesignCreate(DesignBase):
     pass
@@ -67,6 +124,19 @@ class DesignUpdate(BaseModel):
                 raise ValueError("Design name cannot be blank or whitespace only.")
             return trimmed
         return v
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def normalize_category(cls, v: Optional[Union[str, DesignCategory]]) -> Optional[DesignCategory]:
+        if v is None:
+            return None
+        if isinstance(v, DesignCategory):
+            return v
+        if isinstance(v, str):
+            res = from_ai_category(v)
+            if res:
+                return res
+        raise ValueError(f"Unsupported jewellery category: '{v}'")
 
 
 class DesignResponse(BaseModel):
