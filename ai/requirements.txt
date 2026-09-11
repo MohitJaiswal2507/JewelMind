@@ -1,0 +1,32 @@
+# JewelMind AI Runtime & Inference Engine Dependencies
+# Compatible with PyTorch CUDA 12.1+ and NVIDIA RTX Series
+
+# Core Deep Learning (Installed with CUDA support via base image / index)
+torch>=2.4.0
+torchvision>=0.19.0
+torchaudio>=2.4.0
+
+# Generative AI & Diffusion Pipeline
+diffusers>=0.31.0
+transformers>=4.45.0
+accelerate>=1.0.0
+peft>=0.13.0
+safetensors>=0.4.5
+
+# Computer Vision & Preprocessing
+ultralytics>=8.3.0
+opencv-python-headless>=4.10.0
+controlnet_aux>=0.0.9
+pillow>=10.4.0
+numpy>=1.26.0
+
+# Runtime, Validation & Configuration
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+pyyaml>=6.0.2
+requests>=2.32.0
+httpx>=0.27.0
+curl_cffi>=0.7.0
+
+# Testing
+pytest>=8.3.0
