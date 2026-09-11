@@ -1,0 +1,31 @@
+# ==============================================================================
+# JewelMind Local Development Compose Override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# ==============================================================================
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend/app:/app/app:ro
+    environment:
+      - ENVIRONMENT=development
+      - RELOAD=true
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  frontend:
+    # Optional development mode using Vite dev server instead of Nginx
+    # (Uncomment below if running full dev container)
+    # command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    environment:
+      - ENVIRONMENT=development
+
+  ai:
+    volumes:
+      - ./ai:/app/ai:ro
+      - ./configs:/app/configs:ro
+      - ./models:/app/models:ro
+      - ./outputs:/app/outputs:ro
+      - ./runs:/app/runs:ro
