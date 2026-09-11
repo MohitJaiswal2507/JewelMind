@@ -23,32 +23,66 @@ DEFAULT_OUTPUT_DIR = os.getenv(
 # Default model identifiers
 DEFAULT_PRETRAINED_LINEART_FALLBACK = "lllyasviel/control_v11p_sd15_lineart"
 DEFAULT_PRETRAINED_CANNY_FALLBACK = "lllyasviel/control_v11p_sd15_canny"
+DEFAULT_PRODUCTION_FINAL_CONTROLNET = str(WORKSPACE_ROOT / "outputs" / "rendering_v2_controlnet" / "controlnet_rendering_v2_final")
 DEFAULT_PRODUCTION_300_CONTROLNET = str(WORKSPACE_ROOT / "outputs" / "controlnet_jewellery_300" / "controlnet_jewellery_final")
 
 ControlType = Literal["lineart", "canny"]
 
 
-def get_default_lineart_controlnet() -> str:
-    """Resolve production LineArt ControlNet model path or fallback.
+def get_default_lineart_controlnet(allow_fallback: bool = False) -> str:
+    """Resolve production LineArt ControlNet model path.
 
-    Priority:
-    1. Explicit env var JEWELMIND_CONTROLNET_MODEL_PATH
-    2. Legacy env var JEWELMIND_CONTROLNET_LINEART
-    3. Fine-tuned 300-step model if present on disk
-    4. Pretrained HuggingFace lineart ControlNet baseline fallback
+    In production (default), resolves strictly to the approved 1000-step ControlNet renderer:
+    `outputs/rendering_v2_controlnet/controlnet_rendering_v2_final`
+    or explicit environment override `JEWELMIND_RENDERING_CONTROLNET_PATH`.
+
+    Silent fallback to obsolete 300-step or pretrained baseline models is strictly disabled.
+    If the approved model is missing on disk, raises FileNotFoundError with actionable instructions,
+    unless deliberate development fallback is explicitly enabled via `allow_fallback=True`
+    or `JEWELMIND_ALLOW_MODEL_FALLBACK=1`.
+
+    Args:
+        allow_fallback: If True (or JEWELMIND_ALLOW_MODEL_FALLBACK=1), enables dev-only fallback
+                        to legacy 300-step or pretrained baseline when the final model is absent.
+
+    Returns:
+        Absolute or relative path / HuggingFace ID to the resolved ControlNet model.
+
+    Raises:
+        FileNotFoundError: If the approved final production model is missing and fallback is disabled.
     """
-    env_path = os.getenv("JEWELMIND_CONTROLNET_MODEL_PATH") or os.getenv("JEWELMIND_CONTROLNET_LINEART")
+    env_path = (
+        os.getenv("JEWELMIND_RENDERING_CONTROLNET_PATH")
+        or os.getenv("JEWELMIND_CONTROLNET_MODEL_PATH")
+        or os.getenv("JEWELMIND_CONTROLNET_LINEART")
+    )
     if env_path and env_path.strip():
         return env_path.strip()
 
+    # 1. Final 1000-step approved production model
+    final_path = Path(DEFAULT_PRODUCTION_FINAL_CONTROLNET)
+    if not final_path.is_absolute():
+        final_path = WORKSPACE_ROOT / final_path
+    if final_path.exists() and (final_path / "config.json").exists():
+        return str(final_path)
+
+    # Check if deliberate development fallback is explicitly enabled
+    dev_fallback_enabled = allow_fallback or os.getenv("JEWELMIND_ALLOW_MODEL_FALLBACK", "").strip().lower() in ("1", "true", "yes")
+
+    if not dev_fallback_enabled:
+        raise FileNotFoundError(
+            f"Approved production ControlNet model not found at '{DEFAULT_PRODUCTION_FINAL_CONTROLNET}'. "
+            "Silent fallback to obsolete 300-step model or pretrained baseline is strictly disabled in production. "
+            "Ensure the final 1000-step model is present, configure JEWELMIND_RENDERING_CONTROLNET_PATH, "
+            "or explicitly set JEWELMIND_ALLOW_MODEL_FALLBACK=1 for development fallback."
+        )
+
+    # 2. Deliberate development-only fallback (300-step legacy model or pretrained baseline)
     prod_path = Path(DEFAULT_PRODUCTION_300_CONTROLNET)
+    if not prod_path.is_absolute():
+        prod_path = WORKSPACE_ROOT / prod_path
     if prod_path.exists() and (prod_path / "config.json").exists():
         return str(prod_path)
-
-    # Relative path check
-    rel_prod_path = Path("outputs/controlnet_jewellery_300/controlnet_jewellery_final")
-    if rel_prod_path.exists() and (rel_prod_path / "config.json").exists():
-        return str(rel_prod_path)
 
     return DEFAULT_PRETRAINED_LINEART_FALLBACK
 

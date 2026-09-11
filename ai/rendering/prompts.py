@@ -46,6 +46,7 @@ SUPPORTED_CATEGORIES = {
     "bracelet",
     "bangle",
     "brooch",
+    "other_jewellery",
     "other",
 }
 
@@ -77,7 +78,7 @@ def build_jewellery_prompt(
             raise ValueError(
                 f"Unsupported jewellery category '{category}'. Supported categories: {valid_list}"
             )
-        if cat_clean != "other":
+        if cat_clean not in ("other", "other_jewellery"):
             style_modifiers = (
                 f"photorealistic fine jewellery {cat_clean} product photograph, studio lighting, sharp focus, clean background"
             )

@@ -100,6 +100,10 @@ class RenderingV2Dataset(Dataset):
             self.metadata_file = self.split_dir / "metadata.jsonl"
         elif (self.split_dir / "train" / "metadata.jsonl").exists():
             self.metadata_file = self.split_dir / "train" / "metadata.jsonl"
+        elif (self.split_dir.parent / "metadata" / f"{self.split_dir.name}.jsonl").exists():
+            self.metadata_file = self.split_dir.parent / "metadata" / f"{self.split_dir.name}.jsonl"
+        elif (self.split_dir / f"{self.split_dir.name}.jsonl").exists():
+            self.metadata_file = self.split_dir / f"{self.split_dir.name}.jsonl"
         else:
             raise FileNotFoundError(
                 f"Cannot find valid metadata.jsonl in split directory '{self.split_dir}' "
@@ -271,6 +275,7 @@ class RenderingV2Dataset(Dataset):
 
 def get_rendering_v2_dataloader(
     split_dir: Union[str, Path],
+    metadata_file: Optional[Union[str, Path]] = None,
     tokenizer: Optional[Any] = None,
     batch_size: int = 1,
     shuffle: bool = True,
@@ -282,6 +287,7 @@ def get_rendering_v2_dataloader(
     """Create a standard PyTorch DataLoader for Rendering V2 paired data."""
     dataset = RenderingV2Dataset(
         split_dir=split_dir,
+        metadata_file=metadata_file,
         tokenizer=tokenizer,
         resolution=resolution,
         max_samples=max_samples,
