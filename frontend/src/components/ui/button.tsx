@@ -4,30 +4,32 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400/50 disabled:pointer-events-none disabled:opacity-40 select-none cursor-pointer',
   {
     variants: {
       variant: {
         default:
-          'bg-amber-500 text-slate-950 font-semibold shadow hover:bg-amber-400 active:bg-amber-600',
-        destructive:
-          'bg-rose-500 text-slate-50 shadow-sm hover:bg-rose-600',
-        outline:
-          'border border-slate-700 bg-transparent text-slate-200 shadow-sm hover:bg-slate-800 hover:text-white',
-        secondary:
-          'bg-slate-800 text-slate-200 shadow-sm hover:bg-slate-700 hover:text-white',
-        ghost:
-          'text-slate-300 hover:bg-slate-800 hover:text-white',
-        link:
-          'text-amber-400 underline-offset-4 hover:underline',
+          'bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 text-slate-950 font-bold shadow-md shadow-amber-500/10 hover:brightness-105 active:scale-[0.98]',
         gold:
-          'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-bold shadow-lg shadow-amber-500/20 hover:brightness-110 active:brightness-95',
+          'bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 text-slate-950 font-bold shadow-md shadow-amber-500/10 hover:brightness-105 active:scale-[0.98]',
+        atelier:
+          'bg-[#151A26] border border-amber-400/30 text-amber-200 shadow-sm hover:bg-[#1C2333] hover:border-amber-400/50 active:scale-[0.98]',
+        destructive:
+          'bg-rose-500/15 border border-rose-500/30 text-rose-300 hover:bg-rose-500/25 active:scale-[0.98]',
+        outline:
+          'border border-white/10 bg-transparent text-slate-200 hover:bg-white/[0.04] hover:text-white hover:border-white/20 active:scale-[0.98]',
+        secondary:
+          'bg-[#121622] border border-white/5 text-slate-300 hover:bg-[#181D2C] hover:text-white active:scale-[0.98]',
+        ghost:
+          'text-slate-300 hover:bg-white/[0.05] hover:text-white active:scale-[0.98]',
+        link:
+          'text-amber-300 underline-offset-4 hover:underline p-0 h-auto font-medium',
       },
       size: {
         default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-md px-8 text-base',
-        icon: 'h-9 w-9',
+        sm: 'h-8 px-3 text-[11px]',
+        lg: 'h-11 px-7 text-sm tracking-normal',
+        icon: 'h-9 w-9 p-0',
       },
     },
     defaultVariants: {

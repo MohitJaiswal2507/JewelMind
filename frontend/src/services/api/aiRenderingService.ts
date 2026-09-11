@@ -30,6 +30,7 @@ export interface RenderResultResponse {
 export interface RenderOptions {
   category?: 'ring' | 'earring' | 'pendant' | 'necklace' | 'bracelet' | 'bangle' | 'brooch' | 'other' | string;
   design_id?: string;
+  sketch_url?: string;
   prompt?: string;
   negative_prompt?: string;
   material?: string;
@@ -48,11 +49,16 @@ export const aiRenderingService = {
    * Send sketch file and conditioning parameters to AI rendering endpoint.
    */
   async renderSketch(
-    file: File | Blob,
+    file?: File | Blob | null,
     options: RenderOptions = {}
   ): Promise<RenderResultResponse> {
     const formData = new FormData();
-    formData.append('file', file, 'sketch.png');
+    if (file) {
+      formData.append('file', file, 'sketch.png');
+    }
+    if (options.sketch_url) {
+      formData.append('sketch_url', options.sketch_url);
+    }
 
     if (options.category) formData.append('category', options.category);
     if (options.design_id) formData.append('design_id', options.design_id);

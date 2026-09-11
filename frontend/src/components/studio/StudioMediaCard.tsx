@@ -56,19 +56,21 @@ export const StudioMediaCard: React.FC<StudioMediaCardProps> = ({
   return (
     <div
       onClick={() => onSelect(item)}
-      className={`group relative rounded-2xl bg-[#0b0e17] border transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between ${
+      className={`group relative rounded-2xl bg-[#0E111A] border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between ${
         isSelected
-          ? 'border-amber-400 ring-2 ring-amber-400/20 bg-slate-900/90 shadow-xl'
-          : 'border-slate-800/90 hover:border-amber-500/40 hover:bg-slate-900/60 shadow-md'
+          ? 'border-amber-400 ring-2 ring-amber-400/20 bg-[#141824] shadow-2xl'
+          : 'border-white/[0.07] hover:border-amber-400/30 hover:bg-[#121622] shadow-xl'
       }`}
     >
       {/* Top Image Preview Box */}
-      <div className="relative w-full h-44 bg-slate-950/90 border-b border-slate-800/80 flex items-center justify-center p-3 overflow-hidden">
+      <div className="relative w-full h-52 bg-[#080A10] border-b border-white/[0.06] flex items-center justify-center p-3 overflow-hidden">
         {item.thumbnailUrl ? (
           <img
             src={item.thumbnailUrl}
             alt={item.title}
-            className="w-full h-full object-contain filter invert opacity-90 group-hover:scale-105 transition-transform duration-300"
+            className={`w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out ${
+              item.mediaType === 'PNG Sketch' ? 'filter invert opacity-85' : 'rounded-lg'
+            }`}
           />
         ) : (
           <div className="flex flex-col items-center space-y-1.5 text-slate-600">
@@ -78,31 +80,31 @@ export const StudioMediaCard: React.FC<StudioMediaCardProps> = ({
         )}
 
         {/* Media Type Overlay Pill */}
-        <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-sm border border-slate-800 text-[10px] font-medium text-slate-300 flex items-center space-x-1">
-          <Layers className="w-3 h-3 text-amber-400" />
+        <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-[#080A10]/80 backdrop-blur-md border border-white/10 text-[10px] font-semibold text-slate-300 flex items-center space-x-1">
+          <Layers className="w-3 h-3 text-amber-300" />
           <span>{item.mediaType}</span>
         </div>
 
         {/* Status Badge */}
-        <div className="absolute top-2.5 right-2.5">
+        <div className="absolute top-3 right-3">
           {getStatusBadge(item.status)}
         </div>
       </div>
 
       {/* Card Metadata Footer */}
-      <div className="p-3.5 space-y-2">
+      <div className="p-4 space-y-2.5">
         <div>
-          <div className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition">
+          <div className="text-xs font-serif font-medium text-white truncate group-hover:text-amber-200 transition-colors">
             {item.title}
           </div>
-          <div className="text-[11px] font-mono text-amber-400/90 pt-0.5">
+          <div className="text-[11px] font-mono text-amber-300/90 pt-0.5 font-medium">
             {item.sku}
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
+        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-white/5 font-light">
           <span className="truncate">{item.category}</span>
-          <div className="flex items-center space-x-1 font-mono">
+          <div className="flex items-center space-x-1 font-mono text-[10px]">
             <Calendar className="w-3 h-3 text-slate-500" />
             <span>{new Date(item.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
           </div>

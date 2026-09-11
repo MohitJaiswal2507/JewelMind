@@ -13,20 +13,20 @@ interface DashboardDesignAnalyticsProps {
   priorities: DistributionItem[];
 }
 
-const CATEGORY_COLORS = [
-  'bg-amber-400 from-amber-400 to-yellow-300',
-  'bg-sky-400 from-sky-400 to-cyan-300',
-  'bg-purple-400 from-purple-400 to-indigo-300',
-  'bg-emerald-400 from-emerald-400 to-teal-300',
-  'bg-pink-400 from-pink-400 to-rose-300',
-  'bg-orange-400 from-orange-400 to-amber-300',
+const CATEGORY_GRADIENTS = [
+  'bg-gradient-to-r from-amber-400 to-yellow-200',
+  'bg-gradient-to-r from-slate-300 to-slate-100',
+  'bg-gradient-to-r from-amber-600 to-amber-400',
+  'bg-gradient-to-r from-emerald-400 to-teal-200',
+  'bg-gradient-to-r from-purple-400 to-pink-300',
+  'bg-gradient-to-r from-sky-400 to-cyan-200',
 ];
 
-const PRIORITY_COLORS: Record<string, string> = {
-  Urgent: 'bg-rose-500 from-rose-500 to-red-400',
-  High: 'bg-orange-500 from-orange-500 to-amber-400',
-  Medium: 'bg-amber-400 from-amber-400 to-yellow-300',
-  Low: 'bg-emerald-400 from-emerald-400 to-teal-300',
+const PRIORITY_GRADIENTS: Record<string, string> = {
+  Urgent: 'bg-gradient-to-r from-rose-500 to-red-400',
+  High: 'bg-gradient-to-r from-amber-500 to-yellow-400',
+  Medium: 'bg-gradient-to-r from-amber-400 to-yellow-200',
+  Low: 'bg-gradient-to-r from-slate-400 to-slate-200',
 };
 
 export const DashboardDesignAnalytics: React.FC<DashboardDesignAnalyticsProps> = ({
@@ -37,37 +37,37 @@ export const DashboardDesignAnalytics: React.FC<DashboardDesignAnalyticsProps> =
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {/* Category Distribution */}
-      <Card className="bg-[#0b0f19] border-slate-800 shadow-xl flex flex-col justify-between">
-        <CardHeader className="p-6 pb-3 border-b border-slate-800/80 bg-slate-950/40">
-          <div className="flex items-center space-x-2 text-amber-400">
+      <Card className="bg-[#0E111A]/90 border-white/[0.07] shadow-2xl flex flex-col justify-between">
+        <CardHeader className="p-6 sm:p-7 pb-3 border-b border-white/[0.06] bg-[#0A0C12]/50">
+          <div className="flex items-center space-x-2 text-amber-300">
             <Layers className="w-5 h-5" />
-            <CardTitle className="text-base">Jewellery Categories</CardTitle>
+            <CardTitle className="text-base font-serif font-medium">Jewellery Categories</CardTitle>
           </div>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs text-slate-400 font-light">
             Portfolio product distribution
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-4 flex-1">
+        <CardContent className="p-6 sm:p-7 space-y-4 flex-1">
           {categories.length === 0 ? (
-            <div className="text-center py-6 text-slate-500 text-xs">
+            <div className="text-center py-6 text-slate-500 text-xs font-light">
               No categories recorded yet.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {categories.map((item, idx) => {
-                const colorClass = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                const gradientClass = CATEGORY_GRADIENTS[idx % CATEGORY_GRADIENTS.length];
                 return (
-                  <div key={item.name} className="space-y-1">
+                  <div key={item.name} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-white">{item.name}</span>
-                      <span className="font-mono text-slate-400">
+                      <span className="font-medium text-white">{item.name}</span>
+                      <span className="font-mono text-slate-400 font-light text-[11px]">
                         {item.count} ({item.percentage}%)
                       </span>
                     </div>
-                    <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-[#080A10] rounded-full h-1.5 overflow-hidden">
                       <div
-                        className={`h-2 rounded-full bg-gradient-to-r ${colorClass}`}
+                        className={`h-1.5 rounded-full ${gradientClass}`}
                         style={{ width: `${Math.max(4, item.percentage)}%` }}
                       />
                     </div>
@@ -80,37 +80,37 @@ export const DashboardDesignAnalytics: React.FC<DashboardDesignAnalyticsProps> =
       </Card>
 
       {/* Order Priority Distribution */}
-      <Card className="bg-[#0b0f19] border-slate-800 shadow-xl flex flex-col justify-between">
-        <CardHeader className="p-6 pb-3 border-b border-slate-800/80 bg-slate-950/40">
-          <div className="flex items-center space-x-2 text-sky-400">
+      <Card className="bg-[#0E111A]/90 border-white/[0.07] shadow-2xl flex flex-col justify-between">
+        <CardHeader className="p-6 sm:p-7 pb-3 border-b border-white/[0.06] bg-[#0A0C12]/50">
+          <div className="flex items-center space-x-2 text-slate-300">
             <BarChart3 className="w-5 h-5" />
-            <CardTitle className="text-base">Order Priority Spectrum</CardTitle>
+            <CardTitle className="text-base font-serif font-medium">Order Priority Spectrum</CardTitle>
           </div>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs text-slate-400 font-light">
             Workshop dispatch urgency tiers
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-4 flex-1">
+        <CardContent className="p-6 sm:p-7 space-y-4 flex-1">
           {priorities.length === 0 ? (
-            <div className="text-center py-6 text-slate-500 text-xs">
+            <div className="text-center py-6 text-slate-500 text-xs font-light">
               No production orders created yet.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {priorities.map((item) => {
-                const colorClass = PRIORITY_COLORS[item.name] || 'bg-slate-400 from-slate-400 to-slate-300';
+                const gradientClass = PRIORITY_GRADIENTS[item.name] || 'bg-gradient-to-r from-slate-500 to-slate-300';
                 return (
-                  <div key={item.name} className="space-y-1">
+                  <div key={item.name} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-white">{item.name}</span>
-                      <span className="font-mono text-slate-400">
+                      <span className="font-medium text-white">{item.name}</span>
+                      <span className="font-mono text-slate-400 font-light text-[11px]">
                         {item.count} ({item.percentage}%)
                       </span>
                     </div>
-                    <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-[#080A10] rounded-full h-1.5 overflow-hidden">
                       <div
-                        className={`h-2 rounded-full bg-gradient-to-r ${colorClass}`}
+                        className={`h-1.5 rounded-full ${gradientClass}`}
                         style={{ width: `${Math.max(4, item.percentage)}%` }}
                       />
                     </div>
@@ -123,35 +123,35 @@ export const DashboardDesignAnalytics: React.FC<DashboardDesignAnalyticsProps> =
       </Card>
 
       {/* Design Lifecycle Status */}
-      <Card className="bg-[#0b0f19] border-slate-800 shadow-xl flex flex-col justify-between md:col-span-2 lg:col-span-1">
-        <CardHeader className="p-6 pb-3 border-b border-slate-800/80 bg-slate-950/40">
-          <div className="flex items-center space-x-2 text-emerald-400">
+      <Card className="bg-[#0E111A]/90 border-white/[0.07] shadow-2xl flex flex-col justify-between md:col-span-2 lg:col-span-1">
+        <CardHeader className="p-6 sm:p-7 pb-3 border-b border-white/[0.06] bg-[#0A0C12]/50">
+          <div className="flex items-center space-x-2 text-amber-300">
             <TrendingUp className="w-5 h-5" />
-            <CardTitle className="text-base">Design Pipeline Health</CardTitle>
+            <CardTitle className="text-base font-serif font-medium">Design Pipeline Health</CardTitle>
           </div>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs text-slate-400 font-light">
             Lifecycle progression breakdown
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-4 flex-1">
+        <CardContent className="p-6 sm:p-7 space-y-4 flex-1">
           {statuses.length === 0 ? (
-            <div className="text-center py-6 text-slate-500 text-xs">
+            <div className="text-center py-6 text-slate-500 text-xs font-light">
               No designs registered yet.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {statuses.map((item) => (
-                <div key={item.name} className="space-y-1">
+                <div key={item.name} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-white capitalize">{item.name}</span>
-                    <span className="font-mono text-slate-400">
+                    <span className="font-medium text-white capitalize">{item.name}</span>
+                    <span className="font-mono text-slate-400 font-light text-[11px]">
                       {item.count} ({item.percentage}%)
                     </span>
                   </div>
-                  <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-[#080A10] rounded-full h-1.5 overflow-hidden">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                      className="h-1.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-200"
                       style={{ width: `${Math.max(4, item.percentage)}%` }}
                     />
                   </div>

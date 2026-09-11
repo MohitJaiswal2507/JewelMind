@@ -36,25 +36,25 @@ export const DesignDeleteModal: React.FC<DesignDeleteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-md bg-[#0b0e17] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5"
+        className="w-full max-w-md bg-[#0E111A] border border-white/10 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center space-x-3.5">
           <div className="p-3 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0">
-            <AlertTriangle className="w-6 h-6" />
+            <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white tracking-tight">Delete Jewellery Design?</h2>
-            <p className="text-xs text-slate-400">This action is permanent and cannot be undone.</p>
+            <h2 className="font-serif text-lg font-medium text-white tracking-tight">Delete Jewellery Design?</h2>
+            <p className="text-xs text-slate-400 font-light">This action is permanent and cannot be undone.</p>
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 text-xs">
-          <div className="text-slate-400">Target Design:</div>
+        <div className="p-4 rounded-xl bg-[#080A10] border border-white/5 space-y-1.5 text-xs">
+          <div className="text-slate-400 font-light">Target Blueprint:</div>
           <div className="text-sm font-semibold text-white truncate">{design.name}</div>
-          <div className="text-[11px] text-amber-400/90 uppercase font-mono tracking-wider">
+          <div className="text-[10px] text-amber-300/90 uppercase font-mono tracking-wider font-medium">
             {design.category} • {design.status}
           </div>
         </div>
@@ -71,7 +71,7 @@ export const DesignDeleteModal: React.FC<DesignDeleteModalProps> = ({
             variant="outline"
             onClick={onClose}
             disabled={loading}
-            className="border-slate-700"
+            className="border-white/10"
           >
             Cancel
           </Button>

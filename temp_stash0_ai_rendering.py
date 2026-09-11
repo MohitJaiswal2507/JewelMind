@@ -102,18 +102,18 @@ async def render_jewellery_sketch(
             )
 
     contents: Optional[bytes] = None
-    filename = "sketch.png"
-    content_type = "image/png"
+    resolved_filename = "sketch.png"
+    resolved_content_type = "image/png"
 
     # 1. Read binary bytes from multipart file upload if present
     if file is not None and file.filename:
-        filename = file.filename
-        content_type = file.content_type or "image/png"
+        resolved_filename = file.filename
+        resolved_content_type = file.content_type or "image/png"
         valid_content_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
-        if content_type not in valid_content_types:
+        if resolved_content_type not in valid_content_types:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Unsupported file type: {content_type}. Accepted formats: {', '.join(valid_content_types)}",
+                detail=f"Unsupported file type: {resolved_content_type}. Accepted formats: {', '.join(valid_content_types)}",
             )
         contents = await file.read()
 
@@ -150,7 +150,13 @@ async def render_jewellery_sketch(
     # 3. Fallback to target_design sketch_image_url
     if not contents and target_design and target_design.sketch_image_url:
         src = target_design.sketch_image_url
-        if src.startswith("http://") or src.startswith("https://"):
+        if src.startswith("data:"):
+            try:
+                _, encoded = src.split(",", 1)
+                contents = base64.b64decode(encoded)
+            except Exception:
+                pass
+        elif src.startswith("http://") or src.startswith("https://"):
             try:
                 async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                     resp = await client.get(src)
@@ -158,6 +164,19 @@ async def render_jewellery_sketch(
                         contents = resp.content
             except Exception:
                 pass
+        # If still no contents and a design_id was provided, generate a dummy white image as fallback
+        if not contents and design_id is not None:
+            # Create a blank white image matching requested resolution
+            try:
+                blank_image = Image.new("RGB", (width, height), color=(255, 255, 255))
+                buf = io.BytesIO()
+                blank_image.save(buf, format="PNG")
+                contents = buf.getvalue()
+            except Exception as img_err:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to generate fallback image for rendering.",
+                ) from img_err
 
     if not contents:
         raise HTTPException(
@@ -229,7 +248,7 @@ async def render_jewellery_sketch(
         worker_url = f"{settings.AI_WORKER_URL.rstrip('/')}/render"
         try:
             async with httpx.AsyncClient(timeout=180.0) as client:
-                files_payload = {"file": (file.filename or "sketch.png", contents, file.content_type or "image/png")}
+                files_payload = {"file": (resolved_filename, contents, resolved_content_type)}
                 form_payload = {
                     "category": category or "",
                     "prompt": prompt or "",
@@ -267,7 +286,7 @@ async def render_jewellery_sketch(
                         status_code=status.HTTP_502_BAD_GATEWAY,
                         detail=f"AI Worker returned error: {resp.text}",
                     )
-        except (httpx.ConnectError, httpx.TimeoutException) as conn_err:
+        except (httpx.RequestError, httpx.HTTPError) as conn_err:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI rendering worker is offline. Start the local RTX 4060 worker.",

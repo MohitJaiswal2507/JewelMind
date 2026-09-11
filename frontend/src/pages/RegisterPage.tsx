@@ -57,32 +57,34 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin, o
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] px-4 py-6">
-      <Card className="w-full max-w-md bg-[#0b0e17]/95 border-slate-800 shadow-2xl backdrop-blur-md">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 p-[1px] shadow-lg shadow-amber-500/20 mb-2">
-            <div className="w-full h-full bg-[#0b0e17] rounded-[11px] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-amber-400" />
-            </div>
+    <div className="flex items-center justify-center min-h-[calc(100vh-14rem)] px-4 py-8">
+      <Card className="w-full max-w-md bg-[#0E111A]/95 border-[#1E2333] shadow-2xl backdrop-blur-md rounded-2xl relative overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/40 to-transparent" />
+
+        <CardHeader className="space-y-3 text-center pb-6 pt-8">
+          <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 via-[#161B26] to-[#08090D] border border-[#D4AF37]/30 flex items-center justify-center shadow-lg shadow-[#D4AF37]/5 mb-1">
+            <Sparkles className="w-5 h-5 text-[#E6CA65]" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Create Your Account</CardTitle>
-          <CardDescription className="text-xs text-slate-400">
-            Join JewelMind to start designing and estimating jewellery with AI decision support
+          <CardTitle className="text-2xl font-serif font-light tracking-wide text-[#F3F4F6]">
+            Create Atelier Account
+          </CardTitle>
+          <CardDescription className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+            Join JewelMind to orchestrate bespoke jewellery designs, ControlNet renders, and workshop scheduling
           </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-6 sm:px-8">
             {error && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2 text-rose-300 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2.5 text-rose-300 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                <span className="leading-relaxed">{error}</span>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
-                <User className="w-3.5 h-3.5 text-slate-400" />
+              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                <User className="w-3.5 h-3.5 text-[#D4AF37]/70" />
                 <span>Full Name</span>
               </label>
               <Input
@@ -93,12 +95,13 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin, o
                 disabled={isSubmitting}
                 autoComplete="name"
                 required
+                className="bg-[#121622] border-[#22283A] text-slate-100 placeholder:text-slate-600 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/40 rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
-                <Mail className="w-3.5 h-3.5 text-slate-400" />
+              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                <Mail className="w-3.5 h-3.5 text-[#D4AF37]/70" />
                 <span>Email Address</span>
               </label>
               <Input
@@ -109,12 +112,13 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin, o
                 disabled={isSubmitting}
                 autoComplete="email"
                 required
+                className="bg-[#121622] border-[#22283A] text-slate-100 placeholder:text-slate-600 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/40 rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
-                <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                <Lock className="w-3.5 h-3.5 text-[#D4AF37]/70" />
                 <span>Password (min. 8 characters)</span>
               </label>
               <Input
@@ -125,12 +129,13 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin, o
                 disabled={isSubmitting}
                 autoComplete="new-password"
                 required
+                className="bg-[#121622] border-[#22283A] text-slate-100 placeholder:text-slate-600 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/40 rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
+              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37]/70" />
                 <span>Confirm Password</span>
               </label>
               <Input
@@ -141,15 +146,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin, o
                 disabled={isSubmitting}
                 autoComplete="new-password"
                 required
+                className="bg-[#121622] border-[#22283A] text-slate-100 placeholder:text-slate-600 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/40 rounded-xl"
               />
             </div>
           </CardContent>
 
-          <CardFooter className="flex flex-col space-y-4 pt-2">
+          <CardFooter className="flex flex-col space-y-4 pt-4 pb-8 px-6 sm:px-8">
             <Button
               type="submit"
               variant="gold"
-              className="w-full h-10 font-semibold"
+              className="w-full h-11 text-sm font-medium tracking-wide rounded-xl shadow-lg shadow-[#D4AF37]/10"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -159,18 +165,18 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin, o
                 </>
               ) : (
                 <>
-                  Register & Sign In
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
+                  Register & Enter Atelier
+                  <ArrowRight className="w-4 h-4 ml-1.5 opacity-80" />
                 </>
               )}
             </Button>
 
-            <div className="text-center text-xs text-slate-400">
-              Already have an account?{' '}
+            <div className="text-center text-xs text-slate-400 pt-1">
+              Already have an atelier account?{' '}
               <button
                 type="button"
                 onClick={onNavigateToLogin}
-                className="text-amber-400 hover:text-amber-300 font-semibold underline-offset-4 hover:underline ml-1"
+                className="text-[#E6CA65] hover:text-[#F3DB7C] font-medium underline-offset-4 hover:underline ml-1 transition-colors"
               >
                 Sign In
               </button>

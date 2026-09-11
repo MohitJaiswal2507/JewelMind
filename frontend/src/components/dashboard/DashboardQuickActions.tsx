@@ -27,52 +27,44 @@ export const DashboardQuickActions: React.FC<DashboardQuickActionsProps> = ({
 }) => {
   const actions = [
     {
-      title: 'Interactive Sketch Canvas',
-      desc: 'Draw jewellery with symmetry, geometric shapes & layer guides',
+      title: 'Blueprint Drawing Desk',
+      desc: 'Precision freehand sketching with symmetry, grid guides & PNG lineart export',
       icon: Brush,
-      iconColor: 'text-amber-400',
-      borderColor: 'hover:border-amber-500/40',
       action: onOpenCanvas,
-      btnLabel: 'Launch Canvas',
+      btnLabel: 'Open Canvas',
     },
     {
-      title: 'AI Generative Rendering',
-      desc: 'ControlNet diffusion for 18K gold, platinum & precious gemstones',
+      title: 'AI Generative Studio',
+      desc: 'ControlNet diffusion synthesizing 18K gold, platinum & precious gemstones',
       icon: Sparkles,
-      iconColor: 'text-amber-300',
-      borderColor: 'hover:border-amber-400/40',
       action: onOpenRenderModal,
-      btnLabel: 'Render Sketch',
+      btnLabel: 'Synthesize Render',
     },
     {
-      title: 'YOLO Component Detection',
-      desc: 'Instance segmentation of gems, clasps, shanks, mounts & connectors',
+      title: 'YOLO Component Scanner',
+      desc: 'Instance segmentation extracting gemstones, clasps, mounts & shanks',
       icon: Cpu,
-      iconColor: 'text-cyan-400',
-      borderColor: 'hover:border-cyan-500/40',
       action: onOpenDetectionModal,
-      btnLabel: 'Run Detection',
+      btnLabel: 'Scan Blueprint',
     },
     {
-      title: 'OR-Tools CP-SAT Optimizer',
-      desc: 'Mathematical schedule solver for workshop artisans & machinery',
+      title: 'Workshop CP-SAT Solver',
+      desc: 'Constraint-based scheduler balancing artisan workbenches & machine runs',
       icon: Sliders,
-      iconColor: 'text-purple-400',
-      borderColor: 'hover:border-purple-500/40',
       action: onNavigateToOptimization,
-      btnLabel: 'Optimize Schedule',
+      btnLabel: 'Solve Schedule',
     },
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-            Executive Command Hub
+          <h2 className="font-serif text-xl sm:text-2xl font-normal text-white tracking-tight">
+            Creative Launchpad
           </h2>
-          <p className="text-xs text-slate-400">
-            Direct 1-click access to core AI design, computer vision, and manufacturing engines
+          <p className="text-xs text-slate-400 font-light mt-0.5">
+            Direct access to sketching, generative diffusion, computer vision, and manufacturing
           </p>
         </div>
       </div>
@@ -83,35 +75,35 @@ export const DashboardQuickActions: React.FC<DashboardQuickActionsProps> = ({
           return (
             <Card
               key={idx}
-              className={`bg-[#0b0f19] border-slate-800 ${act.borderColor} transition-all duration-200 group flex flex-col justify-between shadow-md`}
+              className="bg-[#0E111A]/90 border-white/[0.07] hover:border-amber-400/30 transition-all duration-300 group flex flex-col justify-between shadow-xl"
             >
-              <CardHeader className="p-5 pb-3 space-y-2">
+              <CardHeader className="p-6 pb-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div
-                    className={`p-2.5 rounded-xl bg-slate-900 border border-slate-800/80 ${act.iconColor} group-hover:scale-105 transition-transform`}
+                    className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-amber-300 group-hover:scale-105 group-hover:bg-amber-400/10 transition-all duration-300"
                   >
                     <Icon className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider">
+                  <span className="text-[10px] font-mono text-slate-500 font-semibold uppercase tracking-widest">
                     0{idx + 1}
                   </span>
                 </div>
-                <CardTitle className="text-sm text-white font-bold group-hover:text-amber-300 transition-colors">
+                <CardTitle className="text-base font-serif font-medium text-white group-hover:text-amber-200 transition-colors">
                   {act.title}
                 </CardTitle>
-                <CardDescription className="text-xs leading-relaxed text-slate-400">
+                <CardDescription className="text-xs leading-relaxed text-slate-400/90 font-light">
                   {act.desc}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-5 pt-0">
+              <CardContent className="p-6 pt-0">
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={act.action}
-                  className="w-full text-xs font-semibold justify-between border border-slate-800 hover:border-slate-700 bg-slate-900/80 hover:bg-slate-800"
+                  className="w-full text-xs font-semibold justify-between bg-[#121622] hover:bg-[#181E2E] border-white/5 group-hover:border-amber-400/20"
                 >
                   <span>{act.btnLabel}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-300 transition-colors" />
                 </Button>
               </CardContent>
             </Card>

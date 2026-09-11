@@ -6,6 +6,7 @@ import {
   AlertCircle,
   UploadCloud,
   Info,
+  Scan,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -22,25 +23,25 @@ interface ComponentDetectionModalProps {
 }
 
 const CLASS_COLORS: Record<string, { stroke: string; fill: string; badge: string; text: string }> = {
-  stone: { stroke: '#38bdf8', fill: 'rgba(56, 189, 248, 0.25)', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30', text: 'text-sky-400' },
-  gemstone: { stroke: '#38bdf8', fill: 'rgba(56, 189, 248, 0.25)', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30', text: 'text-sky-400' },
-  clasp: { stroke: '#fbbf24', fill: 'rgba(251, 191, 36, 0.25)', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30', text: 'text-amber-400' },
-  hook: { stroke: '#f472b6', fill: 'rgba(244, 114, 182, 0.25)', badge: 'bg-pink-500/20 text-pink-300 border-pink-500/30', text: 'text-pink-400' },
-  connector: { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.25)', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30', text: 'text-purple-400' },
-  ring_shank: { stroke: '#34d399', fill: 'rgba(52, 211, 153, 0.25)', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', text: 'text-emerald-400' },
-  metal_body: { stroke: '#34d399', fill: 'rgba(52, 211, 153, 0.25)', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', text: 'text-emerald-400' },
-  bead: { stroke: '#fb923c', fill: 'rgba(251, 146, 60, 0.25)', badge: 'bg-orange-500/20 text-orange-300 border-orange-500/30', text: 'text-orange-400' },
-  pendant: { stroke: '#2dd4bf', fill: 'rgba(45, 212, 191, 0.25)', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30', text: 'text-teal-400' },
+  stone: { stroke: '#F1DE9D', fill: 'rgba(241, 222, 157, 0.25)', badge: 'bg-amber-400/15 text-amber-200 border-amber-400/30', text: 'text-amber-200' },
+  gemstone: { stroke: '#F1DE9D', fill: 'rgba(241, 222, 157, 0.25)', badge: 'bg-amber-400/15 text-amber-200 border-amber-400/30', text: 'text-amber-200' },
+  clasp: { stroke: '#E2E8F0', fill: 'rgba(226, 232, 240, 0.25)', badge: 'bg-white/10 text-slate-200 border-white/20', text: 'text-slate-200' },
+  hook: { stroke: '#E2E8F0', fill: 'rgba(226, 232, 240, 0.25)', badge: 'bg-white/10 text-slate-200 border-white/20', text: 'text-slate-200' },
+  connector: { stroke: '#D4AF37', fill: 'rgba(212, 175, 55, 0.25)', badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30', text: 'text-amber-300' },
+  ring_shank: { stroke: '#E8C868', fill: 'rgba(232, 200, 104, 0.25)', badge: 'bg-yellow-400/15 text-yellow-200 border-yellow-400/30', text: 'text-yellow-200' },
+  metal_body: { stroke: '#E8C868', fill: 'rgba(232, 200, 104, 0.25)', badge: 'bg-yellow-400/15 text-yellow-200 border-yellow-400/30', text: 'text-yellow-200' },
+  bead: { stroke: '#CBD5E1', fill: 'rgba(203, 213, 225, 0.25)', badge: 'bg-slate-400/15 text-slate-200 border-slate-400/30', text: 'text-slate-200' },
+  pendant: { stroke: '#F9F1D8', fill: 'rgba(249, 241, 216, 0.25)', badge: 'bg-amber-200/15 text-amber-100 border-amber-200/30', text: 'text-amber-100' },
 };
 
 const getDefaultColor = (className: string) => {
   const normalized = className.toLowerCase().replace(/[\s-]+/g, '_');
   return (
     CLASS_COLORS[normalized] || {
-      stroke: '#e2e8f0',
-      fill: 'rgba(226, 232, 240, 0.2)',
-      badge: 'bg-slate-700/50 text-slate-300 border-slate-600',
-      text: 'text-slate-300',
+      stroke: '#D4AF37',
+      fill: 'rgba(212, 175, 55, 0.2)',
+      badge: 'bg-amber-400/10 text-amber-200 border-amber-400/20',
+      text: 'text-amber-200',
     }
   );
 };
@@ -108,31 +109,30 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
     }
   };
 
-  // Group detections by class for summary
   const classCounts = detectionResult?.detections.reduce((acc, curr) => {
     acc[curr.class_name] = (acc[curr.class_name] || 0) + 1;
     return acc;
   }, {} as Record<string, number>) || {};
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
+      <div className="bg-[#0E111A] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Cpu className="w-4 h-4" />
+        <div className="flex items-center justify-between px-7 py-5 border-b border-white/[0.07] bg-[#0A0C12]/70">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20">
+              <Scan className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-sm font-bold text-white tracking-wide">
-                  YOLO Jewellery Component Detection
+                <h2 className="font-serif text-base font-medium text-white tracking-wide">
+                  YOLO Jewellery Component Scanner
                 </h2>
-                <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
+                <Badge variant="gold" className="text-[9px]">
                   CV Instance Segmentation
                 </Badge>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-400 font-light">
                 Identify gemstones, clasps, mounts, connectors & shanks with pixel-precise contours
               </p>
             </div>
@@ -149,29 +149,29 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex-1 overflow-y-auto p-7 grid grid-cols-1 lg:grid-cols-3 gap-7">
           {/* Left/Middle: Image Canvas with Detection Overlays */}
           <div className="lg:col-span-2 space-y-4 flex flex-col">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-300">
+              <span className="font-medium text-slate-300">
                 Blueprint Inspector {designTitle ? `• ${designTitle}` : ''}
               </span>
               <div className="flex items-center space-x-3">
-                <label className="flex items-center space-x-1.5 cursor-pointer text-slate-400 hover:text-white">
+                <label className="flex items-center space-x-1.5 cursor-pointer text-slate-400 hover:text-white text-[11px]">
                   <input
                     type="checkbox"
                     checked={showMasks}
                     onChange={(e) => setShowMasks(e.target.checked)}
-                    className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0"
+                    className="rounded bg-[#080A10] border-white/20 text-amber-400 focus:ring-0"
                   />
                   <span>Masks</span>
                 </label>
-                <label className="flex items-center space-x-1.5 cursor-pointer text-slate-400 hover:text-white">
+                <label className="flex items-center space-x-1.5 cursor-pointer text-slate-400 hover:text-white text-[11px]">
                   <input
                     type="checkbox"
                     checked={showBoxes}
                     onChange={(e) => setShowBoxes(e.target.checked)}
-                    className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0"
+                    className="rounded bg-[#080A10] border-white/20 text-amber-400 focus:ring-0"
                   />
                   <span>Bounding Boxes</span>
                 </label>
@@ -179,13 +179,13 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
             </div>
 
             {/* Visual Canvas Container */}
-            <div className="relative flex-1 min-h-[360px] max-h-[460px] bg-slate-950/90 rounded-2xl border border-slate-800 p-3 flex items-center justify-center overflow-hidden group">
+            <div className="relative flex-1 min-h-[380px] max-h-[480px] bg-[#080A10] rounded-2xl border border-white/[0.07] p-4 flex items-center justify-center overflow-hidden group">
               {previewUrl ? (
                 <div className="relative max-h-full max-w-full flex items-center justify-center">
                   <img
                     src={previewUrl}
                     alt="Inspection blueprint"
-                    className="max-h-[400px] object-contain rounded filter invert opacity-85"
+                    className="max-h-[420px] object-contain rounded-lg filter invert opacity-85"
                   />
 
                   {/* SVG Overlay for Detections */}
@@ -198,7 +198,6 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                         const style = getDefaultColor(det.class_name);
                         const isSelected = selectedComponent === det;
 
-                        // Polygon path if available
                         const polyPoints = det.mask && det.mask.length > 0
                           ? det.mask.map((p) => `${p[0]},${p[1]}`).join(' ')
                           : null;
@@ -258,14 +257,14 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
               ) : (
                 <div className="text-center p-8 space-y-3">
                   <UploadCloud className="w-10 h-10 text-slate-600 mx-auto" />
-                  <p className="text-xs text-slate-400">No sketch selected for component detection</p>
+                  <p className="text-xs text-slate-400 font-light">No blueprint selected for component scanning</p>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-slate-700 text-xs"
+                    className="border-white/10 text-xs"
                   >
-                    Upload Sketch Image
+                    Upload Sketch Blueprint
                   </Button>
                 </div>
               )}
@@ -285,8 +284,8 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
             <div className="space-y-4">
               {/* Image Input Selection */}
               <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                  1. Source Image
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block">
+                  1. Blueprint Source
                 </span>
                 <input
                   type="file"
@@ -299,20 +298,20 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                   variant="secondary"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full text-xs font-semibold justify-center border border-slate-800"
+                  className="w-full text-xs font-medium justify-center bg-[#121622] hover:bg-[#181E2E] border-white/5"
                 >
-                  <UploadCloud className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
-                  {selectedFile ? selectedFile.name : 'Upload New Sketch File'}
+                  <UploadCloud className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+                  {selectedFile ? selectedFile.name : 'Upload New Blueprint'}
                 </Button>
               </div>
 
               {/* Confidence Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
                     2. Confidence Threshold
                   </span>
-                  <span className="font-mono font-bold text-cyan-400">
+                  <span className="font-mono font-semibold text-amber-300">
                     {Math.round(confidenceThreshold * 100)}%
                   </span>
                 </div>
@@ -332,17 +331,17 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                 size="sm"
                 onClick={handleRunDetection}
                 disabled={isDetecting || !previewUrl}
-                className="w-full font-bold text-xs bg-gradient-to-r from-cyan-500 via-sky-400 to-cyan-500 text-slate-950 hover:brightness-110 shadow-md"
+                className="w-full font-semibold text-xs shadow-md shadow-amber-500/10"
               >
                 {isDetecting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                    Running YOLO Inference...
+                    Scanning Blueprint...
                   </>
                 ) : (
                   <>
                     <Cpu className="w-3.5 h-3.5 mr-1.5" />
-                    Detect Components (YOLO11)
+                    Detect Components (YOLO V2)
                   </>
                 )}
               </Button>
@@ -350,11 +349,11 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
               {/* Results & Summary */}
               {detectionResult ? (
                 <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
-                    <span className="font-bold text-white uppercase tracking-wider">
-                      Detected Classes ({detectionResult.total_detections})
+                  <div className="flex items-center justify-between text-xs pb-2 border-b border-white/5">
+                    <span className="text-[11px] font-semibold text-white uppercase tracking-wider">
+                      Detected ({detectionResult.total_detections})
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-cyan-400 font-mono">
+                    <Badge variant="outline" className="text-[10px] text-amber-300 font-mono">
                       {detectionResult.inference_time_ms} ms
                     </Badge>
                   </div>
@@ -366,7 +365,7 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                       return (
                         <div
                           key={cls}
-                          className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 ${color.badge}`}
+                          className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 ${color.badge}`}
                         >
                           <span>{cls}</span>
                           <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/40 font-mono">
@@ -386,17 +385,17 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                         <div
                           key={idx}
                           onClick={() => setSelectedComponent(isSelected ? null : det)}
-                          className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between text-xs ${
+                          className={`p-2.5 rounded-xl border transition-all duration-150 cursor-pointer flex items-center justify-between text-xs ${
                             isSelected
-                              ? 'bg-cyan-500/10 border-cyan-500/60'
-                              : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
+                              ? 'bg-amber-400/15 border-amber-400/50'
+                              : 'bg-[#080A10] border-white/5 hover:border-white/15'
                           }`}
                         >
-                          <span className={`font-semibold capitalize ${color.text}`}>
+                          <span className={`font-medium capitalize ${color.text}`}>
                             {det.class_name} #{idx + 1}
                           </span>
-                          <span className="font-mono text-[10px] text-slate-400">
-                            {Math.round(det.confidence * 100)}% conf
+                          <span className="font-mono text-[10px] text-slate-400 font-light">
+                            {Math.round(det.confidence * 100)}%
                           </span>
                         </div>
                       );
@@ -404,22 +403,22 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800 text-xs text-slate-400 space-y-1">
-                  <div className="font-semibold text-slate-300 flex items-center gap-1">
-                    <Info className="w-3.5 h-3.5 text-cyan-400" />
-                    Model Taxonomy
+                <div className="p-4 rounded-xl bg-[#080A10] border border-white/5 text-xs text-slate-400 space-y-1 font-light">
+                  <div className="font-medium text-slate-300 flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-amber-300" />
+                    Atelier Vision Taxonomy
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    Identifies stones, hook clasps, connectors, ring shanks, beads, and pendants for automated BOM & cost predictions.
+                    Identifies stones, hook clasps, connectors, ring shanks, beads, and mounts for automated bill-of-materials and cost estimation.
                   </p>
                 </div>
               )}
             </div>
 
             {/* Bottom Hardware Stamp */}
-            <div className="text-[10px] text-slate-500 font-mono border-t border-slate-800/80 pt-3 flex items-center justify-between">
+            <div className="text-[10px] text-slate-500 font-mono border-t border-white/5 pt-3 flex items-center justify-between">
               <span>Device: {detectionResult?.device_used || 'Local PyTorch / CUDA'}</span>
-              <span>Model: YOLO11-seg</span>
+              <span>Model: YOLO V2 Production</span>
             </div>
           </div>
         </div>

@@ -64,7 +64,7 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
       setDesigns(response.items);
       setTotalCount(response.total);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch jewellery designs.';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch jewellery catalogue.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -75,7 +75,6 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
     fetchDesigns();
   }, [fetchDesigns]);
 
-  // Clear toast feedback after 4 seconds
   useEffect(() => {
     if (feedbackMessage) {
       const timer = setTimeout(() => setFeedbackMessage(null), 4000);
@@ -125,26 +124,24 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto py-6">
+    <div className="space-y-8 max-w-7xl mx-auto py-2 sm:py-4">
       {/* Workspace Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-br from-slate-900/90 to-[#0d121f] p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-7 sm:p-9 rounded-2xl bg-[#0E111A]/90 border border-white/[0.07] shadow-2xl relative overflow-hidden">
         <div className="flex items-center space-x-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 p-[1px] shadow-lg shadow-amber-500/20 shrink-0">
-            <div className="w-full h-full bg-[#0b0e17] rounded-[15px] flex items-center justify-center">
-              <Layers className="w-7 h-7 text-amber-400" />
-            </div>
+          <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-400/20 via-yellow-400/10 to-transparent border border-amber-400/30 flex items-center justify-center shadow-lg shadow-amber-500/5 shrink-0">
+            <Layers className="w-6 h-6 text-amber-300" />
           </div>
           <div>
             <div className="flex items-center space-x-2.5">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Jewellery Designs
+              <h1 className="font-serif text-2xl sm:text-3xl font-normal text-white tracking-tight">
+                Design Catalogue
               </h1>
-              <Badge variant="gold" className="text-xs">
+              <Badge variant="gold" className="text-[10px]">
                 {totalCount} {totalCount === 1 ? 'Design' : 'Designs'}
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Personal artisan workspace for managing sketches, collections, and future AI render targets
+            <p className="text-xs sm:text-sm text-slate-400 font-light mt-1 max-w-xl">
+              Editorial portfolio of fine jewellery blueprints, generative diffusion targets, and bespoke collections.
             </p>
           </div>
         </div>
@@ -155,19 +152,19 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
             size="sm"
             onClick={fetchDesigns}
             disabled={loading}
-            className="border-slate-700"
+            className="h-9 px-3 border-white/10 text-slate-300 hover:border-white/20"
             title="Refresh Designs"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
 
           <Button
             variant="gold"
             size="default"
             onClick={handleOpenCreateModal}
-            className="font-bold shadow-lg shadow-amber-500/20"
+            className="h-9 px-5 font-semibold text-xs shadow-md shadow-amber-500/10"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             New Design
           </Button>
         </div>
@@ -188,7 +185,7 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-3 text-rose-300 text-xs">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <div className="font-semibold">Unable to load designs</div>
+            <div className="font-semibold">Unable to load catalogue</div>
             <div>{error}</div>
             <Button
               variant="outline"
@@ -219,14 +216,14 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
           {Array.from({ length: 8 }).map((_, idx) => (
             <div
               key={idx}
-              className="h-80 rounded-2xl bg-slate-900/60 border border-slate-800 animate-pulse flex flex-col justify-between p-5"
+              className="h-88 rounded-2xl bg-[#0E111A]/60 border border-white/5 animate-pulse flex flex-col justify-between p-5"
             >
               <div className="space-y-3">
-                <div className="h-36 bg-slate-800/80 rounded-xl" />
-                <div className="h-4 bg-slate-800/80 rounded w-3/4" />
-                <div className="h-3 bg-slate-800/60 rounded w-1/2" />
+                <div className="h-44 bg-white/[0.03] rounded-xl" />
+                <div className="h-4 bg-white/[0.04] rounded w-3/4" />
+                <div className="h-3 bg-white/[0.02] rounded w-1/2" />
               </div>
-              <div className="h-8 bg-slate-800/80 rounded-lg w-full" />
+              <div className="h-8 bg-white/[0.03] rounded-lg w-full" />
             </div>
           ))}
         </div>
@@ -244,25 +241,25 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
         </div>
       ) : (
         /* Empty State */
-        <div className="text-center py-16 px-4 bg-gradient-to-br from-[#0b0e17] to-slate-950 rounded-2xl border border-slate-800/80 space-y-5">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
+        <div className="text-center py-20 px-6 bg-[#0E111A]/50 rounded-2xl border border-white/[0.07] space-y-5">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-[#080A10] border border-white/10 flex items-center justify-center text-slate-500">
             {search || category || status ? (
               <Search className="w-8 h-8 text-slate-400" />
             ) : (
-              <FolderPlus className="w-8 h-8 text-amber-400" />
+              <FolderPlus className="w-8 h-8 text-amber-300" />
             )}
           </div>
 
-          <div className="space-y-1 max-w-md mx-auto">
-            <h3 className="text-lg font-bold text-white">
+          <div className="space-y-1.5 max-w-md mx-auto">
+            <h3 className="font-serif text-lg font-medium text-white">
               {search || category || status
                 ? 'No designs match your filters'
                 : 'No jewellery designs yet'}
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 font-light leading-relaxed">
               {search || category || status
                 ? 'Try adjusting your search terms, changing the category tab, or resetting filters.'
-                : 'Start building your portfolio by creating your first ring, necklace, earring, or pendant design.'}
+                : 'Begin assembling your portfolio by creating your first ring, necklace, earring, or pendant design.'}
             </p>
           </div>
 
@@ -272,7 +269,7 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
                 variant="outline"
                 size="sm"
                 onClick={handleResetFilters}
-                className="border-slate-700"
+                className="border-white/10 text-xs"
               >
                 Reset All Filters
               </Button>
@@ -281,9 +278,9 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
                 variant="gold"
                 size="default"
                 onClick={handleOpenCreateModal}
-                className="font-bold"
+                className="font-semibold text-xs"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 mr-1.5" />
                 Create First Design
               </Button>
             )}
@@ -309,3 +306,5 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
     </div>
   );
 };
+
+export default DesignsPage;

@@ -24,13 +24,11 @@ export const SketchUploadDropzone: React.FC<SketchUploadDropzoneProps> = ({
     setError(null);
     setSuccess(false);
 
-    // Client-side MIME validation
     if (!ALLOWED_TYPES.includes(file.type.toLowerCase())) {
       setError('Unsupported file type. Please upload a PNG, JPEG, or WEBP image.');
       return;
     }
 
-    // Client-side Size validation
     if (file.size > MAX_SIZE_BYTES) {
       const actualMb = (file.size / (1024 * 1024)).toFixed(2);
       setError(`File size (${actualMb} MB) exceeds maximum allowed limit of 10 MB.`);
@@ -106,42 +104,42 @@ export const SketchUploadDropzone: React.FC<SketchUploadDropzoneProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer transition duration-200 ${
+        className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
           isDragging
-            ? 'border-amber-400 bg-amber-500/10 scale-[0.99]'
-            : 'border-slate-800 bg-slate-950/40 hover:border-amber-500/40 hover:bg-slate-900/50'
+            ? 'border-amber-400 bg-amber-400/10 scale-[0.99]'
+            : 'border-white/10 bg-[#080A10] hover:border-amber-400/30 hover:bg-[#0C0F18]'
         } ${uploading ? 'cursor-wait opacity-80' : ''}`}
       >
         {uploading ? (
           <div className="space-y-3 flex flex-col items-center">
-            <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
-            <div className="text-xs font-semibold text-slate-200">
-              {isReplacing ? 'Replacing sketch in Supabase Storage...' : 'Uploading sketch to Supabase Storage...'}
+            <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
+            <div className="text-xs font-medium text-slate-200">
+              {isReplacing ? 'Replacing blueprint in cloud storage...' : 'Syncing blueprint to cloud storage...'}
             </div>
-            <p className="text-[11px] text-slate-500">Atomic upload & ownership verification in progress</p>
+            <p className="text-[11px] text-slate-500 font-light">Atomic serialization & cryptographic ownership verification</p>
           </div>
         ) : success ? (
           <div className="space-y-2 flex flex-col items-center text-emerald-400">
-            <CheckCircle2 className="w-10 h-10" />
-            <div className="text-xs font-semibold">Sketch uploaded successfully!</div>
+            <CheckCircle2 className="w-8 h-8" />
+            <div className="text-xs font-semibold">Blueprint synced successfully!</div>
           </div>
         ) : (
           <div className="space-y-3 flex flex-col items-center">
-            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-amber-400 shadow-inner">
-              <UploadCloud className="w-8 h-8" />
+            <div className="p-3.5 rounded-2xl bg-[#121622] border border-white/10 text-amber-300 shadow-inner">
+              <UploadCloud className="w-7 h-7" />
             </div>
 
             <div className="space-y-1">
-              <div className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
-                <span>{isReplacing ? 'Click or drag to replace sketch' : 'Upload Jewellery Sketch'}</span>
+              <div className="text-sm font-serif font-medium text-white flex items-center justify-center gap-1.5">
+                <span>{isReplacing ? 'Click or drag to replace blueprint' : 'Upload Jewellery Blueprint'}</span>
               </div>
-              <p className="text-xs text-slate-400 max-w-sm">
-                Drag and drop your hand-drawn jewellery sketch or click to browse files
+              <p className="text-xs text-slate-400 font-light max-w-sm">
+                Drag and drop your hand-drawn sketch, digital LineArt, or CAD blueprint
               </p>
             </div>
 
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 font-mono">
-              <FileImage className="w-3.5 h-3.5 text-amber-400" />
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#121622] border border-white/5 text-[10px] text-slate-400 font-mono">
+              <FileImage className="w-3.5 h-3.5 text-amber-300" />
               <span>PNG, JPG, WEBP • Max 10 MB</span>
             </div>
 
@@ -149,7 +147,7 @@ export const SketchUploadDropzone: React.FC<SketchUploadDropzoneProps> = ({
               type="button"
               variant="gold"
               size="sm"
-              className="mt-1 font-bold text-xs"
+              className="mt-1 font-semibold text-xs"
               onClick={(e) => {
                 e.stopPropagation();
                 fileInputRef.current?.click();

@@ -65,11 +65,11 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
   };
 
   return (
-    <aside className="w-full lg:w-80 xl:w-96 bg-[#070a12] border-l border-slate-800/90 flex flex-col justify-between select-none p-5 text-slate-300 overflow-y-auto">
-      <div className="space-y-5">
+    <aside className="w-full lg:w-80 xl:w-96 bg-[#0A0C12] border-l border-white/[0.07] flex flex-col justify-between select-none p-6 text-slate-300 overflow-y-auto">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Media Details</h3>
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
+          <h3 className="text-xs font-serif font-medium text-white tracking-wider">Asset Inspector</h3>
           <Button
             variant="ghost"
             size="icon"
@@ -82,27 +82,29 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
         </div>
 
         {/* Large Media Preview */}
-        <div className="w-full bg-slate-950/90 rounded-2xl border border-slate-800/90 p-4 flex items-center justify-center min-h-[220px] overflow-hidden group relative">
+        <div className="w-full bg-[#080A10] rounded-2xl border border-white/[0.07] p-4 flex items-center justify-center min-h-[220px] overflow-hidden group relative">
           {item.thumbnailUrl ? (
             <img
               src={item.thumbnailUrl}
               alt={item.title}
-              className="max-h-52 object-contain filter invert opacity-95 rounded-lg group-hover:scale-105 transition-transform duration-200"
+              className={`max-h-56 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ${
+                item.mediaType === 'PNG Sketch' ? 'filter invert opacity-90' : 'shadow-xl'
+              }`}
             />
           ) : (
-            <div className="text-center p-4 text-slate-500 text-xs">No media preview available</div>
+            <div className="text-center p-4 text-slate-500 text-xs font-light">No media preview available</div>
           )}
         </div>
 
         {/* Title & SKU Header */}
-        <div className="space-y-1">
-          <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
+        <div className="space-y-1.5">
+          <h2 className="font-serif text-lg text-white font-normal tracking-tight leading-snug">
             {item.title}
           </h2>
-          <div className="text-xs font-mono font-semibold text-amber-400">
+          <div className="text-xs font-mono font-semibold text-amber-300">
             {item.sku}
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-400 font-light">
             {item.mediaType} • {item.category}
           </div>
         </div>
@@ -110,18 +112,18 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
         <Separator />
 
         {/* Metadata Specification Table */}
-        <div className="space-y-3 text-xs">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            Asset Metadata
+        <div className="space-y-3.5 text-xs font-light">
+          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+            Asset Telemetry
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center space-x-1.5">
                 <User className="w-3.5 h-3.5 text-slate-500" />
                 <span>Creator</span>
               </span>
-              <span className="font-semibold text-white truncate max-w-[140px]">{item.creatorName}</span>
+              <span className="font-medium text-white truncate max-w-[140px] font-sans">{item.creatorName}</span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -129,7 +131,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
                 <Calendar className="w-3.5 h-3.5 text-slate-500" />
                 <span>Creation Date</span>
               </span>
-              <span className="font-mono text-slate-300">
+              <span className="font-mono text-slate-300 text-[11px]">
                 {new Date(item.createdAt).toLocaleDateString([], {
                   month: 'short',
                   day: 'numeric',
@@ -143,7 +145,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
                 <HardDrive className="w-3.5 h-3.5 text-slate-500" />
                 <span>Asset Size</span>
               </span>
-              <span className="font-mono text-slate-300">{item.fileSize}</span>
+              <span className="font-mono text-slate-300 text-[11px]">{item.fileSize}</span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -151,7 +153,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
                 <Layers className="w-3.5 h-3.5 text-slate-500" />
                 <span>Status</span>
               </span>
-              <Badge variant={item.status === 'ready' ? 'success' : 'outline'} className="text-[10px]">
+              <Badge variant={item.status === 'ready' ? 'success' : 'outline'} className="text-[9px]">
                 {item.status.toUpperCase()}
               </Badge>
             </div>
@@ -160,20 +162,20 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
 
         {/* Design Description if present */}
         {item.design.description && (
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-1">
+          <div className="p-3.5 rounded-xl bg-[#0E111A] border border-white/5 text-xs space-y-1">
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Artisan Notes</div>
-            <p className="text-slate-300 leading-relaxed text-[11px]">{item.design.description}</p>
+            <p className="text-slate-300 leading-relaxed text-[11px] font-light">{item.design.description}</p>
           </div>
         )}
       </div>
 
       {/* Action Footer */}
-      <div className="pt-4 border-t border-slate-800/80 space-y-2">
+      <div className="pt-4 border-t border-white/5 space-y-2.5">
         {/* Generative AI Render Button */}
         <Button
           variant="gold"
           size="sm"
-          className="w-full font-bold text-xs shadow-md bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 hover:brightness-110"
+          className="w-full font-semibold text-xs shadow-md"
           onClick={() => setIsAiRenderOpen(true)}
           disabled={!item.thumbnailUrl}
         >
@@ -184,10 +186,10 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
         <Button
           variant="secondary"
           size="sm"
-          className="w-full font-semibold text-xs border border-slate-700"
+          className="w-full font-semibold text-xs bg-[#121622] hover:bg-[#181E2E] border-white/5"
           onClick={() => onOpenCanvas(item.designId)}
         >
-          <Brush className="w-3.5 h-3.5 mr-1.5" /> Open in Sketch Canvas
+          <Brush className="w-3.5 h-3.5 mr-1.5" /> Open in Drawing Desk
         </Button>
 
         {/* Download & Delete Buttons */}
@@ -195,7 +197,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           <Button
             variant="secondary"
             size="sm"
-            className="text-xs font-semibold"
+            className="text-xs font-medium bg-[#121622] hover:bg-[#181E2E] border-white/5"
             onClick={handleDownload}
             disabled={!item.thumbnailUrl}
           >
@@ -205,7 +207,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           <Button
             variant="outline"
             size="sm"
-            className="text-xs border-slate-700 hover:border-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+            className="text-xs border-white/10 hover:border-rose-500/40 hover:text-rose-300"
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
@@ -214,20 +216,20 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
 
         {/* Delete Confirmation Sub-Dialog */}
         {showDeleteConfirm && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs space-y-2 animate-in fade-in">
-            <div className="flex items-center space-x-1.5 font-bold text-rose-300">
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs space-y-2 animate-in fade-in">
+            <div className="flex items-center space-x-1.5 font-semibold text-rose-300">
               <AlertTriangle className="w-4 h-4 text-rose-400" />
               <span>Confirm Delete?</span>
             </div>
-            <p className="text-[11px] text-rose-300">
-              Are you sure you want to permanently delete this media file from Supabase Storage?
+            <p className="text-[11px] text-rose-300 font-light">
+              Are you sure you want to permanently delete this media file from cloud storage?
             </p>
             {error && <p className="text-[10px] text-rose-400 font-semibold">{error}</p>}
             <div className="flex items-center space-x-2 pt-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-[11px] border-slate-700"
+                className="h-7 text-[11px] border-white/10"
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={isDeleting}
               >
@@ -236,7 +238,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
               <Button
                 variant="destructive"
                 size="sm"
-                className="h-7 text-[11px] font-bold"
+                className="h-7 text-[11px] font-semibold"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
               >
@@ -248,7 +250,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
         )}
       </div>
 
-      {/* Phase 7 AI Generative Diffusion Modal */}
+      {/* AI Generative Diffusion Modal */}
       {item.thumbnailUrl && (
         <AiRenderModal
           isOpen={isAiRenderOpen}

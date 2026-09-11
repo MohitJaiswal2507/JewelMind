@@ -2,14 +2,121 @@
 
 @layer base {
   :root {
-    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+    --font-display: 'Cinzel', 'Playfair Display', serif;
+
+    /* Atelier Theme Tokens */
+    --atelier-bg: #08090D;
+    --atelier-surface: #0E111A;
+    --atelier-surface-elevated: #151A26;
+    --atelier-surface-highlight: #1D2333;
+    --atelier-gold: #D4AF37;
+    --atelier-gold-light: #F1DE9D;
+    --atelier-gold-dark: #A47E1B;
+    --atelier-platinum: #E2E8F0;
+    --atelier-border: rgba(255, 255, 255, 0.07);
+    --atelier-border-gold: rgba(212, 175, 55, 0.25);
   }
 
   body {
     margin: 0;
     font-family: var(--font-sans);
-    background-color: #0b0f19;
-    color: #f3f4f6;
+    background-color: var(--atelier-bg);
+    color: #f1f5f9;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
+
+  h1, h2, h3, .font-serif {
+    font-family: var(--font-serif);
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+}
+
+/* Custom Atelier Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #08090D;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.35);
+}
+
+/* Luxury Utilities */
+.atelier-gold-gradient {
+  background: linear-gradient(135deg, #F9F1D8 0%, #D4AF37 50%, #AA820A 100%);
+}
+
+.atelier-gold-text {
+  background: linear-gradient(135deg, #FFF6D6 0%, #E8C868 45%, #C29B27 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.atelier-silver-text {
+  background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.atelier-glass {
+  background: rgba(14, 17, 26, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.atelier-glass-gold {
+  background: rgba(20, 22, 30, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.atelier-card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 175, 55, 0.3);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px -5px rgba(212, 175, 55, 0.1);
+}
+
+/* Shimmer & Glow Animations */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
 }
