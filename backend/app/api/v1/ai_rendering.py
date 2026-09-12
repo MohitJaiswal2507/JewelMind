@@ -229,7 +229,7 @@ async def render_jewellery_sketch(
         worker_url = f"{settings.AI_WORKER_URL.rstrip('/')}/render"
         try:
             async with httpx.AsyncClient(timeout=180.0) as client:
-                files_payload = {"file": (file.filename or "sketch.png", contents, file.content_type or "image/png")}
+                files_payload = {"file": (filename, contents, content_type)}
                 form_payload = {
                     "category": category or "",
                     "prompt": prompt or "",

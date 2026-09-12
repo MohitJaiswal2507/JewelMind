@@ -32,7 +32,7 @@ _detector_instance = None
 def get_detector() -> Optional[JewelleryComponentDetector]:
     global _detector_instance
     if _detector_instance is None and JewelleryComponentDetector is not None:
-        _detector_instance = JewelleryComponentDetector()
+        _detector_instance = JewelleryComponentDetector(mock_mode=False)
     return _detector_instance
 
 
@@ -64,8 +64,15 @@ async def detect_jewellery_components(
             detail="Uploaded file is empty.",
         )
 
-    detector = get_detector()
-    if detector is not None:
+    try:
+        detector = get_detector()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"YOLO V2 production model unavailable: {str(exc)}",
+        )
+
+    if detector is not None and not getattr(detector, "mock_mode", False):
         # Decode image to numpy array
         nparr = np.frombuffer(contents, np.uint8)
         img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -74,10 +81,16 @@ async def detect_jewellery_components(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Failed to decode image data. Please ensure it is a valid image file.",
             )
-        result = detector.detect(img_np, conf_threshold=conf)
-        return result
+        try:
+            result = detector.detect(img_np, conf_threshold=conf)
+            return result
+        except Exception as det_err:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Inference error during component detection: {str(det_err)}",
+            )
     else:
-        # Proxy to AI worker
+        # Proxy to AI worker if local detector not available
         worker_url = f"{settings.AI_WORKER_URL.rstrip('/')}/detect"
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -99,5 +112,5 @@ async def detect_jewellery_components(
         except (httpx.ConnectError, httpx.TimeoutException) as conn_err:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI vision worker is offline. Start the local RTX 4060 worker.",
+                detail="YOLO V2 production model unavailable. Start the local worker or verify model weights.",
             ) from conn_err

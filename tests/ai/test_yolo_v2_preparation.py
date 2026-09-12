@@ -26,11 +26,12 @@ from scripts.convert_dwpose_to_yolo import (
 
 
 def test_v1_baseline_taxonomy_preserved():
-    """Verify that V1 ring micro-component taxonomy is intact and unmodified."""
+    """Verify that V1 ring micro-component taxonomy constants are intact and unmodified."""
     assert len(TAXONOMY_V1) == 7
     assert TAXONOMY_V1[0] == "gemstone"
     assert TAXONOMY_V1[1] == "ring_shank"
-    assert TAXONOMY == TAXONOMY_V1
+    # TAXONOMY alias now points to V2 (production default). V1 constants remain intact.
+    assert TAXONOMY == TAXONOMY_V2
 
 
 def test_v2_jewelmind_category_taxonomy():

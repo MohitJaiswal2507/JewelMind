@@ -23,6 +23,16 @@ interface ComponentDetectionModalProps {
 }
 
 const CLASS_COLORS: Record<string, { stroke: string; fill: string; badge: string; text: string }> = {
+  // Production V2 8-Class Jewellery Taxonomy
+  ring: { stroke: '#E8C868', fill: 'rgba(232, 200, 104, 0.25)', badge: 'bg-yellow-400/15 text-yellow-200 border-yellow-400/30', text: 'text-yellow-200' },
+  earring: { stroke: '#60A5FA', fill: 'rgba(96, 165, 250, 0.25)', badge: 'bg-blue-400/15 text-blue-200 border-blue-400/30', text: 'text-blue-200' },
+  pendant: { stroke: '#F9F1D8', fill: 'rgba(249, 241, 216, 0.25)', badge: 'bg-amber-200/15 text-amber-100 border-amber-200/30', text: 'text-amber-100' },
+  necklace: { stroke: '#34D399', fill: 'rgba(52, 211, 153, 0.25)', badge: 'bg-emerald-400/15 text-emerald-200 border-emerald-400/30', text: 'text-emerald-200' },
+  bracelet: { stroke: '#A78BFA', fill: 'rgba(167, 139, 250, 0.25)', badge: 'bg-purple-400/15 text-purple-200 border-purple-400/30', text: 'text-purple-200' },
+  bangle: { stroke: '#F472B6', fill: 'rgba(244, 114, 182, 0.25)', badge: 'bg-pink-400/15 text-pink-200 border-pink-400/30', text: 'text-pink-200' },
+  brooch: { stroke: '#FB923C', fill: 'rgba(251, 146, 60, 0.25)', badge: 'bg-orange-400/15 text-orange-200 border-orange-400/30', text: 'text-orange-200' },
+  other_jewellery: { stroke: '#94A3B8', fill: 'rgba(148, 163, 184, 0.25)', badge: 'bg-slate-400/15 text-slate-200 border-slate-400/30', text: 'text-slate-200' },
+  // Legacy / Subcomponent Fallbacks
   stone: { stroke: '#F1DE9D', fill: 'rgba(241, 222, 157, 0.25)', badge: 'bg-amber-400/15 text-amber-200 border-amber-400/30', text: 'text-amber-200' },
   gemstone: { stroke: '#F1DE9D', fill: 'rgba(241, 222, 157, 0.25)', badge: 'bg-amber-400/15 text-amber-200 border-amber-400/30', text: 'text-amber-200' },
   clasp: { stroke: '#E2E8F0', fill: 'rgba(226, 232, 240, 0.25)', badge: 'bg-white/10 text-slate-200 border-white/20', text: 'text-slate-200' },
@@ -31,7 +41,21 @@ const CLASS_COLORS: Record<string, { stroke: string; fill: string; badge: string
   ring_shank: { stroke: '#E8C868', fill: 'rgba(232, 200, 104, 0.25)', badge: 'bg-yellow-400/15 text-yellow-200 border-yellow-400/30', text: 'text-yellow-200' },
   metal_body: { stroke: '#E8C868', fill: 'rgba(232, 200, 104, 0.25)', badge: 'bg-yellow-400/15 text-yellow-200 border-yellow-400/30', text: 'text-yellow-200' },
   bead: { stroke: '#CBD5E1', fill: 'rgba(203, 213, 225, 0.25)', badge: 'bg-slate-400/15 text-slate-200 border-slate-400/30', text: 'text-slate-200' },
-  pendant: { stroke: '#F9F1D8', fill: 'rgba(249, 241, 216, 0.25)', badge: 'bg-amber-200/15 text-amber-100 border-amber-200/30', text: 'text-amber-100' },
+};
+
+export const formatCategoryLabel = (name: string): string => {
+  const map: Record<string, string> = {
+    ring: 'Ring',
+    earring: 'Earring',
+    pendant: 'Pendant',
+    necklace: 'Necklace',
+    bracelet: 'Bracelet',
+    bangle: 'Bangle',
+    brooch: 'Brooch',
+    other_jewellery: 'Other Jewellery',
+  };
+  const key = name.toLowerCase().replace(/[\s-]+/g, '_');
+  return map[key] || name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
 const getDefaultColor = (className: string) => {
@@ -246,7 +270,7 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                               fontWeight="bold"
                               fontFamily="sans-serif"
                             >
-                              {det.class_name} ({Math.round(det.confidence * 100)}%)
+                              {formatCategoryLabel(det.class_name)} ({Math.round(det.confidence * 100)}%)
                             </text>
                           </g>
                         );
@@ -367,7 +391,7 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                           key={cls}
                           className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 ${color.badge}`}
                         >
-                          <span>{cls}</span>
+                          <span>{formatCategoryLabel(cls)}</span>
                           <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/40 font-mono">
                             {count}
                           </span>
@@ -392,7 +416,7 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                           }`}
                         >
                           <span className={`font-medium capitalize ${color.text}`}>
-                            {det.class_name} #{idx + 1}
+                            {formatCategoryLabel(det.class_name)} #{idx + 1}
                           </span>
                           <span className="font-mono text-[10px] text-slate-400 font-light">
                             {Math.round(det.confidence * 100)}%
@@ -409,7 +433,7 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
                     Atelier Vision Taxonomy
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    Identifies stones, hook clasps, connectors, ring shanks, beads, and mounts for automated bill-of-materials and cost estimation.
+                    Identifies rings, earrings, pendants, necklaces, bracelets, bangles, brooches, and other jewellery components for automated bill-of-materials and cost estimation.
                   </p>
                 </div>
               )}
@@ -417,8 +441,8 @@ export const ComponentDetectionModal: React.FC<ComponentDetectionModalProps> = (
 
             {/* Bottom Hardware Stamp */}
             <div className="text-[10px] text-slate-500 font-mono border-t border-white/5 pt-3 flex items-center justify-between">
-              <span>Device: {detectionResult?.device_used || 'Local PyTorch / CUDA'}</span>
-              <span>Model: YOLO V2 Production</span>
+              <span>Device: {detectionResult?.device_used || 'CPU / CUDA'}</span>
+              <span>Model: YOLO V2 Production • Inference: REAL</span>
             </div>
           </div>
         </div>
