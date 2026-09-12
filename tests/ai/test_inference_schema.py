@@ -41,7 +41,7 @@ def test_detection_result_serialization():
 
 
 def test_mock_detector_mode():
-    """Ensure detector in mock mode returns stable deterministic detections."""
+    """Ensure detector in mock mode returns stable deterministic detections (V2 taxonomy)."""
     detector = JewelleryComponentDetector(mock_mode=True)
     dummy_img = np.zeros((400, 400, 3), dtype=np.uint8)
 
@@ -49,5 +49,6 @@ def test_mock_detector_mode():
     assert isinstance(result, DetectionResult)
     assert result.total_detections >= 2
     assert result.device_used == "mock"
-    assert any(d.class_name == "gemstone" for d in result.detections)
-    assert any(d.class_name == "ring_shank" for d in result.detections)
+    # V2 production taxonomy: ring (class 0) and earring (class 1) in mock detections
+    assert any(d.class_name == "ring" for d in result.detections)
+    assert any(d.class_name == "earring" for d in result.detections)

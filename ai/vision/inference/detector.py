@@ -44,8 +44,8 @@ TAXONOMY_V2: Dict[int, str] = {
     7: "other_jewellery",
 }
 
-# Default backwards-compatible alias
-TAXONOMY = TAXONOMY_V1
+# Default backwards-compatible alias — V2 is the production standard
+TAXONOMY = TAXONOMY_V2
 
 # Distinct visualization colors for V1 & V2
 CLASS_COLORS_V1: Dict[int, tuple] = {
@@ -82,7 +82,7 @@ class JewelleryComponentDetector:
         mock_mode: bool = False,
     ):
         self.mock_mode = mock_mode
-        self.model_version = "yolo11m-seg-jewelmind-v1"
+        self.model_version = "yolo11m-seg-jewelmind-v2"
         self.model = None
 
         if self.mock_mode:
@@ -90,18 +90,16 @@ class JewelleryComponentDetector:
             return
 
         if not TORCH_AVAILABLE:
-            self.mock_mode = True
-            self.device_str = "mock_fallback"
-            return
+            raise RuntimeError("YOLO V2 production model unavailable: PyTorch is not installed in the runtime environment.")
 
         # Device selection
         if device is None:
             if torch.cuda.is_available():
-                self.device_str = "cuda:0"
+                self.device_str = "CUDA:0"
             else:
-                self.device_str = "cpu"
+                self.device_str = "CPU"
         else:
-            self.device_str = f"cuda:{device}" if isinstance(device, int) else str(device)
+            self.device_str = f"CUDA:{device}" if isinstance(device, int) else str(device).upper()
 
         # Environment-driven model preference (defaults to production v2 multi-jewellery model)
         model_pref = os.getenv("JEWELRY_VISION_MODEL", "v2").strip().lower()
@@ -146,24 +144,21 @@ class JewelleryComponentDetector:
                 break
 
         if resolved_path:
-            from ultralytics import YOLO
-            self.model_path = resolved_path
-            p_obj = Path(resolved_path)
-            if p_obj.stem in ["best", "last"] and p_obj.parent.name == "weights":
-                self.model_version = f"{p_obj.parent.parent.name}:{p_obj.stem}"
-            else:
-                self.model_version = p_obj.stem
-            self.model = YOLO(resolved_path)
-        else:
-            # Fallback to base pretrained weights
             try:
                 from ultralytics import YOLO
-                self.model_path = "yolo11s-seg.pt"
-                self.model_version = "yolo11s-seg-pretrained"
-                self.model = YOLO("yolo11s-seg.pt")
-            except Exception:
-                self.mock_mode = True
-                self.device_str = "mock_fallback"
+                self.model_path = resolved_path
+                p_obj = Path(resolved_path)
+                if p_obj.stem in ["best", "last"] and p_obj.parent.name == "weights":
+                    self.model_version = f"{p_obj.parent.parent.name}:{p_obj.stem}"
+                else:
+                    self.model_version = p_obj.stem
+                self.model = YOLO(resolved_path)
+            except Exception as e:
+                raise RuntimeError(f"YOLO V2 production model unavailable: Failed to load weights from {resolved_path} ({e})")
+        else:
+            raise RuntimeError(
+                f"YOLO V2 production model unavailable: Production weights not found in candidate paths: {[str(p) for p in candidate_paths[:2]]}"
+            )
 
     def get_active_taxonomy(self) -> Dict[int, str]:
         """Return the active taxonomy mapping based on loaded model classes."""
@@ -174,7 +169,7 @@ class JewelleryComponentDetector:
             elif len(names) == len(TAXONOMY_V1):
                 return TAXONOMY_V1
             return {int(k): str(v) for k, v in names.items()}
-        return TAXONOMY_V1
+        return TAXONOMY_V2
 
     def detect(
         self,
@@ -201,7 +196,10 @@ class JewelleryComponentDetector:
         h, w = img_np.shape[:2]
         active_tax = self.get_active_taxonomy()
 
-        if self.mock_mode or self.model is None:
+        if not self.mock_mode and self.model is None:
+            raise RuntimeError("YOLO V2 production model unavailable: Model is not initialized.")
+
+        if self.mock_mode:
             # Deterministic mock detections for testing
             mock_detections = [
                 ComponentDetection(
@@ -234,7 +232,7 @@ class JewelleryComponentDetector:
             )
 
         # Real inference with Ultralytics
-        device_arg = 0 if "cuda" in self.device_str else "cpu"
+        device_arg = 0 if "cuda" in self.device_str.lower() else "cpu"
         results = self.model.predict(
             source=img_np,
             conf=conf_threshold,

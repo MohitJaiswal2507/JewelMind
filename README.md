@@ -10,10 +10,10 @@ You can launch any service directly from the project root with **1-word commands
 
 | Service | Short Command (from root) | Port & Local URL |
 |---|---|---|
-| **All Services at Once** | `.\run_all.bat` | Launches Backend, AI Worker & Frontend |
-| **FastAPI Backend** | `.\run_backend.bat` | [http://127.0.0.1:8000](http://127.0.0.1:8000) (Docs: [`/docs`](http://127.0.0.1:8000/docs)) |
-| **AI GPU Worker** | `.\run_ai.bat` | [http://127.0.0.1:8001](http://127.0.0.1:8001) (Health: [`/health`](http://127.0.0.1:8001/health)) |
-| **Frontend UI** | `.\run_frontend.bat` | [http://localhost:5173](http://localhost:5173) |
+| **All Services at Once** | `.\launchers\run_all.bat` | Launches Backend, AI Worker & Frontend |
+| **FastAPI Backend** | `.\launchers\run_backend.bat` | [http://127.0.0.1:8000](http://127.0.0.1:8000) (Docs: [`/docs`](http://127.0.0.1:8000/docs)) |
+| **AI GPU Worker** | `.\launchers\run_ai.bat` | [http://127.0.0.1:8001](http://127.0.0.1:8001) (Health: [`/health`](http://127.0.0.1:8001/health)) |
+| **Frontend UI** | `.\launchers\run_frontend.bat` | [http://localhost:5173](http://localhost:5173) |
 
 ---
 
@@ -65,7 +65,7 @@ If you prefer running services manually across separate terminal windows:
 
 ```powershell
 # Short shortcut:
-.\run_backend.bat
+.\launchers\run_backend.bat
 
 # Or direct command:
 .\backend\.venv\Scripts\python.exe -m uvicorn --app-dir backend app.main:app --host 127.0.0.1 --port 8000 --reload
@@ -81,7 +81,7 @@ If you prefer running services manually across separate terminal windows:
 
 ```powershell
 # Short shortcut:
-.\run_ai.bat
+.\launchers\run_ai.bat
 
 # Or direct command:
 C:\Users\usern\miniconda3\envs\tgpu\python.exe -m ai.workers.local_worker
@@ -96,7 +96,7 @@ C:\Users\usern\miniconda3\envs\tgpu\python.exe -m ai.workers.local_worker
 
 ```powershell
 # Short shortcut:
-.\run_frontend.bat
+.\launchers\run_frontend.bat
 
 # Or direct command:
 cd frontend
@@ -131,10 +131,11 @@ npm run build
 
 ```text
 JewelMind/
-├── run_backend.bat     # Shortcut to launch FastAPI backend
-├── run_ai.bat          # Shortcut to launch AI GPU worker
-├── run_frontend.bat    # Shortcut to launch Vite frontend
-├── run_all.bat         # 1-click launcher for all 3 services
+├── launchers/          # 1-click execution scripts
+│   ├── run_all.bat     # Launches all 3 services in separate windows
+│   ├── run_backend.bat # Launches FastAPI backend
+│   ├── run_ai.bat      # Launches AI GPU worker
+│   └── run_frontend.bat# Launches Vite frontend
 ├── backend/            # FastAPI REST API, database schemas, OR-Tools optimization
 │   ├── app/
 │   │   ├── api/        # Endpoint routers (Auth, Designs, Production, AI, Analytics)
