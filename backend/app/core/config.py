@@ -3,7 +3,7 @@ Application Configuration Module
 Centralized settings loaded from environment variables with validation.
 """
 
-from typing import List, Union
+from typing import List, Optional, Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # AI Worker Configuration
     AI_WORKER_URL: str = "http://localhost:8001"
     AI_WORKER_TOKEN: str = "local-worker-secret-token"
+    
+    # Google Gemini AI Configuration (Environment-Driven, Zero Budget Free Tier)
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"  # Authoritative model setting, configurable via GEMINI_MODEL env var
+    GEMINI_REQUEST_TIMEOUT: float = 30.0
     
     model_config = SettingsConfigDict(
         case_sensitive=True,
