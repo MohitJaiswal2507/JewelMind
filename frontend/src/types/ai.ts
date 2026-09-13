@@ -65,6 +65,8 @@ export interface YoloGroundingContext {
   bounding_box?: number[] | null;
 }
 
+export type CategorySource = 'user_prompt' | 'user_selected' | 'yolo' | 'gemini' | 'default';
+
 export interface AnalyzeDesignOptions {
   file?: File | Blob | null;
   imageUrl?: string;
@@ -72,6 +74,8 @@ export interface AnalyzeDesignOptions {
   userPrompt?: string;
   yoloCategory?: string;
   yoloConfidence?: number;
+  sourceBlueprintCategory?: string;
+  userSelectedCategory?: string;
 }
 
 export interface AnalyzeDesignResponse {
@@ -83,8 +87,12 @@ export interface AnalyzeDesignResponse {
   enhanced_prompt?: string | null;
   yolo_category?: string | null;
   gemini_category?: string | null;
+  source_blueprint_category?: string | null;
+  requested_category?: string | null;
   resolved_category: string;
+  category_source?: CategorySource;
   category_conflict: boolean;
+  category_conflict_reason?: string | null;
   warnings: string[];
   fallback_applied: boolean;
 }
@@ -95,6 +103,8 @@ export interface EnhancePromptRequest {
   image_url?: string | null;
   yolo_category?: string | null;
   yolo_confidence?: number | null;
+  source_blueprint_category?: string | null;
+  user_selected_category?: string | null;
 }
 
 export interface EnhancePromptResponse {
@@ -106,10 +116,15 @@ export interface EnhancePromptResponse {
   negative_prompt: string;
   yolo_category?: string | null;
   gemini_category?: string | null;
+  source_blueprint_category?: string | null;
+  requested_category?: string | null;
   resolved_category: string;
+  category_source?: CategorySource;
   category_conflict: boolean;
+  category_conflict_reason?: string | null;
   warnings: string[];
   fallback_applied: boolean;
 }
 
 export type GeminiStatus = 'idle' | 'analyzing' | 'enhancing' | 'success' | 'error';
+

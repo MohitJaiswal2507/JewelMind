@@ -14,7 +14,7 @@ interface DashboardRecentRendersProps {
   renders: DashboardRecentAsset[];
   onNavigateToStudio: () => void;
   onSelectDesign: (designId: string) => void;
-  onOpenRenderModal: (sketchUrl?: string, designName?: string) => void;
+  onOpenRenderModal: (sketchUrl?: string, designName?: string, category?: string) => void;
 }
 
 export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
@@ -173,7 +173,8 @@ export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
                             onClick={() =>
                               onOpenRenderModal(
                                 selectedAsset.sketch_image_url || undefined,
-                                selectedAsset.name
+                                selectedAsset.name,
+                                selectedAsset.category
                               )
                             }
                             className="h-7 text-[11px] font-semibold"

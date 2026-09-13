@@ -147,3 +147,6 @@ class RenderResult(BaseModel):
         None,
         description="Sketch preprocessing and geometry metrics",
     )
+    category: Optional[str] = Field(None, description="Resolved jewellery category rendered")
+    source_blueprint_category: Optional[str] = Field(None, description="Source blueprint category")
+    category_conflict: Optional[bool] = Field(None, description="Whether a category conflict was detected and resolved")

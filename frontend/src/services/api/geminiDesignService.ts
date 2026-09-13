@@ -37,6 +37,12 @@ export const geminiDesignService = {
     if (options.yoloConfidence !== undefined && options.yoloConfidence !== null) {
       formData.append('yolo_confidence', String(options.yoloConfidence));
     }
+    if (options.sourceBlueprintCategory) {
+      formData.append('source_blueprint_category', options.sourceBlueprintCategory);
+    }
+    if (options.userSelectedCategory) {
+      formData.append('user_selected_category', options.userSelectedCategory);
+    }
 
     return apiClient.upload<AnalyzeDesignResponse>('/api/v1/ai/gemini/analyze-design', formData);
   },

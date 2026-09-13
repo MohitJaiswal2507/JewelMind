@@ -25,10 +25,16 @@ export interface RenderResultResponse {
     padding: [number, number, number, number];
     edge_density?: number;
   };
+  category?: string;
+  source_blueprint_category?: string;
+  category_conflict?: boolean;
 }
 
 export interface RenderOptions {
   category?: 'ring' | 'earring' | 'pendant' | 'necklace' | 'bracelet' | 'bangle' | 'brooch' | 'other' | string;
+  source_blueprint_category?: string;
+  category_source?: string;
+  conflict_resolution?: 'blueprint' | 'force_requested';
   design_id?: string;
   sketch_url?: string;
   prompt?: string;
@@ -62,6 +68,9 @@ export const aiRenderingService = {
     }
 
     if (options.category) formData.append('category', options.category);
+    if (options.source_blueprint_category) formData.append('source_blueprint_category', options.source_blueprint_category);
+    if (options.category_source) formData.append('category_source', options.category_source);
+    if (options.conflict_resolution) formData.append('conflict_resolution', options.conflict_resolution);
     if (options.design_id) formData.append('design_id', options.design_id);
     if (options.prompt) formData.append('prompt', options.prompt);
     if (options.negative_prompt) formData.append('negative_prompt', options.negative_prompt);

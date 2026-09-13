@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Sparkles,
@@ -14,6 +14,9 @@ import {
   Wand2,
   ChevronDown,
   ChevronUp,
+  UploadCloud,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -32,12 +35,27 @@ import {
 } from '../../types/ai';
 import { GeminiDesignUnderstandingCard } from './GeminiDesignUnderstandingCard';
 
+export const normalizeCategory = (cat?: string | null): string => {
+  if (!cat) return 'ring';
+  const lower = cat.toLowerCase().trim();
+  if (lower.startsWith('earring')) return 'earring';
+  if (lower.startsWith('ring')) return 'ring';
+  if (lower.startsWith('pendant')) return 'pendant';
+  if (lower.startsWith('necklace')) return 'necklace';
+  if (lower.startsWith('bracelet')) return 'bracelet';
+  if (lower.startsWith('bangle')) return 'bangle';
+  if (lower.startsWith('brooch')) return 'brooch';
+  if (lower.includes('other')) return 'other';
+  return lower;
+};
+
 interface AiRenderModalProps {
   isOpen: boolean;
   onClose: () => void;
   sketchUrl: string;
   designTitle: string;
   category?: string;
+  sourceBlueprintCategory?: string;
   designId?: string;
   verifiedYoloCategory?: string | null;
   verifiedYoloConfidence?: number | null;
@@ -84,12 +102,22 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   sketchUrl,
   designTitle,
   category: initialCategory = 'ring',
+  sourceBlueprintCategory,
   designId,
   verifiedYoloCategory = null,
   verifiedYoloConfidence = null,
   onSuccess,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory.toLowerCase());
+  const initialNormalized = normalizeCategory(sourceBlueprintCategory || initialCategory);
+  const [activeSketchUrl, setActiveSketchUrl] = useState<string>(sketchUrl || '');
+  const [activeBlueprintCategory, setActiveBlueprintCategory] = useState<string | undefined>(
+    sketchUrl ? (sourceBlueprintCategory || initialCategory) : undefined
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialNormalized);
+  const [categorySource, setCategorySource] = useState<'user_prompt' | 'user_selected' | 'yolo' | 'gemini' | 'default'>('default');
   const [material, setMaterial] = useState<string>('18k yellow gold');
   const [gemstone, setGemstone] = useState<string>('round brilliant diamond');
   const [controlType, setControlType] = useState<'lineart' | 'canny'>('lineart');
@@ -99,7 +127,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
 
-  // Gemini State Management (Phase B UI Integration)
+  // Gemini State Management (Phase B UI Integration & Phase F Consistency)
   const [userPromptInput, setUserPromptInput] = useState<string>('');
   const [originalUserPrompt, setOriginalUserPrompt] = useState<string>('');
   const [finalEditablePrompt, setFinalEditablePrompt] = useState<string>('');
@@ -110,10 +138,12 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   const [isPromptEnhanced, setIsPromptEnhanced] = useState<boolean>(false);
   const [isPromptAnalyzedFromSketch, setIsPromptAnalyzedFromSketch] = useState<boolean>(false);
   const [userManuallyEdited, setUserManuallyEdited] = useState<boolean>(false);
-  const [resolvedCategory, setResolvedCategory] = useState<string>(initialCategory.toLowerCase());
+  const [resolvedCategory, setResolvedCategory] = useState<string>(initialNormalized);
   const [yoloCategory, setYoloCategory] = useState<string | null>(verifiedYoloCategory);
   const [geminiCategory, setGeminiCategory] = useState<string | null>(null);
   const [categoryConflict, setCategoryConflict] = useState<boolean>(false);
+  const [categoryConflictReason, setCategoryConflictReason] = useState<string | null>(null);
+  const [conflictResolution, setConflictResolution] = useState<'blueprint' | 'force_requested' | null>(null);
   const [fallbackApplied, setFallbackApplied] = useState<boolean>(false);
   const [geminiWarnings, setGeminiWarnings] = useState<string[]>([]);
   const [showNegativePrompt, setShowNegativePrompt] = useState<boolean>(false);
@@ -124,6 +154,35 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   const [renderResult, setRenderResult] = useState<RenderResultResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'rendered'>('split');
+
+  // State reset to avoid stale test leakage when modal opens or inputs change
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSketchUrl(sketchUrl || '');
+      setActiveBlueprintCategory(sketchUrl ? (sourceBlueprintCategory || initialCategory) : undefined);
+      const init = normalizeCategory((sketchUrl && sourceBlueprintCategory) || initialCategory);
+      setSelectedCategory(init);
+      setResolvedCategory(init);
+      setCategorySource('default');
+      setCategoryConflict(false);
+      setCategoryConflictReason(null);
+      setConflictResolution(null);
+      setUserPromptInput('');
+      setOriginalUserPrompt('');
+      setFinalEditablePrompt('');
+      setDesignUnderstanding(null);
+      setIsPromptEnhanced(false);
+      setIsPromptAnalyzedFromSketch(false);
+      setUserManuallyEdited(false);
+      setRenderResult(null);
+      setError(null);
+      setGeminiError(null);
+      setGeminiStatus('idle');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [isOpen, sketchUrl, sourceBlueprintCategory, initialCategory]);
 
   // Progressive rendering status simulator
   useEffect(() => {
@@ -139,7 +198,41 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
     };
   }, [isRendering]);
 
-  if (!isOpen) return null;
+  const handleFileUpload = (file: File) => {
+    if (!file) return;
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Unsupported image format. Please upload a PNG, JPG, or WEBP blueprint.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setActiveSketchUrl(dataUrl);
+      setActiveBlueprintCategory(undefined);
+      setCategoryConflict(false);
+      setCategoryConflictReason(null);
+      setConflictResolution(null);
+      setDesignUnderstanding(null);
+      setIsPromptAnalyzedFromSketch(false);
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearSketch = () => {
+    setActiveSketchUrl('');
+    setActiveBlueprintCategory(undefined);
+    setCategoryConflict(false);
+    setCategoryConflictReason(null);
+    setConflictResolution(null);
+    setDesignUnderstanding(null);
+    setIsPromptAnalyzedFromSketch(false);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const convertDataUrlToBlob = (dataUrl: string): Blob => {
     const parts = dataUrl.split(',');
@@ -154,10 +247,29 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
     return new Blob([bytes], { type: mime });
   };
 
+  const handleCategoryChange = (val: string) => {
+    const normalized = normalizeCategory(val);
+    setSelectedCategory(normalized);
+    setResolvedCategory(normalized);
+    setCategorySource('user_selected');
+
+    // Check conflict against source blueprint only if blueprint is active and categorized
+    const bpCat = activeSketchUrl && activeBlueprintCategory ? normalizeCategory(activeBlueprintCategory) : null;
+    if (bpCat && bpCat !== normalized) {
+      setCategoryConflict(true);
+      setCategoryConflictReason(
+        `Selected category '${normalized}' differs from blueprint '${bpCat}'. Conditioning on this blueprint would conflict.`
+      );
+      setConflictResolution(null);
+    } else {
+      setCategoryConflict(false);
+      setCategoryConflictReason(null);
+      setConflictResolution(null);
+    }
+  };
+
   /**
    * Flow A: Enhance artisan prompt with Gemini AI
-   * Correction 2: Use only verified YOLO V2 category when available; never invent or pass selectedCategory as YOLO.
-   * Correction 1: Semantic priority is applied, but prompt remains 100% user-editable.
    */
   const handleEnhancePrompt = async () => {
     const trimmed = userPromptInput.trim();
@@ -178,10 +290,12 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
 
       let imageBase64: string | null = null;
       let imageUrl: string | null = null;
-      if (sketchUrl.startsWith('data:')) {
-        imageBase64 = sketchUrl;
-      } else if (sketchUrl.startsWith('http://') || sketchUrl.startsWith('https://')) {
-        imageUrl = sketchUrl;
+      if (activeSketchUrl) {
+        if (activeSketchUrl.startsWith('data:')) {
+          imageBase64 = activeSketchUrl;
+        } else if (activeSketchUrl.startsWith('http://') || activeSketchUrl.startsWith('https://')) {
+          imageUrl = activeSketchUrl;
+        }
       }
 
       const res = await geminiDesignService.enhancePrompt({
@@ -191,13 +305,22 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
         // Only pass YOLO context if actually verified; otherwise undefined
         yolo_category: verifiedYoloCategory || undefined,
         yolo_confidence: verifiedYoloConfidence !== null ? verifiedYoloConfidence : undefined,
+        source_blueprint_category: activeSketchUrl ? (activeBlueprintCategory || initialCategory || undefined) : undefined,
+        user_selected_category: categorySource === 'user_selected' ? selectedCategory : undefined,
       });
 
       setDesignUnderstanding(res.design_understanding);
-      setResolvedCategory(res.resolved_category);
+      const canonRes = normalizeCategory(res.resolved_category);
+      setResolvedCategory(canonRes);
+      if (categorySource !== 'user_selected') {
+        setSelectedCategory(canonRes);
+      }
+      setCategorySource(res.category_source || 'gemini');
+      setCategoryConflict(res.category_conflict);
+      setCategoryConflictReason(res.category_conflict_reason || null);
+      setConflictResolution(null);
       setYoloCategory(res.yolo_category || null);
       setGeminiCategory(res.gemini_category || null);
-      setCategoryConflict(res.category_conflict);
       setFallbackApplied(res.fallback_applied);
       setGeminiWarnings(res.warnings || []);
 
@@ -231,8 +354,8 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
    * Correction 2: Use only verified YOLO category if available, never invent one.
    */
   const handleAnalyzeSketch = async () => {
-    if (!sketchUrl) {
-      setGeminiError('No sketch or blueprint image available to analyze.');
+    if (!activeSketchUrl) {
+      setGeminiError('Please upload a sketch or blueprint image first.');
       return;
     }
 
@@ -248,10 +371,10 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
       let imageBase64: string | undefined = undefined;
       let imageUrl: string | undefined = undefined;
 
-      if (sketchUrl.startsWith('data:')) {
-        fileBlob = convertDataUrlToBlob(sketchUrl);
-      } else if (sketchUrl.startsWith('http://') || sketchUrl.startsWith('https://')) {
-        imageUrl = sketchUrl;
+      if (activeSketchUrl.startsWith('data:')) {
+        fileBlob = convertDataUrlToBlob(activeSketchUrl);
+      } else if (activeSketchUrl.startsWith('http://') || activeSketchUrl.startsWith('https://')) {
+        imageUrl = activeSketchUrl;
       }
 
       const res = await geminiDesignService.analyzeDesign({
@@ -262,13 +385,22 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
         // Only pass YOLO context if actually verified; otherwise undefined
         yoloCategory: verifiedYoloCategory || undefined,
         yoloConfidence: verifiedYoloConfidence !== null ? verifiedYoloConfidence : undefined,
+        sourceBlueprintCategory: activeBlueprintCategory || initialCategory || undefined,
+        userSelectedCategory: categorySource === 'user_selected' ? selectedCategory : undefined,
       });
 
       setDesignUnderstanding(res.design_understanding);
-      setResolvedCategory(res.resolved_category);
+      const canonRes = normalizeCategory(res.resolved_category);
+      setResolvedCategory(canonRes);
+      if (categorySource !== 'user_selected') {
+        setSelectedCategory(canonRes);
+      }
+      setCategorySource(res.category_source || 'gemini');
+      setCategoryConflict(res.category_conflict);
+      setCategoryConflictReason(res.category_conflict_reason || null);
+      setConflictResolution(null);
       setYoloCategory(res.yolo_category || null);
       setGeminiCategory(res.gemini_category || null);
-      setCategoryConflict(res.category_conflict);
       setFallbackApplied(res.fallback_applied);
       setGeminiWarnings(res.warnings || []);
 
@@ -296,6 +428,31 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   };
 
   /**
+   * Conflict Resolution: Option A - Align with Blueprint
+   */
+  const handleResolveAsBlueprint = () => {
+    const bpCat = normalizeCategory(activeBlueprintCategory || sourceBlueprintCategory || initialCategory);
+    setSelectedCategory(bpCat);
+    setResolvedCategory(bpCat);
+    setConflictResolution('blueprint');
+    // Align prompt text with blueprint category
+    if (finalEditablePrompt) {
+      const requestedCat = normalizeCategory(resolvedCategory);
+      if (requestedCat !== bpCat) {
+        const regex = new RegExp(`\\b${requestedCat}s?\\b`, 'gi');
+        setFinalEditablePrompt(finalEditablePrompt.replace(regex, bpCat));
+      }
+    }
+  };
+
+  /**
+   * Conflict Resolution: Option B - Target Requested Category
+   */
+  const handleResolveAsRequested = () => {
+    setConflictResolution('force_requested');
+  };
+
+  /**
    * Revert prompt to original user input
    */
   const handleRevertToOriginal = () => {
@@ -305,25 +462,21 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   };
 
   /**
-   * Phase C: GEMINI -> EXISTING RENDERER INTEGRATION
-   * Submits the final user-approved prompt (with explicit user intent precedence),
-   * negative prompt, category, and optional structured design context to the existing
-   * ControlNet + SD1.5 + LoRA renderer.
-   *
-   * Rules enforced:
-   * 1. Final user prompt has ultimate authority (user edits preserved).
-   * 2. Zero re-invocation of Gemini during render (no duplicate calls or overwrites).
-   * 3. Zero alteration of ControlNet strength or inference parameters.
-   * 4. 100% fallback compatibility when Gemini is not used or unavailable.
+   * Phase C & F: GEMINI -> RENDERER INTEGRATION WITH CONSISTENCY GUARDS
    */
   const handleRender = async () => {
+    if (!activeSketchUrl) {
+      setError('A sketch blueprint is required to condition the ControlNet diffusion renderer. Please upload or draw a blueprint.');
+      return;
+    }
+
     setIsRendering(true);
     setError(null);
 
     try {
       let fileBlob: Blob | null = null;
-      if (sketchUrl.startsWith('data:')) {
-        fileBlob = convertDataUrlToBlob(sketchUrl);
+      if (activeSketchUrl.startsWith('data:')) {
+        fileBlob = convertDataUrlToBlob(activeSketchUrl);
       }
 
       // Precedence: finalEditablePrompt (user approved/edited) > customPrompt > userPromptInput
@@ -335,14 +488,18 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
 
       const negativePromptToUse = negativePrompt.trim() || undefined;
       const categoryToUse = resolvedCategory || selectedCategory;
+      const bpCat = activeBlueprintCategory ? normalizeCategory(activeBlueprintCategory) : undefined;
       const structuredDesignJson = designUnderstanding
         ? JSON.stringify(designUnderstanding)
         : undefined;
 
       const options: RenderOptions = {
         category: categoryToUse,
+        source_blueprint_category: bpCat,
+        category_source: categorySource,
+        conflict_resolution: conflictResolution || undefined,
         design_id: designId,
-        sketch_url: sketchUrl,
+        sketch_url: activeSketchUrl,
         material,
         gemstone,
         control_type: controlType,
@@ -372,7 +529,12 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
       }
     } catch (err: unknown) {
       if (err instanceof ApiClientError) {
-        if (err.status === 507) {
+        if (err.status === 409) {
+          setError(
+            err.message ||
+              'Category Conflict: The requested category does not match the uploaded blueprint geometry. Please choose Option A to render from the blueprint or provide a matching blueprint.'
+          );
+        } else if (err.status === 507) {
           setError(
             'Rendering exceeded available GPU memory. Try a lower resolution or wait for the current GPU job to finish.'
           );
@@ -493,7 +655,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                       </span>
                       <div className="bg-[#0A0C14] border border-white/5 rounded-xl p-3 w-full h-64 flex items-center justify-center">
                         <img
-                          src={sketchUrl}
+                          src={activeSketchUrl}
                           alt="Original Sketch"
                           className="max-h-full object-contain filter invert opacity-85"
                         />
@@ -522,20 +684,84 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                     />
                   </div>
                 )
-              ) : (
-                <div className="flex flex-col items-center space-y-3.5 text-center">
-                  <div className="w-52 h-52 bg-[#0A0C14] border border-white/5 rounded-xl p-4 flex items-center justify-center">
+              ) : activeSketchUrl ? (
+                <div className="flex flex-col items-center space-y-3 text-center w-full">
+                  <div className="relative w-56 h-56 bg-[#0A0C14] border border-white/10 rounded-xl p-3 flex items-center justify-center group shadow-md">
                     <img
-                      src={sketchUrl}
-                      alt="Original Sketch Preview"
-                      className="max-h-full object-contain filter invert opacity-85"
+                      src={activeSketchUrl}
+                      alt="Blueprint Preview"
+                      className="max-h-full max-w-full object-contain filter invert opacity-85"
                     />
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-1.5 rounded-lg bg-black/80 hover:bg-black text-slate-300 hover:text-white border border-white/15 text-[10px] flex items-center gap-1 shadow cursor-pointer transition"
+                        title="Replace blueprint image"
+                      >
+                        <Upload className="w-3 h-3 text-amber-300" />
+                        <span className="text-[10px]">Replace</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearSketch}
+                        className="p-1.5 rounded-lg bg-black/80 hover:bg-rose-950/80 text-slate-300 hover:text-rose-300 border border-white/15 hover:border-rose-500/40 text-[10px] flex items-center gap-1 shadow cursor-pointer transition"
+                        title="Remove blueprint image"
+                      >
+                        <Trash2 className="w-3 h-3 text-rose-400" />
+                        <span className="text-[10px]">Clear</span>
+                      </button>
+                    </div>
                   </div>
                   <p className="text-[11px] text-slate-400 font-light">
-                    Input blueprint loaded. Use Gemini AI to understand the design or refine your prompt.
+                    Blueprint loaded for ControlNet conditioning. Click Clear to start empty or Replace to upload another.
                   </p>
                 </div>
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      handleFileUpload(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`w-full min-h-[240px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 text-center transition-all duration-200 cursor-pointer ${
+                    isDragging
+                      ? 'border-amber-400 bg-amber-400/10'
+                      : 'border-white/15 bg-[#06070B] hover:border-amber-400/50 hover:bg-[#0A0C14]'
+                  }`}
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-amber-400/10 text-amber-300 border border-amber-400/20 flex items-center justify-center mb-3">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium text-white">Upload Jewellery Blueprint</span>
+                  <p className="text-xs text-slate-400 font-light mt-1 max-w-xs leading-relaxed">
+                    Drag & drop your jewellery sketch here or click to browse.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-amber-300 font-mono">
+                    <span>PNG, JPG, WEBP • LineArt Conditioning</span>
+                  </div>
+                </div>
               )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileUpload(e.target.files[0]);
+                  }
+                }}
+              />
             </div>
 
             {/* Error Message */}
@@ -642,7 +868,8 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                       variant="outline"
                       size="sm"
                       onClick={handleAnalyzeSketch}
-                      disabled={isGeminiLoading || !sketchUrl}
+                      disabled={isGeminiLoading || !activeSketchUrl}
+                      title={!activeSketchUrl ? 'Upload a sketch blueprint first to analyze' : undefined}
                       className="flex-1 text-xs font-medium h-8 border-white/10 hover:border-amber-400/40 text-slate-300"
                     >
                       {geminiStatus === 'analyzing' ? (
@@ -704,16 +931,28 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                       className="min-h-[80px] text-xs font-mono bg-[#0A0C14] border-amber-400/30 text-amber-100"
                     />
 
-                    {/* Phase C: Connected to Existing Renderer */}
-                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 flex items-center justify-between">
-                      <span className="flex items-center space-x-1 font-mono">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                        <span>Active Rendering Conditioning (Phase C Connected)</span>
-                      </span>
-                      <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-300">
-                        Renderer Active
-                      </Badge>
-                    </div>
+                    {/* Conditioning Status Indicator */}
+                    {categoryConflict && conflictResolution !== 'blueprint' ? (
+                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 flex items-center justify-between">
+                        <span className="flex items-center space-x-1 font-mono">
+                          <AlertCircle className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span>Blueprint Mismatch: Conditioning Blocked</span>
+                        </span>
+                        <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-300 bg-amber-500/10">
+                          Conflict
+                        </Badge>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 flex items-center justify-between">
+                        <span className="flex items-center space-x-1 font-mono">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>Active Rendering Conditioning ({selectedCategory})</span>
+                        </span>
+                        <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-300">
+                          Renderer Active
+                        </Badge>
+                      </div>
+                    )}
 
                     {/* Negative Prompt Collapsible Toggle */}
                     <div className="pt-1">
@@ -741,6 +980,70 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Category Conflict Resolution Banner */}
+                {categoryConflict && conflictResolution !== 'blueprint' && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-2.5">
+                    <div className="flex items-start space-x-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-amber-300">Category Mismatch Detected</p>
+                        <p className="text-[11px] text-slate-300 mt-0.5">
+                          {categoryConflictReason ||
+                            `Prompt requests '${resolvedCategory}', but the blueprint geometry is '${normalizeCategory(
+                              sourceBlueprintCategory || initialCategory
+                            )}'. Conditioning on this blueprint would corrupt the geometry.`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleResolveAsBlueprint}
+                        className="text-[11px] h-8 bg-amber-400/10 border-amber-400/30 hover:bg-amber-400/20 text-amber-200"
+                      >
+                        Option A: Render Blueprint ({normalizeCategory(sourceBlueprintCategory || initialCategory)})
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleResolveAsRequested}
+                        className="text-[11px] h-8 border border-white/10 hover:border-white/20 text-slate-300"
+                      >
+                        Option B: Target {resolvedCategory}
+                      </Button>
+                    </div>
+                    {conflictResolution === 'force_requested' && (
+                      <div className="p-2.5 rounded-lg bg-[#080A10] border border-amber-500/20 text-[10px] text-slate-300 space-y-1">
+                        <p className="font-semibold text-amber-300">Option B Selected: Authentic {resolvedCategory} Target</p>
+                        <p>
+                          The current blueprint is a {normalizeCategory(sourceBlueprintCategory || initialCategory)}. To avoid corrupted geometry, please upload or select an authentic {resolvedCategory} blueprint, or choose Option A to render this blueprint.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {conflictResolution === 'blueprint' && (
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span className="text-[11px]">
+                        Resolved (Option A): Conditioning aligned with {selectedCategory} blueprint.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setConflictResolution(null)}
+                      className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Category Selection */}
@@ -750,7 +1053,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                 </label>
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
                   className="w-full bg-[#080A10] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400 font-medium capitalize cursor-pointer shadow-inner"
                 >
                   {CATEGORIES.map((c) => (
@@ -913,12 +1216,22 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                 size="sm"
                 className="w-full font-semibold text-xs shadow-md h-9"
                 onClick={handleRender}
-                disabled={isRendering || isGeminiLoading}
+                disabled={isRendering || isGeminiLoading || (categoryConflict && conflictResolution !== 'blueprint') || !activeSketchUrl}
               >
                 {isRendering ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                     Synthesizing Render...
+                  </>
+                ) : categoryConflict && conflictResolution !== 'blueprint' ? (
+                  <>
+                    <AlertCircle className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+                    Resolve Category Conflict to Synthesize
+                  </>
+                ) : !activeSketchUrl ? (
+                  <>
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />
+                    Upload Blueprint to Synthesize
                   </>
                 ) : (
                   <>

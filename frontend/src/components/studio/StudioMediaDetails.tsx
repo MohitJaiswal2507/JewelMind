@@ -258,6 +258,8 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           sketchUrl={item.thumbnailUrl}
           designTitle={item.title}
           category={item.category}
+          sourceBlueprintCategory={item.category}
+          verifiedYoloCategory={item.category}
           designId={item.designId}
         />
       )}

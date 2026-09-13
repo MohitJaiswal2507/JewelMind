@@ -41,6 +41,8 @@ async def analyze_jewellery_design(
     user_prompt: Optional[str] = Form(None, description="Optional artisan design notes or custom constraints"),
     yolo_category: Optional[str] = Form(None, description="Optional category grounding from YOLO V2"),
     yolo_confidence: Optional[float] = Form(None, description="Optional YOLO V2 detection confidence"),
+    source_blueprint_category: Optional[str] = Form(None, description="Optional category of source blueprint sketch"),
+    user_selected_category: Optional[str] = Form(None, description="Optional user manual selection from UI dropdown"),
     current_user: User = Depends(get_current_active_user),
 ):
     """Execute multimodal jewellery design analysis."""
@@ -115,6 +117,8 @@ async def analyze_jewellery_design(
             user_prompt=user_prompt,
             yolo_context=yolo_context,
             image_mime_type=mime_type,
+            source_blueprint_category=source_blueprint_category,
+            user_selected_category=user_selected_category,
         )
         return response
     except Exception as err:
@@ -182,6 +186,8 @@ async def enhance_jewellery_prompt(
             image_bytes=image_bytes,
             yolo_context=yolo_context,
             image_mime_type=mime_type,
+            source_blueprint_category=payload.source_blueprint_category,
+            user_selected_category=payload.user_selected_category,
         )
         return response
     except Exception as err:

@@ -48,6 +48,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
   const [renderSketchUrl, setRenderSketchUrl] = useState<string>('');
   const [renderDesignTitle, setRenderDesignTitle] = useState<string>('Jewellery Sketch');
+  const [renderCategory, setRenderCategory] = useState<string>('ring');
 
   const [isDetectionModalOpen, setIsDetectionModalOpen] = useState<boolean>(false);
   const [detectionImageUrl, setDetectionImageUrl] = useState<string | null>(null);
@@ -76,16 +77,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     onLogout();
   };
 
-  const handleOpenRenderModalWithAsset = (sketchUrl?: string, title?: string) => {
+  const handleOpenRenderModalWithAsset = (sketchUrl?: string, title?: string, category?: string) => {
     if (sketchUrl) {
       setRenderSketchUrl(sketchUrl);
       setRenderDesignTitle(title || 'Jewellery Sketch');
-    } else if (data?.recent_renders && data.recent_renders.length > 0 && data.recent_renders[0].sketch_image_url) {
-      setRenderSketchUrl(data.recent_renders[0].sketch_image_url);
-      setRenderDesignTitle(data.recent_renders[0].name);
+      if (category) {
+        setRenderCategory(category);
+      }
     } else {
+      // Clean new render: start with an empty blueprint so old renders don't contaminate new prompts
       setRenderSketchUrl('');
-      setRenderDesignTitle('Jewellery Sketch');
+      setRenderDesignTitle('New Jewellery Render');
+      setRenderCategory('ring');
     }
     setIsRenderModalOpen(true);
   };
@@ -94,12 +97,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (imageUrl) {
       setDetectionImageUrl(imageUrl);
       setDetectionDesignTitle(title || 'Jewellery Blueprint');
-    } else if (data?.recent_designs && data.recent_designs.length > 0) {
-      const firstWithSketch = data.recent_designs.find((d) => d.sketch_image_url || d.rendered_image_url);
-      if (firstWithSketch) {
-        setDetectionImageUrl(firstWithSketch.sketch_image_url || firstWithSketch.rendered_image_url);
-        setDetectionDesignTitle(firstWithSketch.name);
-      }
+    } else {
+      setDetectionImageUrl(null);
+      setDetectionDesignTitle('Jewellery Blueprint');
     }
     setIsDetectionModalOpen(true);
   };
@@ -264,6 +264,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           onClose={() => setIsRenderModalOpen(false)}
           sketchUrl={renderSketchUrl}
           designTitle={renderDesignTitle}
+          category={renderCategory}
+          sourceBlueprintCategory={renderSketchUrl ? renderCategory : undefined}
         />
       )}
 

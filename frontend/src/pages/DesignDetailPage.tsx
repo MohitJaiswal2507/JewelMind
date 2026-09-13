@@ -456,6 +456,7 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
           sketchUrl={design.sketch_image_url}
           designTitle={design.name}
           category={design.category}
+          sourceBlueprintCategory={design.category}
           designId={design.id}
           onSuccess={() => {
             fetchDesign();

@@ -224,6 +224,14 @@ class AnalyzeDesignRequest(BaseModel):
         le=1.0,
         description="Optional YOLO V2 detection confidence",
     )
+    source_blueprint_category: Optional[str] = Field(
+        default=None,
+        description="Category of the source blueprint sketch/image if known",
+    )
+    user_selected_category: Optional[str] = Field(
+        default=None,
+        description="Explicit category chosen manually by the user in the UI",
+    )
 
 
 class AnalyzeDesignResponse(BaseModel):
@@ -262,13 +270,29 @@ class AnalyzeDesignResponse(BaseModel):
         default=None,
         description="Category visually classified by Gemini Vision if visual analysis was performed",
     )
+    source_blueprint_category: Optional[str] = Field(
+        default=None,
+        description="Category of the source blueprint sketch/image",
+    )
+    requested_category: Optional[str] = Field(
+        default=None,
+        description="Category requested explicitly by the user or inferred from intent",
+    )
     resolved_category: str = Field(
         ...,
         description="Final consolidated category adhering to precedence rules",
     )
+    category_source: str = Field(
+        default="default",
+        description="Authority source: 'user_prompt', 'user_selected', 'yolo', 'gemini', or 'default'",
+    )
     category_conflict: bool = Field(
         default=False,
-        description="Flags whether YOLO V2 and Gemini disagreed on category classification",
+        description="Flags whether blueprint category and requested category disagree",
+    )
+    category_conflict_reason: Optional[str] = Field(
+        default=None,
+        description="Reason for category conflict if detected",
     )
     warnings: List[str] = Field(
         default_factory=list,
@@ -306,6 +330,14 @@ class EnhancePromptRequest(BaseModel):
         ge=0.0,
         le=1.0,
         description="Optional YOLO detection confidence",
+    )
+    source_blueprint_category: Optional[str] = Field(
+        default=None,
+        description="Category of the source blueprint sketch/image if known",
+    )
+    user_selected_category: Optional[str] = Field(
+        default=None,
+        description="Explicit category chosen manually by the user in the UI",
     )
 
 
@@ -345,13 +377,29 @@ class EnhancePromptResponse(BaseModel):
         default=None,
         description="Category interpreted by Gemini if visual understanding was executed",
     )
+    source_blueprint_category: Optional[str] = Field(
+        default=None,
+        description="Category of the source blueprint sketch/image",
+    )
+    requested_category: Optional[str] = Field(
+        default=None,
+        description="Category requested explicitly by the user or inferred from intent",
+    )
     resolved_category: str = Field(
         ...,
         description="Final resolved category",
     )
+    category_source: str = Field(
+        default="default",
+        description="Authority source: 'user_prompt', 'user_selected', 'yolo', 'gemini', or 'default'",
+    )
     category_conflict: bool = Field(
         default=False,
-        description="True if YOLO and Gemini category disagree",
+        description="True if blueprint category and requested category disagree",
+    )
+    category_conflict_reason: Optional[str] = Field(
+        default=None,
+        description="Reason for category conflict if detected",
     )
     warnings: List[str] = Field(
         default_factory=list,

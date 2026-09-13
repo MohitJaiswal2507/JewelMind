@@ -88,6 +88,82 @@ KNOWN_CUTS = [
 
 KNOWN_CATEGORIES = [c.value for c in JewelleryCategory]
 
+CATEGORY_CANONICAL_MAP = {
+    "ring": "ring",
+    "rings": "ring",
+    "band": "ring",
+    "earring": "earring",
+    "earrings": "earring",
+    "pendant": "pendant",
+    "pendants": "pendant",
+    "necklace": "necklace",
+    "necklaces": "necklace",
+    "bracelet": "bracelet",
+    "bracelets": "bracelet",
+    "bangle": "bangle",
+    "bangles": "bangle",
+    "brooch": "brooch",
+    "brooches": "brooch",
+    "other": "other_jewellery",
+    "other_jewellery": "other_jewellery",
+    "other jewellery": "other_jewellery",
+}
+
+PROMPT_CATEGORY_PATTERNS = [
+    ("earring", [r"\bearrings?\b", r"\bear\s*studs?\b", r"\bstud\s*earrings?\b", r"\bdrop\s*earrings?\b", r"\bchandelier\s*earrings?\b", r"\bhoop\s*earrings?\b"]),
+    ("necklace", [r"\bnecklaces?\b", r"\bchokers?\b", r"\bcollars?\b"]),
+    ("bracelet", [r"\bbracelets?\b", r"\btennis\s*bracelet\b", r"\bcharm\s*bracelet\b"]),
+    ("bangle", [r"\bbangles?\b", r"\bkadas?\b"]),
+    ("pendant", [r"\bpendants?\b", r"\blockets?\b", r"\bmedallions?\b"]),
+    ("brooch", [r"\bbrooch(?:es)?\b", r"\bpin\b", r"\bpins\b"]),
+    ("ring", [r"\brings?\b", r"\bsolitaire\s*ring\b", r"\bcocktail\s*ring\b"]),
+    ("other_jewellery", [r"\bother\s*jewell?ery\b"]),
+]
+
+
+def canonicalize_category(cat: Optional[str]) -> Optional[str]:
+    """Canonicalize jewellery category string to supported controlled taxonomy."""
+    if not cat:
+        return None
+    cleaned = str(cat).strip().lower().replace("-", "_").replace(" ", "_")
+    return CATEGORY_CANONICAL_MAP.get(cleaned, None)
+
+
+def extract_explicit_category(user_prompt: Optional[str]) -> Optional[str]:
+    """Deterministically extracts explicit jewellery category requested in prompt."""
+    return GeminiDesignService.extract_explicit_category(user_prompt)
+
+
+class CategoryResolutionResult(tuple):
+    """Enriched 3-tuple preserving backward compatibility while carrying conflict metadata."""
+    resolved: str
+    conflict: bool
+    warnings: List[str]
+    category_source: str
+    conflict_reason: Optional[str]
+    requested_category: Optional[str]
+    source_blueprint_category: Optional[str]
+
+    def __new__(
+        cls,
+        resolved: str,
+        conflict: bool,
+        warnings: List[str],
+        category_source: str = "default",
+        conflict_reason: Optional[str] = None,
+        requested_category: Optional[str] = None,
+        source_blueprint_category: Optional[str] = None,
+    ):
+        inst = super().__new__(cls, (resolved, conflict, warnings))
+        inst.resolved = resolved
+        inst.conflict = conflict
+        inst.warnings = warnings
+        inst.category_source = category_source
+        inst.conflict_reason = conflict_reason
+        inst.requested_category = requested_category or resolved
+        inst.source_blueprint_category = source_blueprint_category
+        return inst
+
 
 class GeminiDesignService:
     """Service handling Gemini Vision design understanding and prompt enhancement."""
@@ -105,6 +181,22 @@ class GeminiDesignService:
     def is_available(self) -> bool:
         """Returns True if Gemini API key is configured and non-empty."""
         return bool(self.api_key and self.api_key.strip() and "placeholder" not in self.api_key.lower())
+
+    @staticmethod
+    def extract_explicit_category(user_prompt: Optional[str]) -> Optional[str]:
+        """Deterministically extracts explicit jewellery category requested in prompt."""
+        if not user_prompt or not user_prompt.strip():
+            return None
+        p_lower = user_prompt.lower()
+        matches = []
+        for cat, patterns in PROMPT_CATEGORY_PATTERNS:
+            for pat in patterns:
+                for m in re.finditer(pat, p_lower):
+                    matches.append((m.start(), cat))
+        if not matches:
+            return None
+        matches.sort(key=lambda x: x[0])
+        return matches[0][1]
 
     @staticmethod
     def extract_explicit_user_constraints(user_prompt: Optional[str]) -> List[str]:
@@ -182,70 +274,155 @@ class GeminiDesignService:
 
     def _resolve_category(
         self,
-        gemini_category: Optional[str],
-        yolo_context: Optional[YoloGroundingContext],
-        user_prompt: Optional[str],
-    ) -> Tuple[str, bool, List[str]]:
-        """Resolves category conflicts between user intent, YOLO V2, and Gemini Vision.
+        gemini_category: Optional[str] = None,
+        yolo_context: Optional[YoloGroundingContext] = None,
+        user_prompt: Optional[str] = None,
+        source_blueprint_category: Optional[str] = None,
+        user_selected_category: Optional[str] = None,
+    ) -> CategoryResolutionResult:
+        """Resolves category conflicts adhering to the authoritative precedence hierarchy:
         
-        Precedence:
-        1. Explicit user category mention (e.g. user says 'ring' or 'earrings')
-        2. High-confidence YOLO V2 grounding (confidence >= 0.70)
-        3. Gemini Vision visual interpretation
-        4. Lower-confidence YOLO V2
-        5. Fallback ('other_jewellery')
+        HIGHEST PRIORITY:
+        1. Explicit user intent/category in user_prompt
+        2. Explicit user-selected UI category
+        3. High-confidence YOLO V2 category (confidence >= 0.70)
+        4. Gemini Vision visual category
+        5. Fallback/default (blueprint category or 'other_jewellery')
+        
+        Crucially detects category conflicts when requested category differs from
+        the source blueprint category.
         """
         warnings: List[str] = []
+        
+        # Determine source blueprint category canonical form
+        clean_blueprint = canonicalize_category(source_blueprint_category)
+        if not clean_blueprint and yolo_context and yolo_context.detected_category:
+            clean_blueprint = canonicalize_category(yolo_context.detected_category)
 
-        # 1. Check explicit user mention with strict word boundaries
-        if user_prompt:
-            p_lower = user_prompt.lower()
-            sorted_categories = sorted(KNOWN_CATEGORIES, key=len, reverse=True)
-            for cat in sorted_categories:
-                cat_phrase = cat.replace("_", " ")
-                pattern = r"\b" + re.escape(cat_phrase) + r"(?:s)?\b"
-                if re.search(pattern, p_lower):
-                    if yolo_context and yolo_context.detected_category != cat:
-                        warnings.append(
-                            f"User explicitly requested category '{cat}', overriding local YOLO V2 detection '{yolo_context.detected_category}'."
-                        )
-                    return cat, False, warnings
-
-        # 2. If Gemini category is not available (e.g. visual analysis was skipped or failed)
-        if not gemini_category:
-            if yolo_context and yolo_context.detected_category:
-                clean_yolo = yolo_context.detected_category.strip().lower().replace(" ", "_")
-                if clean_yolo in KNOWN_CATEGORIES:
-                    return clean_yolo, False, warnings
-            return "other_jewellery", False, warnings
-
-        clean_gemini = gemini_category.strip().lower().replace(" ", "_")
-        if clean_gemini not in KNOWN_CATEGORIES:
-            clean_gemini = "other_jewellery"
-
-        # 3. If no YOLO context, ground on Gemini
-        if not yolo_context:
-            return clean_gemini, False, warnings
-
-        clean_yolo = yolo_context.detected_category.strip().lower().replace(" ", "_")
-        conflict = clean_yolo != clean_gemini
-
-        if conflict:
-            warnings.append(
-                f"Category conflict detected: Local YOLO V2 predicted '{clean_yolo}' (conf: {yolo_context.confidence:.2f}) "
-                f"while Gemini Vision interpreted '{clean_gemini}'."
+        # 1. Check explicit user category in prompt (Tier 1 Authority)
+        explicit_user_cat = self.extract_explicit_category(user_prompt)
+        if explicit_user_cat:
+            resolved = explicit_user_cat
+            requested_cat = explicit_user_cat
+            cat_source = "user_prompt"
+            conflict = False
+            conflict_reason = None
+            if clean_blueprint and clean_blueprint != resolved:
+                conflict = True
+                conflict_reason = f"User requested '{resolved}' but supplied blueprint is classified as '{clean_blueprint}'."
+                warnings.append(
+                    f"Category conflict detected: User requested category '{resolved}' in prompt, "
+                    f"conflicting with source blueprint '{clean_blueprint}'. "
+                    f"Conditioning on this blueprint will strongly influence render geometry."
+                )
+            return CategoryResolutionResult(
+                resolved=resolved,
+                conflict=conflict,
+                warnings=warnings,
+                category_source=cat_source,
+                conflict_reason=conflict_reason,
+                requested_category=requested_cat,
+                source_blueprint_category=clean_blueprint,
             )
-            # YOLO V2 is treated as strong grounding/context
-            if yolo_context.confidence >= 0.70:
-                resolved = clean_yolo
-                warnings.append(f"Grounded on local YOLO V2 detector ({clean_yolo}) due to high confidence ({yolo_context.confidence:.2f}).")
-            else:
-                resolved = clean_gemini
-                warnings.append(f"Grounded on Gemini Vision ({clean_gemini}) because YOLO confidence was below threshold ({yolo_context.confidence:.2f}).")
-        else:
-            resolved = clean_yolo
 
-        return resolved, conflict, warnings
+        # 2. Check explicit user manual selection in UI (Tier 2 Authority)
+        clean_manual = canonicalize_category(user_selected_category)
+        if clean_manual and clean_manual not in ("other", "other_jewellery", "default", ""):
+            resolved = clean_manual
+            requested_cat = clean_manual
+            cat_source = "user_selected"
+            conflict = False
+            conflict_reason = None
+            if clean_blueprint and clean_blueprint != resolved:
+                conflict = True
+                conflict_reason = f"User selected '{resolved}' in UI but supplied blueprint is classified as '{clean_blueprint}'."
+                warnings.append(
+                    f"Category conflict detected: User selected '{resolved}' in UI, "
+                    f"conflicting with source blueprint '{clean_blueprint}'."
+                )
+            return CategoryResolutionResult(
+                resolved=resolved,
+                conflict=conflict,
+                warnings=warnings,
+                category_source=cat_source,
+                conflict_reason=conflict_reason,
+                requested_category=requested_cat,
+                source_blueprint_category=clean_blueprint,
+            )
+
+        # 3. High-confidence YOLO V2 Grounding (confidence >= 0.70)
+        clean_gemini = canonicalize_category(gemini_category)
+        clean_yolo = canonicalize_category(yolo_context.detected_category) if (yolo_context and yolo_context.detected_category) else None
+
+        if yolo_context and clean_yolo and yolo_context.confidence >= 0.70:
+            resolved = clean_yolo
+            requested_cat = clean_yolo
+            cat_source = "yolo"
+            conflict = False
+            conflict_reason = None
+            if clean_gemini and clean_gemini != clean_yolo:
+                conflict = True
+                conflict_reason = (
+                    f"Category conflict detected: Local YOLO V2 predicted '{clean_yolo}' (conf: {yolo_context.confidence:.2f}) "
+                    f"while Gemini Vision interpreted '{clean_gemini}'."
+                )
+                warnings.append(conflict_reason)
+                warnings.append(f"Grounded on local YOLO V2 detector ({clean_yolo}) due to high confidence ({yolo_context.confidence:.2f}).")
+            return CategoryResolutionResult(
+                resolved=resolved,
+                conflict=conflict,
+                warnings=warnings,
+                category_source=cat_source,
+                conflict_reason=conflict_reason,
+                requested_category=requested_cat,
+                source_blueprint_category=clean_blueprint,
+            )
+
+        # 4. Gemini Vision visual interpretation
+        if clean_gemini and clean_gemini != "other_jewellery":
+            resolved = clean_gemini
+            requested_cat = clean_gemini
+            cat_source = "gemini"
+            conflict = False
+            conflict_reason = None
+            if clean_yolo and clean_yolo != clean_gemini:
+                conflict = True
+                y_conf = yolo_context.confidence if yolo_context else 0.0
+                conflict_reason = (
+                    f"Category conflict detected: Local YOLO V2 predicted '{clean_yolo}' (conf: {y_conf:.2f}) "
+                    f"while Gemini Vision interpreted '{clean_gemini}'."
+                )
+                warnings.append(conflict_reason)
+                warnings.append(f"Grounded on Gemini Vision ({clean_gemini}) because YOLO confidence was below threshold ({y_conf:.2f}).")
+            return CategoryResolutionResult(
+                resolved=resolved,
+                conflict=conflict,
+                warnings=warnings,
+                category_source=cat_source,
+                conflict_reason=conflict_reason,
+                requested_category=requested_cat,
+                source_blueprint_category=clean_blueprint,
+            )
+
+        # 5. Fallback grounding
+        if clean_blueprint:
+            resolved = clean_blueprint
+            requested_cat = clean_blueprint
+            cat_source = "default"
+        else:
+            resolved = "other_jewellery"
+            requested_cat = "other_jewellery"
+            cat_source = "default"
+
+        return CategoryResolutionResult(
+            resolved=resolved,
+            conflict=False,
+            warnings=warnings,
+            category_source=cat_source,
+            conflict_reason=None,
+            requested_category=requested_cat,
+            source_blueprint_category=clean_blueprint,
+        )
 
     async def _call_gemini_api(
         self,
@@ -308,11 +485,14 @@ class GeminiDesignService:
         Never invents default gemstones when none were specified.
         Never replaces explicit cuts (oval, emerald cut, baguette, pear) with round brilliant.
         """
+        explicit_cat = self.extract_explicit_category(user_prompt)
         cat = "ring"
-        if yolo_context and yolo_context.detected_category:
-            cat = yolo_context.detected_category
+        if explicit_cat:
+            cat = explicit_cat
         elif category_hint:
-            cat = category_hint
+            cat = canonicalize_category(category_hint) or "ring"
+        elif yolo_context and yolo_context.detected_category:
+            cat = canonicalize_category(yolo_context.detected_category) or "ring"
 
         constraints = self.extract_explicit_user_constraints(user_prompt)
 
@@ -422,9 +602,12 @@ class GeminiDesignService:
         Preserves explicit user text constraints (Tier 1) and grounding context so the
         existing rendering workflow remains fully usable.
         """
+        explicit_cat = self.extract_explicit_category(user_prompt)
         cat = "other_jewellery"
-        if yolo_context and yolo_context.detected_category:
-            cat = yolo_context.detected_category
+        if explicit_cat:
+            cat = explicit_cat
+        elif yolo_context and yolo_context.detected_category:
+            cat = canonicalize_category(yolo_context.detected_category) or "other_jewellery"
 
         constraints = self.extract_explicit_user_constraints(user_prompt)
 
@@ -519,6 +702,8 @@ class GeminiDesignService:
         user_prompt: Optional[str] = None,
         yolo_context: Optional[YoloGroundingContext] = None,
         image_mime_type: str = "image/png",
+        source_blueprint_category: Optional[str] = None,
+        user_selected_category: Optional[str] = None,
     ) -> AnalyzeDesignResponse:
         """Analyzes an uploaded jewellery sketch or photo, returning rich structured understanding and diffusion prompts."""
         constraints = self.extract_explicit_user_constraints(user_prompt)
@@ -607,8 +792,15 @@ class GeminiDesignService:
                     design_understanding = self._generate_text_fallback_analysis(user_prompt or "", yolo_context)
 
         # Resolve category with grounding precedence
-        resolved_cat, conflict, cat_warnings = self._resolve_category(gemini_cat, yolo_context, user_prompt)
-        warnings.extend(cat_warnings)
+        cat_res = self._resolve_category(
+            gemini_cat,
+            yolo_context,
+            user_prompt,
+            source_blueprint_category=source_blueprint_category,
+            user_selected_category=user_selected_category,
+        )
+        resolved_cat = cat_res.resolved
+        warnings.extend(cat_res.warnings)
         design_understanding.jewellery_category = resolved_cat
 
         # Compile diffusion and natural prompts
@@ -625,8 +817,12 @@ class GeminiDesignService:
             enhanced_prompt=enhanced_prompt,
             yolo_category=yolo_context.detected_category if yolo_context else None,
             gemini_category=gemini_cat,
+            source_blueprint_category=cat_res.source_blueprint_category,
+            requested_category=cat_res.requested_category,
             resolved_category=resolved_cat,
-            category_conflict=conflict,
+            category_source=cat_res.category_source,
+            category_conflict=cat_res.conflict,
+            category_conflict_reason=cat_res.conflict_reason,
             warnings=warnings,
             fallback_applied=fallback_applied,
         )
@@ -637,6 +833,8 @@ class GeminiDesignService:
         image_bytes: Optional[bytes] = None,
         yolo_context: Optional[YoloGroundingContext] = None,
         image_mime_type: str = "image/png",
+        source_blueprint_category: Optional[str] = None,
+        user_selected_category: Optional[str] = None,
     ) -> EnhancePromptResponse:
         """Enhances a user-written prompt with rich jewellery terminology and structured specifications."""
         analysis_resp = await self.analyze_design(
@@ -644,6 +842,8 @@ class GeminiDesignService:
             user_prompt=user_prompt,
             yolo_context=yolo_context,
             image_mime_type=image_mime_type,
+            source_blueprint_category=source_blueprint_category,
+            user_selected_category=user_selected_category,
         )
 
         return EnhancePromptResponse(
@@ -655,8 +855,12 @@ class GeminiDesignService:
             negative_prompt=analysis_resp.negative_prompt,
             yolo_category=analysis_resp.yolo_category,
             gemini_category=analysis_resp.gemini_category,
+            source_blueprint_category=analysis_resp.source_blueprint_category,
+            requested_category=analysis_resp.requested_category,
             resolved_category=analysis_resp.resolved_category,
+            category_source=analysis_resp.category_source,
             category_conflict=analysis_resp.category_conflict,
+            category_conflict_reason=analysis_resp.category_conflict_reason,
             warnings=analysis_resp.warnings,
             fallback_applied=analysis_resp.fallback_applied,
         )

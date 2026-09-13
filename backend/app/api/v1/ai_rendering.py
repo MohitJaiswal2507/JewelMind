@@ -28,6 +28,9 @@ from app.models.user import User
 from app.models.design import Design
 from app.services.storage_service import storage_service
 
+import logging
+logger = logging.getLogger("jewelmind.ai.rendering")
+
 try:
     from ai.rendering.config import DEFAULT_OUTPUT_DIR
     from ai.rendering.schemas import RenderRequest, RenderResult
@@ -37,8 +40,9 @@ except ImportError:
     RenderResult = None
 
 try:
+    import diffusers  # noqa: F401
     from ai.rendering.pipeline import JewelleryRenderingPipeline, RenderingOutOfMemoryError
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     JewelleryRenderingPipeline = None
     RenderingOutOfMemoryError = RuntimeError
 
@@ -51,7 +55,11 @@ _pipeline_instance = None
 def get_rendering_pipeline() -> Optional[JewelleryRenderingPipeline]:
     global _pipeline_instance
     if _pipeline_instance is None and JewelleryRenderingPipeline is not None:
-        _pipeline_instance = JewelleryRenderingPipeline()
+        try:
+            import diffusers  # noqa: F401
+            _pipeline_instance = JewelleryRenderingPipeline()
+        except (ImportError, ModuleNotFoundError):
+            _pipeline_instance = None
     return _pipeline_instance
 
 
@@ -68,6 +76,9 @@ async def render_jewellery_sketch(
     file: Optional[UploadFile] = File(None, description="Jewellery sketch blueprint (PNG, JPG, or WEBP)"),
     sketch_url: Optional[str] = Form(None, description="Direct URL or data URL of jewellery sketch"),
     category: Optional[str] = Form(None, description="Controlled jewellery category ('ring', 'earring', 'pendant', 'necklace', 'bracelet', 'bangle', 'brooch', 'other')"),
+    source_blueprint_category: Optional[str] = Form(None, description="Category of the source blueprint sketch/image"),
+    category_source: Optional[str] = Form(None, description="Category authority source ('user_prompt', 'user_selected', 'yolo', etc.)"),
+    conflict_resolution: Optional[str] = Form(None, description="Conflict resolution decision ('blueprint' or 'force_requested')"),
     design_id: Optional[uuid.UUID] = Form(None, description="Optional design ID to link and persist the render directly"),
     prompt: Optional[str] = Form(None, description="Optional custom prompt additions"),
     negative_prompt: Optional[str] = Form(None, description="Optional custom negative prompt overrides"),
@@ -181,6 +192,61 @@ async def render_jewellery_sketch(
             detail="Failed to decode image data. Please upload a valid image file.",
         ) from exc
 
+    # Canonicalize and validate category consistency
+    from app.services.gemini_design_service import canonicalize_category, GeminiDesignService
+    from app.schemas.design import to_ai_category
+
+    # Determine canonical source blueprint category
+    clean_blueprint_cat = canonicalize_category(source_blueprint_category)
+    if not clean_blueprint_cat and target_design and target_design.category:
+        clean_blueprint_cat = to_ai_category(target_design.category)
+
+    # Validate category parameter if explicitly provided by caller
+    if category is not None and str(category).strip():
+        validated_cat = canonicalize_category(category)
+        if not validated_cat:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid render parameters: Unsupported jewellery category: '{category}'. Supported: ring, earring, pendant, necklace, bracelet, bangle, brooch, other",
+            )
+
+    # Determine requested category with strict user precedence
+    prompt_cat = GeminiDesignService.extract_explicit_category(prompt)
+    resolved_render_cat = prompt_cat or canonicalize_category(category) or clean_blueprint_cat or "other_jewellery"
+
+    # Detect conflict between source blueprint and requested render category
+    category_conflict = False
+    if clean_blueprint_cat and resolved_render_cat:
+        if clean_blueprint_cat not in ("other", "other_jewellery") and resolved_render_cat not in ("other", "other_jewellery"):
+            if clean_blueprint_cat != resolved_render_cat:
+                category_conflict = True
+
+    if category_conflict:
+        logger.warning(
+            "Category conflict detected in render request: blueprint=%s, requested=%s, resolution=%s",
+            clean_blueprint_cat, resolved_render_cat, conflict_resolution
+        )
+        if conflict_resolution == "blueprint":
+            resolved_render_cat = clean_blueprint_cat
+            logger.info("Applying conflict resolution 'blueprint': rendering as '%s'", resolved_render_cat)
+        elif conflict_resolution != "force_requested":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "CATEGORY_CONFLICT",
+                    "message": (
+                        f"Your uploaded blueprint is classified as '{clean_blueprint_cat}', "
+                        f"but the requested render category is '{resolved_render_cat}'. "
+                        f"ControlNet will condition on '{clean_blueprint_cat}' geometry."
+                    ),
+                    "source_blueprint_category": clean_blueprint_cat,
+                    "requested_category": resolved_render_cat,
+                    "conflict": True,
+                },
+            )
+
+    category = resolved_render_cat
+
     # Construct request with validation handling
     try:
         req = RenderRequest(
@@ -216,8 +282,15 @@ async def render_jewellery_sketch(
                 rendered_pil.save(buf, format="PNG")
                 rendered_image_bytes = buf.getvalue()
             render_dict = result.model_dump() if hasattr(result, "model_dump") else (dict(result) if isinstance(result, dict) else {})
-            if structured_design and isinstance(render_dict, dict):
-                render_dict["structured_design"] = structured_design
+            if isinstance(render_dict, dict):
+                render_dict["category"] = category
+                render_dict["source_blueprint_category"] = clean_blueprint_cat
+                render_dict["category_conflict"] = category_conflict
+                if structured_design:
+                    render_dict["structured_design"] = structured_design
+        except (ImportError, ModuleNotFoundError) as imp_err:
+            logger.warning("Local rendering dependencies missing (%s). Delegating to dedicated AI Worker at %s.", imp_err, settings.AI_WORKER_URL)
+            pipeline = None
         except RenderingOutOfMemoryError as oom_err:
             raise HTTPException(
                 status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
@@ -233,7 +306,8 @@ async def render_jewellery_sketch(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Rendering pipeline failed: {str(run_err)}",
             ) from run_err
-    else:
+
+    if pipeline is None:
         # Proxy request to dedicated AI Worker running in tgpu environment
         worker_url = f"{settings.AI_WORKER_URL.rstrip('/')}/render"
         try:
@@ -253,10 +327,19 @@ async def render_jewellery_sketch(
                     "width": str(width),
                     "height": str(height),
                     "structured_design": structured_design or "",
+                    "source_blueprint_category": clean_blueprint_cat or "",
+                    "category_conflict": "true" if category_conflict else "false",
                 }
                 resp = await client.post(worker_url, files=files_payload, data=form_payload)
                 if resp.status_code == 200:
                     render_dict = resp.json()
+                    import inspect
+                    if inspect.isawaitable(render_dict):
+                        render_dict = await render_dict
+                    if isinstance(render_dict, dict):
+                        render_dict["category"] = category
+                        render_dict["source_blueprint_category"] = clean_blueprint_cat
+                        render_dict["category_conflict"] = category_conflict
                     # Read generated PNG from disk if available
                     out_name = Path(render_dict.get("output_url", "")).name
                     local_target = Path(DEFAULT_OUTPUT_DIR) / out_name
