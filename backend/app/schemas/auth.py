@@ -17,7 +17,7 @@ except ImportError:
 
 
 class UserBase(BaseModel):
-    email: Union[EmailStr, str] = Field(..., description="User email address")
+    email: EmailStr = Field(..., description="User email address")
     full_name: str = Field(..., min_length=2, max_length=100, description="Full name of user")
 
 
