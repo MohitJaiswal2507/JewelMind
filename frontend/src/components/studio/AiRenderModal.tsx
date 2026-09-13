@@ -14,7 +14,6 @@ import {
   Wand2,
   ChevronDown,
   ChevronUp,
-  ArrowRight,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -306,10 +305,16 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   };
 
   /**
-   * Correction 3: STRICT RENDERER BOUNDARY
-   * Phase B does NOT alter renderer execution, inference parameters, checkpoints,
-   * or automatically wire Gemini output into the active renderer.
-   * Preserves exact pre-Phase B renderer call semantics.
+   * Phase C: GEMINI -> EXISTING RENDERER INTEGRATION
+   * Submits the final user-approved prompt (with explicit user intent precedence),
+   * negative prompt, category, and optional structured design context to the existing
+   * ControlNet + SD1.5 + LoRA renderer.
+   *
+   * Rules enforced:
+   * 1. Final user prompt has ultimate authority (user edits preserved).
+   * 2. Zero re-invocation of Gemini during render (no duplicate calls or overwrites).
+   * 3. Zero alteration of ControlNet strength or inference parameters.
+   * 4. 100% fallback compatibility when Gemini is not used or unavailable.
    */
   const handleRender = async () => {
     setIsRendering(true);
@@ -321,9 +326,21 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
         fileBlob = convertDataUrlToBlob(sketchUrl);
       }
 
-      // Strict scope: Maintain existing renderer options exactly as designed
+      // Precedence: finalEditablePrompt (user approved/edited) > customPrompt > userPromptInput
+      const promptToUse =
+        finalEditablePrompt.trim() ||
+        customPrompt.trim() ||
+        userPromptInput.trim() ||
+        undefined;
+
+      const negativePromptToUse = negativePrompt.trim() || undefined;
+      const categoryToUse = resolvedCategory || selectedCategory;
+      const structuredDesignJson = designUnderstanding
+        ? JSON.stringify(designUnderstanding)
+        : undefined;
+
       const options: RenderOptions = {
-        category: selectedCategory,
+        category: categoryToUse,
         design_id: designId,
         sketch_url: sketchUrl,
         material,
@@ -331,7 +348,9 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
         control_type: controlType,
         control_strength: controlStrength,
         steps,
-        prompt: customPrompt.trim() || undefined,
+        prompt: promptToUse,
+        negative_prompt: negativePromptToUse,
+        structured_design: structuredDesignJson,
         seed: seed.trim() ? parseInt(seed.trim(), 10) : undefined,
       };
 
@@ -685,14 +704,14 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                       className="min-h-[80px] text-xs font-mono bg-[#0A0C14] border-amber-400/30 text-amber-100"
                     />
 
-                    {/* Correction 3: Strict Phase B Boundary Notice */}
-                    <div className="p-2 rounded-lg bg-amber-400/5 border border-amber-400/20 text-[10px] text-amber-300 flex items-center justify-between">
+                    {/* Phase C: Connected to Existing Renderer */}
+                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 flex items-center justify-between">
                       <span className="flex items-center space-x-1 font-mono">
-                        <ArrowRight className="w-3 h-3 text-amber-400 shrink-0" />
-                        <span>Ready for future rendering integration</span>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span>Active Rendering Conditioning (Phase C Connected)</span>
                       </span>
-                      <Badge variant="outline" className="text-[9px] border-amber-400/40 text-amber-300">
-                        Phase C Target
+                      <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-300">
+                        Renderer Active
                       </Badge>
                     </div>
 

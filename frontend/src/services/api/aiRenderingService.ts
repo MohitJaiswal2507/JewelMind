@@ -42,6 +42,7 @@ export interface RenderOptions {
   seed?: number;
   width?: number;
   height?: number;
+  structured_design?: string;
 }
 
 export const aiRenderingService = {
@@ -64,6 +65,7 @@ export const aiRenderingService = {
     if (options.design_id) formData.append('design_id', options.design_id);
     if (options.prompt) formData.append('prompt', options.prompt);
     if (options.negative_prompt) formData.append('negative_prompt', options.negative_prompt);
+    if (options.structured_design) formData.append('structured_design', options.structured_design);
     if (options.material) formData.append('material', options.material);
     if (options.gemstone) formData.append('gemstone', options.gemstone);
     if (options.control_type) formData.append('control_type', options.control_type);
