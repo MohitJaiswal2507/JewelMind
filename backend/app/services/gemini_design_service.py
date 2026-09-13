@@ -32,9 +32,60 @@ logger = logging.getLogger("jewelmind.gemini")
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 # Known jewellery keywords for client-side intent extraction
-KNOWN_METALS = ["platinum", "18k yellow gold", "yellow gold", "white gold", "rose gold", "sterling silver", "silver", "gold"]
-KNOWN_STONES = ["diamond", "sapphire", "blue sapphire", "emerald", "ruby", "amethyst", "pearl", "opal", "topaz", "aquamarine", "tanzanite"]
-KNOWN_CUTS = ["round brilliant", "oval", "cushion", "emerald cut", "pear", "princess cut", "marquise", "baguette", "radiant", "heart"]
+KNOWN_METALS = [
+    "18k yellow gold", "14k yellow gold", "yellow gold",
+    "18k white gold", "14k white gold", "white gold",
+    "18k rose gold", "14k rose gold", "rose gold",
+    "950 platinum", "platinum",
+    "925 sterling silver", "sterling silver", "silver",
+    "18k gold", "14k gold", "gold",
+]
+
+KNOWN_STONES_CANONICAL = [
+    ("blue sapphire", ["blue sapphire", "blue sapphires"]),
+    ("pink sapphire", ["pink sapphire", "pink sapphires"]),
+    ("yellow sapphire", ["yellow sapphire", "yellow sapphires"]),
+    ("sapphire", ["sapphire", "sapphires"]),
+    ("emerald", ["emerald", "emeralds"]),
+    ("black onyx", ["black onyx"]),
+    ("onyx", ["onyx"]),
+    ("ruby", ["ruby", "rubies"]),
+    ("pearl", ["pearl", "pearls"]),
+    ("topaz", ["topaz"]),
+    ("amethyst", ["amethyst", "amethysts"]),
+    ("opal", ["opal", "opals"]),
+    ("aquamarine", ["aquamarine"]),
+    ("tanzanite", ["tanzanite"]),
+    ("diamond", ["diamond", "diamonds"]),
+]
+
+KNOWN_STONES = [
+    "blue sapphire", "pink sapphire", "yellow sapphire", "sapphire",
+    "emerald", "black onyx", "onyx", "ruby", "pearl", "topaz",
+    "amethyst", "opal", "aquamarine", "tanzanite", "diamond",
+]
+
+KNOWN_CUTS_CANONICAL = [
+    ("round brilliant", ["round brilliant cut", "round brilliant", "round cut", "round diamonds", "round diamond"]),
+    ("emerald cut", ["emerald cut"]),
+    ("pear", ["pear shaped", "pear cut", "pear shape", "pear stone", "pear"]),
+    ("princess cut", ["princess cut", "princess"]),
+    ("baguette", ["baguette cut", "baguette diamonds", "baguette diamond", "baguette cut diamonds", "baguette cut diamond", "baguette"]),
+    ("cushion", ["cushion cut", "cushion"]),
+    ("marquise", ["marquise cut", "marquise"]),
+    ("heart", ["heart shaped", "heart cut", "heart shape", "heart"]),
+    ("rose cut", ["rose cut"]),
+    ("cabochon", ["cabochon"]),
+    ("radiant", ["radiant cut", "radiant"]),
+    ("oval", ["oval cut", "oval stone", "oval blue sapphire", "oval"]),
+]
+
+KNOWN_CUTS = [
+    "round brilliant", "emerald cut", "pear", "princess cut",
+    "baguette", "cushion", "marquise", "heart", "rose cut",
+    "cabochon", "radiant", "oval",
+]
+
 KNOWN_CATEGORIES = [c.value for c in JewelleryCategory]
 
 
@@ -57,29 +108,74 @@ class GeminiDesignService:
 
     @staticmethod
     def extract_explicit_user_constraints(user_prompt: Optional[str]) -> List[str]:
-        """Extracts immutable Tier-1 constraints from user input."""
+        """Extracts immutable Tier-1 constraints from user input preserving prompt appearance order."""
         if not user_prompt or not user_prompt.strip():
             return []
         
         lower = user_prompt.lower()
         constraints: List[str] = []
 
+        # 1. Metals (ordered by appearance and phrase length)
+        found_metals = []
         for metal in KNOWN_METALS:
-            if metal in lower and metal not in constraints:
-                constraints.append(f"metal: {metal}")
-                break
+            idx = lower.find(metal)
+            if idx != -1:
+                found_metals.append((idx, len(metal), metal))
+        if found_metals:
+            found_metals.sort(key=lambda x: (x[0], -x[1]))
+            constraints.append(f"metal: {found_metals[0][2]}")
 
-        for stone in KNOWN_STONES:
-            if stone in lower and stone not in constraints:
+        # 2. Gemstones (sorted by order of appearance in prompt)
+        found_stones = []
+        for canonical, aliases in KNOWN_STONES_CANONICAL:
+            for alias in aliases:
+                pattern = r"\b" + re.escape(alias) + r"\b"
+                for m in re.finditer(pattern, lower):
+                    found_stones.append((m.start(), canonical))
+        
+        found_stones.sort(key=lambda x: x[0])
+        seen_stones = set()
+        for _, stone in found_stones:
+            if stone not in seen_stones:
+                seen_stones.add(stone)
                 constraints.append(f"gemstone: {stone}")
 
-        for cut in KNOWN_CUTS:
-            if cut in lower and cut not in constraints:
+        # 3. Cuts (sorted by order of appearance in prompt)
+        found_cuts = []
+        for canonical, aliases in KNOWN_CUTS_CANONICAL:
+            for alias in aliases:
+                pattern = r"\b" + re.escape(alias) + r"\b"
+                for m in re.finditer(pattern, lower):
+                    found_cuts.append((m.start(), canonical))
+        
+        found_cuts.sort(key=lambda x: x[0])
+        seen_cuts = set()
+        for _, cut in found_cuts:
+            if cut not in seen_cuts:
+                seen_cuts.add(cut)
                 constraints.append(f"cut: {cut}")
 
-        # Setting & structural keywords
-        for struct in ["thin shank", "wide band", "cathedral", "halo", "solitaire", "bezel", "pavé", "pave", "channel", "prong", "filigree", "milgrain"]:
-            if struct in lower:
+        # 4. Setting, structural, & styling keywords
+        KNOWN_STRUCTURAL_PHRASES = [
+            "thin shank", "wide band", "thick band", "thick shank", "wide shank",
+            "minimalist", "delicate diamond halo", "diamond halo", "delicate halo", "halo",
+            "solitaire", "bezel", "pavé", "pave", "channel", "prong", "filigree", "milgrain",
+            "engraved floral pattern", "engraved floral", "floral pattern", "engraved", "floral",
+            "tennis bracelet", "tennis", "cuff", "hoop", "drop", "articulated",
+            "black onyx inlays", "onyx inlays", "inlays", "petal diamond accents",
+            "diamond accents", "accents", "art deco", "geometric", "vintage",
+        ]
+        found_structs = []
+        for struct in KNOWN_STRUCTURAL_PHRASES:
+            pattern = r"\b" + re.escape(struct) + r"\b"
+            for m in re.finditer(pattern, lower):
+                found_structs.append((m.start(), len(struct), struct))
+        
+        found_structs.sort(key=lambda x: (x[0], -x[1]))
+        seen_structs = set()
+        for _, _, struct in found_structs:
+            if not any(struct in s for s in seen_structs):
+                seen_structs.add(struct)
                 constraints.append(f"structure: {struct}")
 
         return constraints
@@ -206,7 +302,12 @@ class GeminiDesignService:
         yolo_context: Optional[YoloGroundingContext] = None,
         category_hint: Optional[str] = None,
     ) -> StructuredDesignUnderstanding:
-        """Generates deterministic heuristic design understanding from text prompt only (CASE A)."""
+        """Generates deterministic heuristic design understanding from text prompt only (CASE A).
+        
+        Strictly preserves explicit user attributes (Tier 1 precedence).
+        Never invents default gemstones when none were specified.
+        Never replaces explicit cuts (oval, emerald cut, baguette, pear) with round brilliant.
+        """
         cat = "ring"
         if yolo_context and yolo_context.detected_category:
             cat = yolo_context.detected_category
@@ -219,23 +320,59 @@ class GeminiDesignService:
         metal = "18k yellow gold"
         for c in constraints:
             if c.startswith("metal: "):
-                metal = c.split("metal: ")[1]
+                metal = c.split("metal: ", 1)[1]
                 break
 
-        # Detect stones from prompt or default
-        stone = "round brilliant diamond"
-        has_gems = True
-        for c in constraints:
-            if c.startswith("gemstone: "):
-                stone = c.split("gemstone: ")[1]
-                break
+        # Detect stones and cuts from prompt
+        stones = [c.split("gemstone: ", 1)[1] for c in constraints if c.startswith("gemstone: ")]
+        cuts = [c.split("cut: ", 1)[1] for c in constraints if c.startswith("cut: ")]
 
-        primary_gem = GemstoneItem(
-            gemstone_type=stone if "diamond" not in stone else "diamond",
-            cut="round brilliant",
-            estimated_count=1,
-            setting_type="prong setting",
-        )
+        has_gems = False
+        primary_gem: Optional[GemstoneItem] = None
+        secondary_gems: List[GemstoneItem] = []
+        gemstone_details: Optional[str] = None
+
+        if stones:
+            has_gems = True
+            primary_stone = stones[0]
+            # Preserve explicit cut; only default to round brilliant if explicitly mentioned
+            primary_cut = cuts[0] if cuts else ("round brilliant" if "round" in user_prompt.lower() else "faceted")
+
+            count = 1
+            p_lower = user_prompt.lower()
+            if "three diamonds" in p_lower or "3 diamonds" in p_lower or "three " in p_lower:
+                count = 3
+            elif "two diamonds" in p_lower or "2 diamonds" in p_lower or "pair" in p_lower:
+                count = 2
+
+            setting = "prong setting"
+            for c in constraints:
+                if c.startswith("structure: "):
+                    val = c.split("structure: ", 1)[1]
+                    if any(s in val for s in ["bezel", "pave", "pavé", "channel", "prong", "basket"]):
+                        setting = f"{val} setting" if "setting" not in val else val
+
+            primary_gem = GemstoneItem(
+                gemstone_type=primary_stone,
+                cut=primary_cut,
+                estimated_count=count,
+                setting_type=setting,
+            )
+            gemstone_details = f"Featured {primary_cut} {primary_stone}"
+
+            # Secondary stones (e.g. halo diamonds, onyx inlays, petal accents)
+            if len(stones) > 1:
+                for idx, s in enumerate(stones[1:], start=1):
+                    sec_cut = cuts[idx] if len(cuts) > idx else ("round brilliant" if "round" in p_lower else "accent")
+                    sec_setting = "halo setting" if "halo" in p_lower else ("inlay setting" if "inlay" in p_lower else "accent setting")
+                    secondary_gems.append(
+                        GemstoneItem(
+                            gemstone_type=s,
+                            cut=sec_cut,
+                            estimated_count=16 if "halo" in p_lower else (1 if "inlay" in p_lower else 8),
+                            setting_type=sec_setting,
+                        )
+                    )
 
         band_structure = "classic tapered band"
         setting_style = "classic setting"
@@ -243,7 +380,7 @@ class GeminiDesignService:
 
         for c in constraints:
             if c.startswith("structure: "):
-                val = c.split("structure: ")[1].strip()
+                val = c.split("structure: ", 1)[1].strip()
                 if any(k in val for k in ["shank", "band"]):
                     band_structure = val
                 elif any(k in val for k in ["solitaire", "halo", "cathedral", "bezel", "pave", "pavé", "channel", "prong"]):
@@ -259,7 +396,8 @@ class GeminiDesignService:
             gemstones=GemstoneSpec(
                 has_gemstones=has_gems,
                 primary_gemstone=primary_gem,
-                gemstone_details=f"Centered {stone}",
+                secondary_gemstones=secondary_gems,
+                gemstone_details=gemstone_details,
             ),
             structure=StructuralSpec(
                 band_or_body_structure=band_structure,
@@ -294,23 +432,38 @@ class GeminiDesignService:
         metal = "precious metal"
         for c in constraints:
             if c.startswith("metal: "):
-                metal = c.split("metal: ")[1]
+                metal = c.split("metal: ", 1)[1]
                 break
 
         # Check explicit user constraints for gemstones; DO NOT invent stones if not in user prompt!
+        stones = [c.split("gemstone: ", 1)[1] for c in constraints if c.startswith("gemstone: ")]
+        cuts = [c.split("cut: ", 1)[1] for c in constraints if c.startswith("cut: ")]
+
         has_gems = False
-        primary_gem = None
-        for c in constraints:
-            if c.startswith("gemstone: "):
-                has_gems = True
-                stone = c.split("gemstone: ")[1]
-                primary_gem = GemstoneItem(
-                    gemstone_type=stone,
-                    cut="round brilliant",
-                    estimated_count=1,
-                    setting_type="prong setting",
-                )
-                break
+        primary_gem: Optional[GemstoneItem] = None
+        secondary_gems: List[GemstoneItem] = []
+
+        if stones:
+            has_gems = True
+            primary_stone = stones[0]
+            primary_cut = cuts[0] if cuts else ("round brilliant" if user_prompt and "round" in user_prompt.lower() else "faceted")
+            primary_gem = GemstoneItem(
+                gemstone_type=primary_stone,
+                cut=primary_cut,
+                estimated_count=1,
+                setting_type="prong setting",
+            )
+            if len(stones) > 1:
+                for idx, s in enumerate(stones[1:], start=1):
+                    sec_cut = cuts[idx] if len(cuts) > idx else "accent"
+                    secondary_gems.append(
+                        GemstoneItem(
+                            gemstone_type=s,
+                            cut=sec_cut,
+                            estimated_count=8,
+                            setting_type="accent setting",
+                        )
+                    )
 
         # Check explicit user constraints for structure; DO NOT invent structural details if not in prompt!
         band_structure = "standard mount"
@@ -319,7 +472,7 @@ class GeminiDesignService:
 
         for c in constraints:
             if c.startswith("structure: "):
-                val = c.split("structure: ")[1].strip()
+                val = c.split("structure: ", 1)[1].strip()
                 if any(k in val for k in ["shank", "band"]):
                     band_structure = val
                 elif any(k in val for k in ["solitaire", "halo", "cathedral", "bezel", "pave", "pavé", "channel", "prong"]):
@@ -346,6 +499,7 @@ class GeminiDesignService:
             gemstones=GemstoneSpec(
                 has_gemstones=has_gems,
                 primary_gemstone=primary_gem,
+                secondary_gemstones=secondary_gems,
                 gemstone_details=f"Specified {primary_gem.gemstone_type}" if primary_gem else None,
             ),
             structure=StructuralSpec(
@@ -459,7 +613,7 @@ class GeminiDesignService:
 
         # Compile diffusion and natural prompts
         renderer_prompt = JewelleryPromptCompiler.compile_renderer_prompt(design_understanding, constraints)
-        negative_prompt = JewelleryPromptCompiler.compile_negative_prompt()
+        negative_prompt = JewelleryPromptCompiler.compile_negative_prompt(user_constraints=constraints)
         enhanced_prompt = JewelleryPromptCompiler.compile_natural_enhanced_prompt(design_understanding)
 
         return AnalyzeDesignResponse(

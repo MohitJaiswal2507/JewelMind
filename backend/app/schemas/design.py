@@ -62,7 +62,7 @@ def from_ai_category(category: Optional[str]) -> Optional[DesignCategory]:
     if category is None:
         return None
     cleaned = str(category).strip().lower()
-    return AI_TO_BACKEND_CATEGORY_MAP.get(cleaned, DesignCategory.OTHER)
+    return AI_TO_BACKEND_CATEGORY_MAP.get(cleaned, None)
 
 
 class DesignStatus(str, Enum):
