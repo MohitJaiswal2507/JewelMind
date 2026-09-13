@@ -43,13 +43,17 @@ class RenderRequest(BaseModel):
     )
     prompt: Optional[str] = Field(
         default=None,
-        max_length=500,
-        description="User custom prompt addition (optional)",
+        max_length=1500,
+        description="User custom prompt addition or Gemini compiled prompt (optional)",
     )
     negative_prompt: Optional[str] = Field(
         default=None,
-        max_length=500,
+        max_length=1500,
         description="Custom negative prompt overrides (optional)",
+    )
+    structured_design: Optional[str] = Field(
+        default=None,
+        description="Optional Gemini structured design understanding JSON for contextual telemetry",
     )
     material: str = Field(
         default="18k yellow gold",

@@ -80,6 +80,7 @@ async def render_jewellery_sketch(
     seed: Optional[int] = Form(None, ge=0, description="Seed for deterministic generation"),
     width: int = Form(512, ge=256, le=768, description="Output image width in pixels"),
     height: int = Form(512, ge=256, le=768, description="Output image height in pixels"),
+    structured_design: Optional[str] = Form(None, description="Optional Gemini structured design understanding JSON for contextual telemetry"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
@@ -116,6 +117,11 @@ async def render_jewellery_sketch(
                 detail=f"Unsupported file type: {content_type}. Accepted formats: {', '.join(valid_content_types)}",
             )
         contents = await file.read()
+        if len(contents) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded sketch file is empty (0 bytes).",
+            )
 
     # 2. Read from sketch_url if no file provided
     if not contents and sketch_url:
@@ -190,6 +196,7 @@ async def render_jewellery_sketch(
             seed=seed,
             width=width,
             height=height,
+            structured_design=structured_design,
         )
     except Exception as val_err:
         raise HTTPException(
@@ -209,6 +216,8 @@ async def render_jewellery_sketch(
                 rendered_pil.save(buf, format="PNG")
                 rendered_image_bytes = buf.getvalue()
             render_dict = result.model_dump() if hasattr(result, "model_dump") else (dict(result) if isinstance(result, dict) else {})
+            if structured_design and isinstance(render_dict, dict):
+                render_dict["structured_design"] = structured_design
         except RenderingOutOfMemoryError as oom_err:
             raise HTTPException(
                 status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
@@ -243,6 +252,7 @@ async def render_jewellery_sketch(
                     "seed": str(seed) if seed is not None else "",
                     "width": str(width),
                     "height": str(height),
+                    "structured_design": structured_design or "",
                 }
                 resp = await client.post(worker_url, files=files_payload, data=form_payload)
                 if resp.status_code == 200:
