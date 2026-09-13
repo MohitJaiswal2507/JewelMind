@@ -10,16 +10,28 @@ import {
   Sliders,
   CheckCircle2,
   Gem,
+  Undo2,
+  Wand2,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Textarea } from '../ui/textarea';
 import {
   aiRenderingService,
   RenderResultResponse,
   RenderOptions,
 } from '../../services/api/aiRenderingService';
+import { geminiDesignService } from '../../services/api/geminiDesignService';
 import { designService } from '../../services/api/designService';
 import { ApiClientError } from '../../services/api/client';
+import {
+  GeminiStatus,
+  StructuredDesignUnderstanding,
+} from '../../types/ai';
+import { GeminiDesignUnderstandingCard } from './GeminiDesignUnderstandingCard';
 
 interface AiRenderModalProps {
   isOpen: boolean;
@@ -28,6 +40,8 @@ interface AiRenderModalProps {
   designTitle: string;
   category?: string;
   designId?: string;
+  verifiedYoloCategory?: string | null;
+  verifiedYoloConfidence?: number | null;
   onSuccess?: (renderedUrl: string) => void;
 }
 
@@ -72,6 +86,8 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   designTitle,
   category: initialCategory = 'ring',
   designId,
+  verifiedYoloCategory = null,
+  verifiedYoloConfidence = null,
   onSuccess,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory.toLowerCase());
@@ -84,7 +100,26 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
 
-  // Execution states
+  // Gemini State Management (Phase B UI Integration)
+  const [userPromptInput, setUserPromptInput] = useState<string>('');
+  const [originalUserPrompt, setOriginalUserPrompt] = useState<string>('');
+  const [finalEditablePrompt, setFinalEditablePrompt] = useState<string>('');
+  const [negativePrompt, setNegativePrompt] = useState<string>('');
+  const [designUnderstanding, setDesignUnderstanding] = useState<StructuredDesignUnderstanding | null>(null);
+  const [geminiStatus, setGeminiStatus] = useState<GeminiStatus>('idle');
+  const [geminiError, setGeminiError] = useState<string | null>(null);
+  const [isPromptEnhanced, setIsPromptEnhanced] = useState<boolean>(false);
+  const [isPromptAnalyzedFromSketch, setIsPromptAnalyzedFromSketch] = useState<boolean>(false);
+  const [userManuallyEdited, setUserManuallyEdited] = useState<boolean>(false);
+  const [resolvedCategory, setResolvedCategory] = useState<string>(initialCategory.toLowerCase());
+  const [yoloCategory, setYoloCategory] = useState<string | null>(verifiedYoloCategory);
+  const [geminiCategory, setGeminiCategory] = useState<string | null>(null);
+  const [categoryConflict, setCategoryConflict] = useState<boolean>(false);
+  const [fallbackApplied, setFallbackApplied] = useState<boolean>(false);
+  const [geminiWarnings, setGeminiWarnings] = useState<string[]>([]);
+  const [showNegativePrompt, setShowNegativePrompt] = useState<boolean>(false);
+
+  // Execution states for rendering
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [renderStageIdx, setRenderStageIdx] = useState<number>(0);
   const [renderResult, setRenderResult] = useState<RenderResultResponse | null>(null);
@@ -120,6 +155,162 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
     return new Blob([bytes], { type: mime });
   };
 
+  /**
+   * Flow A: Enhance artisan prompt with Gemini AI
+   * Correction 2: Use only verified YOLO V2 category when available; never invent or pass selectedCategory as YOLO.
+   * Correction 1: Semantic priority is applied, but prompt remains 100% user-editable.
+   */
+  const handleEnhancePrompt = async () => {
+    const trimmed = userPromptInput.trim();
+    if (!trimmed) {
+      setGeminiError('Please enter a prompt description before enhancing with AI.');
+      return;
+    }
+
+    if (geminiStatus === 'enhancing' || geminiStatus === 'analyzing') {
+      return;
+    }
+
+    setGeminiStatus('enhancing');
+    setGeminiError(null);
+
+    try {
+      setOriginalUserPrompt(trimmed);
+
+      let imageBase64: string | null = null;
+      let imageUrl: string | null = null;
+      if (sketchUrl.startsWith('data:')) {
+        imageBase64 = sketchUrl;
+      } else if (sketchUrl.startsWith('http://') || sketchUrl.startsWith('https://')) {
+        imageUrl = sketchUrl;
+      }
+
+      const res = await geminiDesignService.enhancePrompt({
+        user_prompt: trimmed,
+        image_base64: imageBase64,
+        image_url: imageUrl,
+        // Only pass YOLO context if actually verified; otherwise undefined
+        yolo_category: verifiedYoloCategory || undefined,
+        yolo_confidence: verifiedYoloConfidence !== null ? verifiedYoloConfidence : undefined,
+      });
+
+      setDesignUnderstanding(res.design_understanding);
+      setResolvedCategory(res.resolved_category);
+      setYoloCategory(res.yolo_category || null);
+      setGeminiCategory(res.gemini_category || null);
+      setCategoryConflict(res.category_conflict);
+      setFallbackApplied(res.fallback_applied);
+      setGeminiWarnings(res.warnings || []);
+
+      // Put compiled renderer prompt into the editable field
+      setFinalEditablePrompt(res.renderer_prompt);
+      setNegativePrompt(res.negative_prompt);
+      setIsPromptEnhanced(true);
+      setIsPromptAnalyzedFromSketch(false);
+      setUserManuallyEdited(false);
+      setGeminiStatus('success');
+    } catch (err: unknown) {
+      setGeminiStatus('error');
+      if (err instanceof ApiClientError) {
+        if (err.status === 503) {
+          setGeminiError('Gemini AI service is temporarily unavailable. You can continue using your prompt.');
+        } else if (err.status === 422) {
+          setGeminiError('Unable to process prompt. Please refine your design description.');
+        } else {
+          setGeminiError(err.message || 'Gemini prompt enhancement failed. Your prompt is preserved.');
+        }
+      } else if (err instanceof Error) {
+        setGeminiError(err.message || 'Network error communicating with Gemini service.');
+      } else {
+        setGeminiError('Prompt enhancement encountered an unexpected issue.');
+      }
+    }
+  };
+
+  /**
+   * Flow B: Multimodal image/sketch analysis when prompt is empty or on demand
+   * Correction 2: Use only verified YOLO category if available, never invent one.
+   */
+  const handleAnalyzeSketch = async () => {
+    if (!sketchUrl) {
+      setGeminiError('No sketch or blueprint image available to analyze.');
+      return;
+    }
+
+    if (geminiStatus === 'enhancing' || geminiStatus === 'analyzing') {
+      return;
+    }
+
+    setGeminiStatus('analyzing');
+    setGeminiError(null);
+
+    try {
+      let fileBlob: Blob | null = null;
+      let imageBase64: string | undefined = undefined;
+      let imageUrl: string | undefined = undefined;
+
+      if (sketchUrl.startsWith('data:')) {
+        fileBlob = convertDataUrlToBlob(sketchUrl);
+      } else if (sketchUrl.startsWith('http://') || sketchUrl.startsWith('https://')) {
+        imageUrl = sketchUrl;
+      }
+
+      const res = await geminiDesignService.analyzeDesign({
+        file: fileBlob,
+        imageBase64,
+        imageUrl,
+        userPrompt: userPromptInput.trim() || undefined,
+        // Only pass YOLO context if actually verified; otherwise undefined
+        yoloCategory: verifiedYoloCategory || undefined,
+        yoloConfidence: verifiedYoloConfidence !== null ? verifiedYoloConfidence : undefined,
+      });
+
+      setDesignUnderstanding(res.design_understanding);
+      setResolvedCategory(res.resolved_category);
+      setYoloCategory(res.yolo_category || null);
+      setGeminiCategory(res.gemini_category || null);
+      setCategoryConflict(res.category_conflict);
+      setFallbackApplied(res.fallback_applied);
+      setGeminiWarnings(res.warnings || []);
+
+      // Populate prompt with renderer prompt
+      setFinalEditablePrompt(res.renderer_prompt);
+      setNegativePrompt(res.negative_prompt);
+      setIsPromptAnalyzedFromSketch(true);
+      setIsPromptEnhanced(false);
+      setUserManuallyEdited(false);
+      setGeminiStatus('success');
+    } catch (err: unknown) {
+      setGeminiStatus('error');
+      if (err instanceof ApiClientError) {
+        if (err.status === 503) {
+          setGeminiError('Gemini Vision analysis is currently unavailable. Standard workflow remains active.');
+        } else {
+          setGeminiError(err.message || 'Design understanding service error. Standard workflow remains active.');
+        }
+      } else if (err instanceof Error) {
+        setGeminiError(err.message || 'Network error communicating with design understanding service.');
+      } else {
+        setGeminiError('Sketch analysis encountered an unexpected issue.');
+      }
+    }
+  };
+
+  /**
+   * Revert prompt to original user input
+   */
+  const handleRevertToOriginal = () => {
+    setFinalEditablePrompt(originalUserPrompt || userPromptInput);
+    setUserManuallyEdited(false);
+    setIsPromptEnhanced(false);
+  };
+
+  /**
+   * Correction 3: STRICT RENDERER BOUNDARY
+   * Phase B does NOT alter renderer execution, inference parameters, checkpoints,
+   * or automatically wire Gemini output into the active renderer.
+   * Preserves exact pre-Phase B renderer call semantics.
+   */
   const handleRender = async () => {
     setIsRendering(true);
     setError(null);
@@ -130,6 +321,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
         fileBlob = convertDataUrlToBlob(sketchUrl);
       }
 
+      // Strict scope: Maintain existing renderer options exactly as designed
       const options: RenderOptions = {
         category: selectedCategory,
         design_id: designId,
@@ -197,24 +389,26 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
     document.body.removeChild(a);
   };
 
+  const isGeminiLoading = geminiStatus === 'analyzing' || geminiStatus === 'enhancing';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="bg-[#0E111A] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="bg-[#0E111A] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-7 py-5 border-b border-white/[0.07] bg-[#0A0C12]/70">
+        <div className="flex items-center justify-between px-7 py-4 border-b border-white/[0.07] bg-[#0A0C12]/70">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <h2 className="font-serif text-base font-medium text-white tracking-wide flex items-center space-x-2">
-                <span>Atelier Generative Diffusion Suite</span>
+                <span>Atelier Generative Diffusion & Design Intelligence Suite</span>
                 <Badge variant="gold" className="text-[9px]">
-                  ControlNet v2
+                  Gemini + ControlNet
                 </Badge>
               </h2>
               <p className="text-[11px] text-slate-400 font-light">
-                Synthesize photorealistic precious metals & gemstones conditioned on blueprint geometry.
+                Multimodal design understanding and photorealistic jewellery diffusion rendering.
               </p>
             </div>
           </div>
@@ -230,8 +424,8 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-7 grid grid-cols-1 md:grid-cols-12 gap-7">
-          {/* Left Column: Visual Comparison & Output */}
-          <div className="md:col-span-7 flex flex-col space-y-4">
+          {/* Left Column: Visual Canvas & Design Understanding Output */}
+          <div className="md:col-span-6 flex flex-col space-y-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-300 font-serif">Rendering Surface</span>
               {renderResult && (
@@ -257,7 +451,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
             </div>
 
             {/* Visual Display Container */}
-            <div className="relative w-full bg-[#080A10] rounded-2xl border border-white/[0.07] p-4 min-h-[360px] flex items-center justify-center overflow-hidden shadow-inner">
+            <div className="relative w-full bg-[#080A10] rounded-2xl border border-white/[0.07] p-4 min-h-[300px] flex items-center justify-center overflow-hidden shadow-inner">
               {isRendering ? (
                 <div className="flex flex-col items-center justify-center space-y-4 text-center p-6">
                   <Loader2 className="w-10 h-10 text-amber-300 animate-spin" />
@@ -311,7 +505,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                 )
               ) : (
                 <div className="flex flex-col items-center space-y-3.5 text-center">
-                  <div className="w-56 h-56 bg-[#0A0C14] border border-white/5 rounded-xl p-4 flex items-center justify-center">
+                  <div className="w-52 h-52 bg-[#0A0C14] border border-white/5 rounded-xl p-4 flex items-center justify-center">
                     <img
                       src={sketchUrl}
                       alt="Original Sketch Preview"
@@ -319,7 +513,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                     />
                   </div>
                   <p className="text-[11px] text-slate-400 font-light">
-                    Input blueprint loaded. Configure metal alloy and gemstones, then click "Synthesize Render".
+                    Input blueprint loaded. Use Gemini AI to understand the design or refine your prompt.
                   </p>
                 </div>
               )}
@@ -358,11 +552,178 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Structured Design Understanding Card */}
+            {designUnderstanding && (
+              <GeminiDesignUnderstandingCard
+                understanding={designUnderstanding}
+                resolvedCategory={resolvedCategory}
+                yoloCategory={yoloCategory}
+                geminiCategory={geminiCategory}
+                categoryConflict={categoryConflict}
+                fallbackApplied={fallbackApplied}
+                warnings={geminiWarnings}
+                isEnhancedPrompt={isPromptEnhanced}
+              />
+            )}
           </div>
 
-          {/* Right Column: Parameters & Controls */}
-          <div className="md:col-span-5 flex flex-col justify-between space-y-5">
+          {/* Right Column: AI Prompting, Design Understanding & Diffusion Controls */}
+          <div className="md:col-span-6 flex flex-col justify-between space-y-5">
             <div className="space-y-4 text-xs">
+              {/* SECTION: Gemini Multimodal Prompting */}
+              <div className="p-4 rounded-2xl bg-[#080A10] border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-300 uppercase tracking-widest text-[10px] flex items-center space-x-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Describe Your Design (Optional)</span>
+                  </label>
+                  {isGeminiLoading && (
+                    <span className="text-[10px] text-amber-300 flex items-center space-x-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>{geminiStatus === 'enhancing' ? 'Enhancing with AI...' : 'Analyzing sketch...'}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Textarea
+                    value={userPromptInput}
+                    onChange={(e) => setUserPromptInput(e.target.value)}
+                    placeholder="e.g. platinum round brilliant diamond thin shank..."
+                    className="min-h-[70px] text-xs"
+                    disabled={isGeminiLoading}
+                  />
+
+                  {/* Gemini Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="gold"
+                      size="sm"
+                      onClick={handleEnhancePrompt}
+                      disabled={isGeminiLoading || !userPromptInput.trim()}
+                      className="flex-1 text-xs font-semibold h-8"
+                    >
+                      {geminiStatus === 'enhancing' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          Enhancing with AI...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                          Enhance with AI
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeSketch}
+                      disabled={isGeminiLoading || !sketchUrl}
+                      className="flex-1 text-xs font-medium h-8 border-white/10 hover:border-amber-400/40 text-slate-300"
+                    >
+                      {geminiStatus === 'analyzing' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          Analyzing Sketch...
+                        </>
+                      ) : (
+                        <>
+                          <Layers className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+                          Understand Sketch
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Friendly Gemini Error Message (Non-blocking) */}
+                {geminiError && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200 flex items-start space-x-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                    <span className="leading-snug">{geminiError}</span>
+                  </div>
+                )}
+
+                {/* Editable Final Rendering Prompt (Result from AI or User Edit) */}
+                {(finalEditablePrompt || isPromptEnhanced || isPromptAnalyzedFromSketch) && (
+                  <div className="pt-2 border-t border-white/5 space-y-2">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-semibold text-amber-300 uppercase tracking-wider flex items-center space-x-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-amber-300" />
+                        <span>
+                          {userManuallyEdited
+                            ? 'Editable Final Prompt (User Modified)'
+                            : isPromptEnhanced
+                            ? 'Enhanced Prompt (Fully Editable)'
+                            : 'Interpreted Prompt (Fully Editable)'}
+                        </span>
+                      </span>
+
+                      {originalUserPrompt && (
+                        <button
+                          type="button"
+                          onClick={handleRevertToOriginal}
+                          className="text-slate-400 hover:text-white flex items-center space-x-1 text-[10px] transition cursor-pointer"
+                        >
+                          <Undo2 className="w-2.5 h-2.5" />
+                          <span>Revert</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <Textarea
+                      value={finalEditablePrompt}
+                      onChange={(e) => {
+                        setFinalEditablePrompt(e.target.value);
+                        setUserManuallyEdited(true);
+                      }}
+                      className="min-h-[80px] text-xs font-mono bg-[#0A0C14] border-amber-400/30 text-amber-100"
+                    />
+
+                    {/* Correction 3: Strict Phase B Boundary Notice */}
+                    <div className="p-2 rounded-lg bg-amber-400/5 border border-amber-400/20 text-[10px] text-amber-300 flex items-center justify-between">
+                      <span className="flex items-center space-x-1 font-mono">
+                        <ArrowRight className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span>Ready for future rendering integration</span>
+                      </span>
+                      <Badge variant="outline" className="text-[9px] border-amber-400/40 text-amber-300">
+                        Phase C Target
+                      </Badge>
+                    </div>
+
+                    {/* Negative Prompt Collapsible Toggle */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowNegativePrompt(!showNegativePrompt)}
+                        className="flex items-center space-x-1.5 text-[10px] text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                      >
+                        {showNegativePrompt ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        <span>{showNegativePrompt ? 'Hide Negative Prompt' : 'Review Negative Prompt'}</span>
+                      </button>
+
+                      {showNegativePrompt && (
+                        <div className="mt-2 space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
+                            Negative Conditioning Anchors (Editable)
+                          </label>
+                          <Textarea
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            className="min-h-[60px] text-[11px] font-mono text-slate-400 bg-[#0A0C14]"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Category Selection */}
               <div className="space-y-1.5">
                 <label className="font-semibold text-slate-400 uppercase tracking-widest text-[10px]">
@@ -512,7 +873,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-slate-400">Custom Lighting / Prompt Notes</label>
+                      <label className="text-slate-400">Custom Lighting / Prompt Notes (Renderer Parameter)</label>
                       <input
                         type="text"
                         placeholder="e.g. Victorian filigree, polished bezel"
@@ -533,7 +894,7 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
                 size="sm"
                 className="w-full font-semibold text-xs shadow-md h-9"
                 onClick={handleRender}
-                disabled={isRendering}
+                disabled={isRendering || isGeminiLoading}
               >
                 {isRendering ? (
                   <>
@@ -565,3 +926,5 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
     </div>
   );
 };
+
+export default AiRenderModal;
