@@ -5,12 +5,15 @@ import {
   Sliders,
   Info,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  Wand2,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Slider } from '../ui/slider';
 import { Tooltip } from '../ui/tooltip';
+import { geminiDesignService } from '../../services/api/geminiDesignService';
 
 interface Message {
   id: string;
@@ -45,6 +48,7 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
 }) => {
   const [prompt, setPrompt] = useState<string>(initialPrompt);
   const [generationMode, setGenerationMode] = useState<'classic' | 'premium'>('premium');
+  const [isEnhancing, setIsEnhancing] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -79,6 +83,44 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
 
     if (onPromptChange) {
       onPromptChange(userText);
+    }
+  };
+
+  const handleEnhanceWithGemini = async () => {
+    if (!prompt.trim() || isEnhancing) return;
+    setIsEnhancing(true);
+
+    try {
+      const res = await geminiDesignService.enhancePrompt({
+        user_prompt: prompt.trim(),
+        yolo_category: designCategory,
+      });
+
+      const enhanced = res.enhanced_prompt || res.renderer_prompt;
+      setPrompt(enhanced);
+      if (onPromptChange) onPromptChange(enhanced);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          sender: 'ai',
+          text: `✨ Gemini AI enhanced your prompt with gemological terminology while strictly preserving your design constraints: "${enhanced}"`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          sender: 'ai',
+          text: `Gemini enhancement was temporarily unavailable. Your existing prompt was preserved.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
@@ -154,6 +196,30 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
 
         {/* Prompt Composer */}
         <form onSubmit={handleSendPrompt} className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
+              Artisan Prompt Notes
+            </span>
+            <button
+              type="button"
+              onClick={handleEnhanceWithGemini}
+              disabled={isEnhancing || !prompt.trim()}
+              className="text-[10px] text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1 font-medium transition cursor-pointer"
+            >
+              {isEnhancing ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Enhancing...</span>
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-3 h-3 text-amber-400" />
+                  <span>Enhance with AI</span>
+                </>
+              )}
+            </button>
+          </div>
+
           <div className="relative">
             <Textarea
               value={prompt}
@@ -243,3 +309,5 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
     </div>
   );
 };
+
+export default DesignChatPanel;
