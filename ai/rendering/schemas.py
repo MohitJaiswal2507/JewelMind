@@ -69,7 +69,7 @@ class RenderRequest(BaseModel):
     )
     control_strength: float = Field(
         default=1.0,
-        ge=0.1,
+        ge=0.0,
         le=1.0,
         description="ControlNet conditioning guidance scale",
     )

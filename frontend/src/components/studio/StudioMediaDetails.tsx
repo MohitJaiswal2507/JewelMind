@@ -251,7 +251,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
       </div>
 
       {/* AI Generative Diffusion Modal */}
-      {item.thumbnailUrl && (
+      {item.thumbnailUrl && isAiRenderOpen && (
         <AiRenderModal
           isOpen={isAiRenderOpen}
           onClose={() => setIsAiRenderOpen(false)}

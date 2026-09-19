@@ -572,6 +572,8 @@ export const AiRenderModal: React.FC<AiRenderModalProps> = ({
 
   const isGeminiLoading = geminiStatus === 'analyzing' || geminiStatus === 'enhancing';
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
       <div className="bg-[#0E111A] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">

@@ -409,3 +409,50 @@ class EnhancePromptResponse(BaseModel):
         default=False,
         description="True if local fallback builder was used",
     )
+
+
+class DesignState(BaseModel):
+    """Normalized structured design state maintained across conversational turns."""
+    model_config = ConfigDict(extra="ignore")
+
+    category: Optional[str] = Field(default=None, description="Jewellery category (e.g. Ring, Earring, Pendant, Necklace)")
+    primary_metal: Optional[str] = Field(default=None, description="Primary precious metal finish")
+    metal_finish: Optional[str] = Field(default="polished", description="Metal finish (e.g. polished, matte, satin)")
+    accent_metal: Optional[str] = Field(default=None, description="Accent metal alloy if two-tone")
+    has_gemstones: Optional[bool] = Field(default=None, description="Whether gemstones are present")
+    gemstone_type: Optional[str] = Field(default=None, description="Primary stone variety")
+    gemstone_cut: Optional[str] = Field(default=None, description="Cut shape (e.g. cushion, round brilliant, pear)")
+    gemstone_color: Optional[str] = Field(default=None, description="Gemstone hue/color")
+    gemstone_count: Optional[int] = Field(default=None, description="Number of center or primary stones")
+    setting_type: Optional[str] = Field(default=None, description="Mounting/setting mechanism")
+    accent_stones: Optional[str] = Field(default=None, description="Accent stone details or halo")
+    style_aesthetic: Optional[str] = Field(default="modern luxury", description="Design aesthetic style")
+    silhouette: Optional[str] = Field(default=None, description="Silhouette/profile")
+    engraving_or_details: Optional[str] = Field(default=None, description="Filigree, milgrain, or custom engraving")
+    current_prompt: str = Field(default="", description="Current working prompt representation")
+    renderer_prompt: Optional[str] = Field(default=None, description="Compiled Stable Diffusion + ControlNet prompt")
+    negative_prompt: Optional[str] = Field(default=None, description="Jewellery negative prompt")
+
+
+class ModifyDesignRequest(BaseModel):
+    """Payload for conversational iterative design modification."""
+    model_config = ConfigDict(extra="ignore")
+
+    current_state: DesignState = Field(..., description="Current active design state")
+    user_instruction: str = Field(..., min_length=1, description="Natural language change request")
+    image_base64: Optional[str] = Field(default=None, description="Optional reference image base64")
+    image_url: Optional[str] = Field(default=None, description="Optional reference image URL")
+
+
+class ModifyDesignResponse(BaseModel):
+    """Response returned from conversational design state modification."""
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool = Field(default=True, description="Whether modification succeeded")
+    updated_state: DesignState = Field(..., description="Updated design state")
+    assistant_reply: str = Field(..., description="Conversational explanation of changes applied")
+    changes_detected: List[str] = Field(default_factory=list, description="List of attributes that changed")
+    renderer_prompt: str = Field(..., description="Updated compiled renderer prompt for ControlNet")
+    negative_prompt: str = Field(..., description="Updated negative prompt")
+    fallback_applied: bool = Field(default=False, description="True if local fallback parser was used")
+    warnings: List[str] = Field(default_factory=list, description="Diagnostic warnings")

@@ -97,11 +97,30 @@ class ApiClient {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      let validationMessage: string | undefined;
+      const rawDetails = data?.error?.details || data?.detail;
+      if (Array.isArray(rawDetails) && rawDetails.length > 0) {
+        validationMessage = rawDetails
+          .map((item: any) => {
+            if (typeof item === 'string') return item;
+            const field = Array.isArray(item?.loc)
+              ? item.loc.filter((l: any) => l !== 'body').join('.')
+              : '';
+            return field ? `${field}: ${item?.msg || 'Invalid value'}` : item?.msg || 'Validation error';
+          })
+          .join('; ');
+      }
+
       const errorPayload: ApiError = {
         error: {
-          code: data?.error?.code || `HTTP_${response.status}`,
-          message: data?.error?.message || response.statusText || 'An unexpected error occurred.',
-          details: data?.error?.details || data?.detail,
+          code: data?.error?.code || (data?.detail?.error as string) || `HTTP_${response.status}`,
+          message:
+            validationMessage ||
+            data?.error?.message ||
+            (typeof data?.detail === 'string' ? data.detail : data?.detail?.message) ||
+            response.statusText ||
+            'An unexpected error occurred.',
+          details: rawDetails,
         },
         request_id: data?.request_id || response.headers.get('X-Request-ID') || undefined,
       };

@@ -285,7 +285,7 @@ const MainLayout: React.FC = () => {
         )}
 
         {currentView === 'designs' && (
-          <DesignsPage onSelectDesign={handleSelectDesign} />
+          <DesignsPage onSelectDesign={handleSelectDesign} onOpenCanvas={handleOpenCanvas} />
         )}
 
         {currentView === 'design-detail' && selectedDesignId && (

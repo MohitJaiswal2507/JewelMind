@@ -15,12 +15,15 @@ from app.core.config import settings
 from app.schemas.ai import (
     AnalyzeDesignRequest,
     AnalyzeDesignResponse,
+    DesignState,
     EnhancePromptRequest,
     EnhancePromptResponse,
     GemstoneItem,
     GemstoneSpec,
     JewelleryCategory,
     MaterialSpec,
+    ModifyDesignRequest,
+    ModifyDesignResponse,
     StructuralSpec,
     StructuredDesignUnderstanding,
     YoloGroundingContext,
@@ -188,6 +191,15 @@ class GeminiDesignService:
         if not user_prompt or not user_prompt.strip():
             return None
         p_lower = user_prompt.lower()
+
+        # Check for explicit category transformation patterns first:
+        # e.g., "turn ... into a necklace", "change ... to a necklace", "make this ... a necklace", "convert ... into a necklace"
+        for cat, patterns in PROMPT_CATEGORY_PATTERNS:
+            for pat in patterns:
+                transform_regex = rf"\b(?:turn|convert|change|transform|make|redesign)\b.*?\b(?:into|to|as)\s+(?:an?\s+)?{pat}"
+                if re.search(transform_regex, p_lower):
+                    return cat
+
         matches = []
         for cat, patterns in PROMPT_CATEGORY_PATTERNS:
             for pat in patterns:
@@ -394,6 +406,14 @@ class GeminiDesignService:
                 )
                 warnings.append(conflict_reason)
                 warnings.append(f"Grounded on Gemini Vision ({clean_gemini}) because YOLO confidence was below threshold ({y_conf:.2f}).")
+            elif clean_blueprint and not explicit_user_cat and clean_blueprint != clean_gemini:
+                # Attribute-only edit on an active blueprint workpiece:
+                # The user's active blueprint category is preserved; generic text interpretations do not trigger conflict
+                resolved = clean_blueprint
+                requested_cat = clean_blueprint
+                cat_source = "blueprint"
+                conflict = False
+                conflict_reason = None
             return CategoryResolutionResult(
                 resolved=resolved,
                 conflict=conflict,
@@ -486,13 +506,13 @@ class GeminiDesignService:
         Never replaces explicit cuts (oval, emerald cut, baguette, pear) with round brilliant.
         """
         explicit_cat = self.extract_explicit_category(user_prompt)
-        cat = "ring"
+        cat = "other_jewellery"
         if explicit_cat:
             cat = explicit_cat
         elif category_hint:
-            cat = canonicalize_category(category_hint) or "ring"
+            cat = canonicalize_category(category_hint) or "other_jewellery"
         elif yolo_context and yolo_context.detected_category:
-            cat = canonicalize_category(yolo_context.detected_category) or "ring"
+            cat = canonicalize_category(yolo_context.detected_category) or "other_jewellery"
 
         constraints = self.extract_explicit_user_constraints(user_prompt)
 
@@ -724,7 +744,9 @@ class GeminiDesignService:
             else:
                 logger.info("Gemini API key not configured. Applying text heuristic prompt enhancement.")
                 warnings.append("Gemini service is unavailable. Text-derived heuristic design understanding applied from user prompt.")
-                design_understanding = self._generate_text_fallback_analysis(user_prompt or "", yolo_context)
+                design_understanding = self._generate_text_fallback_analysis(
+                    user_prompt or "", yolo_context, category_hint=source_blueprint_category or user_selected_category
+                )
         else:
             system_prompt = (
                 "You are an expert master jeweller, CAD designer, and gemologist. "
@@ -733,6 +755,8 @@ class GeminiDesignService:
                 "CRITICAL PRECEDENCE RULE: All explicit user constraints must be strictly preserved and locked. "
                 f"\nLOCKED USER CONSTRAINTS: {json.dumps(constraints)}\n"
             )
+            if source_blueprint_category:
+                system_prompt += f"ACTIVE BLUEPRINT CATEGORY: '{source_blueprint_category}'. The visual workpiece is a {source_blueprint_category}. Preserve this category unless explicitly instructed by user.\n"
             if yolo_context:
                 system_prompt += f"LOCAL YOLO V2 GROUNDING: Detected Category = '{yolo_context.detected_category}' (conf: {yolo_context.confidence:.2f})\n"
             if user_prompt:
@@ -789,7 +813,9 @@ class GeminiDesignService:
                     design_understanding = self._generate_image_fallback_analysis(user_prompt, yolo_context)
                 else:
                     warnings.append(f"Gemini API unavailable ({str(exc)}). Text-derived heuristic fallback applied.")
-                    design_understanding = self._generate_text_fallback_analysis(user_prompt or "", yolo_context)
+                    design_understanding = self._generate_text_fallback_analysis(
+                        user_prompt or "", yolo_context, category_hint=source_blueprint_category or user_selected_category
+                    )
 
         # Resolve category with grounding precedence
         cat_res = self._resolve_category(
@@ -863,6 +889,399 @@ class GeminiDesignService:
             category_conflict_reason=analysis_resp.category_conflict_reason,
             warnings=analysis_resp.warnings,
             fallback_applied=analysis_resp.fallback_applied,
+        )
+
+    def _compile_prompts_from_state(self, state: DesignState) -> Tuple[str, str, str]:
+        """Compiles diffusion prompt, negative prompt, and natural enhanced prompt from DesignState."""
+        cat_raw = (state.category or "jewellery").lower().replace("_", " ")
+        if cat_raw in ["other", "other jewellery"]:
+            cat = "fine jewellery"
+        else:
+            cat = cat_raw
+
+        has_gems = bool(state.has_gemstones and state.gemstone_type)
+        primary_gem = None
+        if has_gems:
+            primary_gem = GemstoneItem(
+                gemstone_type=state.gemstone_type,
+                cut=state.gemstone_cut or "faceted",
+                color_or_clarity=state.gemstone_color or "natural hue",
+                setting_type=state.setting_type or "secure setting",
+                estimated_count=state.gemstone_count or 1,
+            )
+
+        primary_metal = state.primary_metal or "fine precious metal"
+        finish = state.metal_finish or "polished"
+        aesthetic = state.style_aesthetic or "modern luxury"
+        silhouette = state.silhouette or f"classic {cat} silhouette"
+
+        understanding = StructuredDesignUnderstanding(
+            jewellery_category=(state.category.capitalize() if state.category else "Other Jewellery"),
+            design_summary=f"Artisan {primary_metal} {cat} in {aesthetic} aesthetic",
+            material=MaterialSpec(
+                primary_metal=primary_metal,
+                finish=finish,
+                accent_metal=state.accent_metal,
+            ),
+            gemstones=GemstoneSpec(
+                has_gemstones=has_gems,
+                primary_gemstone=primary_gem,
+                secondary_gemstones=[],
+                gemstone_details=state.accent_stones,
+            ),
+            structure=StructuralSpec(
+                silhouette=silhouette,
+                band_or_body_structure=state.engraving_or_details or "fine craftsmanship",
+                decorative_elements=[state.engraving_or_details] if state.engraving_or_details else [],
+            ),
+            style_classification=aesthetic,
+            confidence_score=0.95,
+        )
+
+        constraints: List[str] = []
+        if state.primary_metal:
+            constraints.append(f"metal: {state.primary_metal}")
+        if has_gems and state.gemstone_type:
+            constraints.append(f"gemstone: {state.gemstone_type}")
+        if has_gems and state.gemstone_cut:
+            constraints.append(f"cut: {state.gemstone_cut}")
+        if state.engraving_or_details:
+            constraints.append(f"structure: {state.engraving_or_details}")
+
+        renderer_prompt = JewelleryPromptCompiler.compile_renderer_prompt(understanding, constraints)
+        negative_prompt = JewelleryPromptCompiler.compile_negative_prompt(user_constraints=constraints)
+        enhanced_prompt = JewelleryPromptCompiler.compile_natural_enhanced_prompt(understanding)
+
+        return renderer_prompt, negative_prompt, enhanced_prompt
+
+    async def modify_design_state(
+        self,
+        current_state: DesignState,
+        user_instruction: str,
+        image_bytes: Optional[bytes] = None,
+        image_mime_type: str = "image/png",
+    ) -> ModifyDesignResponse:
+        """Modifies design state conversationally based on user instruction while preserving unchanged elements."""
+        instruction = user_instruction.strip()
+        changes_detected: List[str] = []
+        assistant_reply = ""
+        fallback_applied = False
+        warnings: List[str] = []
+
+        # Try Gemini API if key is available
+        if self.api_key:
+            try:
+                system_instruction = (
+                    "You are JewelMind's AI Fine Jewellery Design Copilot. An artisan has an active jewellery design state, "
+                    "and has provided a natural language change instruction. "
+                    "Analyze the instruction carefully. ONLY update the specific attributes requested by the user, "
+                    "and preserve all other design elements exactly as they were in the current state. "
+                    "Return a valid JSON object with the following keys:\n"
+                    "- 'updated_state': JSON object with fields matching the DesignState schema (category, primary_metal, metal_finish, accent_metal, has_gemstones, gemstone_type, gemstone_cut, gemstone_color, gemstone_count, setting_type, accent_stones, style_aesthetic, silhouette, engraving_or_details)\n"
+                    "- 'assistant_reply': An elegant, professional fine jewellery atelier artisan response explaining the precise modifications made to the piece in a warm, conversational tone\n"
+                    "- 'changes_detected': Array of field names that were modified (e.g. ['primary_metal', 'gemstone_type'])\n"
+                    "Output ONLY the JSON object."
+                )
+
+                prompt_text = (
+                    f"CURRENT DESIGN STATE:\n{current_state.model_dump_json(indent=2)}\n\n"
+                    f"ARTISAN CHANGE INSTRUCTION:\n{instruction}"
+                )
+
+                parts: List[Dict[str, Any]] = [{"text": prompt_text}]
+                if image_bytes:
+                    parts.append({
+                        "inline_data": {
+                            "mime_type": image_mime_type,
+                            "data": base64.b64encode(image_bytes).decode("utf-8"),
+                        }
+                    })
+
+                url = f"{GEMINI_API_BASE}/{self.model_name}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [{"parts": parts}],
+                    "systemInstruction": {"parts": [{"text": system_instruction}]},
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "responseMimeType": "application/json",
+                    },
+                }
+
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            raw_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
+                            parsed = json.loads(raw_text)
+                            updated_dict = parsed.get("updated_state", {})
+                            changes_detected = parsed.get("changes_detected", [])
+                            assistant_reply = parsed.get("assistant_reply", "")
+
+                            current_dict = current_state.model_dump()
+                            for k, v in updated_dict.items():
+                                if v is not None and k in current_dict:
+                                    current_dict[k] = v
+
+                            # Enforce category preservation unless explicitly requested by user
+                            explicit_cat = self.extract_explicit_category(instruction)
+                            if not explicit_cat:
+                                current_dict["category"] = current_state.category
+                                if "category" in changes_detected:
+                                    changes_detected.remove("category")
+                            else:
+                                current_dict["category"] = explicit_cat.capitalize()
+
+                            # Enforce gemstone preservation if stones were not mentioned in instruction
+                            lowered = instruction.lower()
+                            no_stone_triggers = [
+                                "no gemstone", "no gemstones", "no stone", "no stones",
+                                "without gemstone", "without gemstones", "without stone", "without stones",
+                                "no gems", "without gems", "plain", "metal only", "pure metal",
+                                "unadorned", "zero gemstone", "no diamond", "without diamond",
+                                "remove stones", "remove gemstone", "remove stone"
+                            ]
+                            user_mentioned_stones = any(
+                                re.search(rf"\b{re.escape(v)}\b", lowered)
+                                for _, variants in KNOWN_STONES_CANONICAL
+                                for v in variants
+                            ) or any(t in lowered for t in no_stone_triggers)
+
+                            if not user_mentioned_stones:
+                                current_dict["has_gemstones"] = current_state.has_gemstones
+                                current_dict["gemstone_type"] = current_state.gemstone_type
+                                current_dict["gemstone_cut"] = current_state.gemstone_cut
+                                current_dict["gemstone_color"] = current_state.gemstone_color
+                                current_dict["gemstone_count"] = current_state.gemstone_count
+                                current_dict["setting_type"] = current_state.setting_type
+                                current_dict["accent_stones"] = current_state.accent_stones
+                                if "gemstone_type" in changes_detected:
+                                    changes_detected.remove("gemstone_type")
+
+                            # Enforce finish if mentioned
+                            for f in ["mirror polish", "mirror", "highly polished", "high polish", "high-shine", "polished", "matte brushed", "matte", "brushed", "satin", "hammered"]:
+                                if f in lowered:
+                                    finish_val = "mirror polish" if "mirror" in f else ("high polish" if "high" in f else f)
+                                    current_dict["metal_finish"] = finish_val
+                                    if "metal_finish" not in changes_detected:
+                                        changes_detected.append("metal_finish")
+                                    break
+
+                            updated_state = DesignState(**current_dict)
+                            renderer_prompt, negative_prompt, enhanced_prompt = self._compile_prompts_from_state(updated_state)
+                            updated_state.current_prompt = enhanced_prompt
+                            updated_state.renderer_prompt = renderer_prompt
+                            updated_state.negative_prompt = negative_prompt
+
+                            if not assistant_reply:
+                                assistant_reply = f"I've updated your {updated_state.category.lower()} design according to your request."
+
+                            return ModifyDesignResponse(
+                                success=True,
+                                updated_state=updated_state,
+                                assistant_reply=assistant_reply,
+                                changes_detected=changes_detected,
+                                renderer_prompt=renderer_prompt,
+                                negative_prompt=negative_prompt,
+                                fallback_applied=False,
+                                warnings=warnings,
+                            )
+            except Exception as e:
+                logger.warning(f"Gemini modify_design_state failed: {e}. Utilizing deterministic fallback.")
+                warnings.append(f"Gemini design modification unavailable: {str(e)}")
+
+        # Deterministic Fallback
+        fallback_applied = True
+        updated_dict = current_state.model_dump()
+        lowered = instruction.lower()
+
+        # Check Category (using authoritative extract_explicit_category with transformation detection)
+        explicit_cat = self.extract_explicit_category(instruction)
+        if explicit_cat:
+            target_canonical = canonicalize_category(explicit_cat)
+            if target_canonical and (updated_dict.get("category") or "").lower() != target_canonical:
+                updated_dict["category"] = target_canonical.capitalize()
+                if "category" not in changes_detected:
+                    changes_detected.append("category")
+
+        # Check Metals
+        found_metals: List[Tuple[str, int, int]] = []
+        for m in KNOWN_METALS:
+            match = re.search(rf"\b{re.escape(m)}\b", lowered)
+            if match:
+                found_metals.append((m, match.start(), len(m)))
+
+        if found_metals:
+            # Filter out shorter overlapping matches (e.g. "gold" when "rose gold" is present)
+            filtered_metals = []
+            for m, start, length in found_metals:
+                end = start + length
+                if not any(
+                    other_start <= start and other_end >= end and other_len > length
+                    for other_m, other_start, other_len in found_metals
+                    for other_end in [other_start + other_len]
+                ):
+                    filtered_metals.append((m, start, length))
+
+            curr_metal = (current_state.primary_metal or "").lower()
+            candidates = [m for m, pos, l in filtered_metals if m != curr_metal and m not in curr_metal]
+            chosen_metal = None
+            if candidates:
+                for m, pos, l in filtered_metals:
+                    if m in candidates and re.search(rf"\b(?:to|with|into)\s+{re.escape(m)}\b", lowered):
+                        chosen_metal = m
+                        break
+                if not chosen_metal:
+                    candidates_with_meta = [(m, pos, l) for m, pos, l in filtered_metals if m in candidates]
+                    candidates_with_meta.sort(key=lambda x: (x[1], x[2]), reverse=True)
+                    chosen_metal = candidates_with_meta[0][0]
+            else:
+                filtered_metals.sort(key=lambda x: x[2], reverse=True)
+                chosen_metal = filtered_metals[0][0]
+
+            if chosen_metal and updated_dict.get("primary_metal") != chosen_metal:
+                updated_dict["primary_metal"] = chosen_metal
+                changes_detected.append("primary_metal")
+
+        # Check Finishes
+        for f in ["mirror polish", "mirror", "highly polished", "high polish", "high-shine", "polished", "matte brushed", "matte", "brushed", "satin", "hammered"]:
+            if f in lowered:
+                updated_dict["metal_finish"] = "mirror polish" if "mirror" in f else ("high polish" if "high" in f else f)
+                changes_detected.append("metal_finish")
+                break
+
+        # Check Gemstones
+        no_stone_triggers = [
+            "no gemstone", "no gemstones", "no stone", "no stones",
+            "without gemstone", "without gemstones", "without stone", "without stones",
+            "no gems", "without gems", "plain", "metal only", "pure metal",
+            "unadorned", "zero gemstone", "no diamond", "without diamond"
+        ]
+        if any(trigger in lowered for trigger in no_stone_triggers):
+            updated_dict["has_gemstones"] = False
+            updated_dict["gemstone_type"] = None
+            changes_detected.append("has_gemstones")
+        else:
+            found_stones: List[Tuple[str, int, int]] = []
+            for canonical_stone, stone_variants in KNOWN_STONES_CANONICAL:
+                for v in stone_variants:
+                    m = re.search(rf"\b{re.escape(v)}\b", lowered)
+                    if m:
+                        found_stones.append((canonical_stone, m.start(), len(v)))
+                        break
+
+            if found_stones:
+                # Filter out shorter overlapping matches (e.g. sapphire when blue sapphire is present)
+                filtered_stones = []
+                for s, start, length in found_stones:
+                    end = start + length
+                    if not any(
+                        o_start <= start and o_end >= end and o_len > length
+                        for o_s, o_start, o_len in found_stones
+                        for o_end in [o_start + o_len]
+                    ):
+                        filtered_stones.append((s, start, length))
+
+                curr_stone = (current_state.gemstone_type or "").lower()
+                candidates = [s for s, pos, l in filtered_stones if s != curr_stone]
+                chosen_stone = None
+                if candidates:
+                    for cand, pos, l in filtered_stones:
+                        if cand in candidates and re.search(rf"\b(?:to|with|into)\s+(?:an?\s+)?{re.escape(cand)}\b", lowered):
+                            chosen_stone = cand
+                            break
+                    if not chosen_stone:
+                        candidates_with_pos = [(s, pos, l) for s, pos, l in filtered_stones if s in candidates]
+                        candidates_with_pos.sort(key=lambda x: (x[1], x[2]), reverse=True)
+                        chosen_stone = candidates_with_pos[0][0]
+                else:
+                    filtered_stones.sort(key=lambda x: x[2], reverse=True)
+                    chosen_stone = filtered_stones[0][0]
+
+                if chosen_stone and updated_dict.get("gemstone_type") != chosen_stone:
+                    updated_dict["has_gemstones"] = True
+                    updated_dict["gemstone_type"] = chosen_stone
+                    changes_detected.append("gemstone_type")
+
+        # Check Gemstone Cuts
+        for canonical_cut, cut_variants in KNOWN_CUTS_CANONICAL:
+            if any(re.search(rf"\b{re.escape(v)}\b", lowered) for v in cut_variants):
+                updated_dict["gemstone_cut"] = canonical_cut
+                changes_detected.append("gemstone_cut")
+                break
+
+        # Check Settings
+        for s in ["prong setting", "bezel setting", "pavé", "pave", "channel setting", "halo setting", "solitaire"]:
+            if s in lowered:
+                updated_dict["setting_type"] = s
+                changes_detected.append("setting_type")
+                break
+
+        # Check Structural/Craftsmanship/Chain details
+        if "chain thinner" in lowered or "thinner chain" in lowered or "thin chain" in lowered:
+            updated_dict["engraving_or_details"] = "thinner chain"
+            changes_detected.append("engraving_or_details")
+        elif "delicate chain" in lowered or "fine chain" in lowered:
+            updated_dict["engraving_or_details"] = "fine delicate chain"
+            changes_detected.append("engraving_or_details")
+        elif "shank thinner" in lowered or "thinner shank" in lowered or "thin shank" in lowered:
+            updated_dict["silhouette"] = "thin tapered shank"
+            updated_dict["engraving_or_details"] = "slender polished shank"
+            if "silhouette" not in changes_detected:
+                changes_detected.append("silhouette")
+        else:
+            chain_or_details_matches = [
+                "cable chain", "box chain", "rope chain", "curb chain", "figaro chain",
+                "filigree", "milgrain", "split shank", "tapered band", "wide band", "knife edge", "comfort fit"
+            ]
+            for detail in chain_or_details_matches:
+                if detail in lowered:
+                    updated_dict["engraving_or_details"] = detail
+                    changes_detected.append("engraving_or_details")
+                    break
+            else:
+                if "chain" in lowered:
+                    updated_dict["engraving_or_details"] = "fine delicate chain"
+                    changes_detected.append("engraving_or_details")
+
+        updated_state = DesignState(**updated_dict)
+        renderer_prompt, negative_prompt, enhanced_prompt = self._compile_prompts_from_state(updated_state)
+        updated_state.current_prompt = enhanced_prompt
+        updated_state.renderer_prompt = renderer_prompt
+        updated_state.negative_prompt = negative_prompt
+
+        # Generate intelligent assistant reply
+        if changes_detected:
+            summary_parts = []
+            if "category" in changes_detected:
+                summary_parts.append(f"category to {updated_state.category}")
+            if "primary_metal" in changes_detected:
+                summary_parts.append(f"metal to {updated_state.primary_metal}")
+            if "metal_finish" in changes_detected:
+                summary_parts.append(f"finish to {updated_state.metal_finish}")
+            if "gemstone_type" in changes_detected:
+                summary_parts.append(f"gemstone to {updated_state.gemstone_type}")
+            if "gemstone_cut" in changes_detected:
+                summary_parts.append(f"cut to {updated_state.gemstone_cut}")
+            if "setting_type" in changes_detected:
+                summary_parts.append(f"setting to {updated_state.setting_type}")
+            if "has_gemstones" in changes_detected and not updated_state.has_gemstones:
+                summary_parts.append("removed gemstones for a pure metal silhouette")
+
+            assistant_reply = f"I've updated your design: adjusted {', '.join(summary_parts)} while preserving the remaining craftsmanship parameters."
+        else:
+            assistant_reply = f"I've noted your design request ('{instruction}') and refined the rendering specifications accordingly."
+
+        return ModifyDesignResponse(
+            success=True,
+            updated_state=updated_state,
+            assistant_reply=assistant_reply,
+            changes_detected=changes_detected,
+            renderer_prompt=renderer_prompt,
+            negative_prompt=negative_prompt,
+            fallback_applied=fallback_applied,
+            warnings=warnings,
         )
 
 

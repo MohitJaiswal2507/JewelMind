@@ -14,6 +14,7 @@ Tests cover:
 
 import asyncio
 import json
+import re
 from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
@@ -28,6 +29,7 @@ from app.services.user_service import user_service
 from app.schemas.ai import (
     AnalyzeDesignRequest,
     AnalyzeDesignResponse,
+    DesignState,
     EnhancePromptRequest,
     EnhancePromptResponse,
     GemstoneItem,
@@ -470,3 +472,203 @@ def test_fastapi_gemini_analyze_multipart(client: TestClient, db_session: Sessio
     assert res_data["resolved_category"] == "ring"
     assert "platinum" in res_data["renderer_prompt"].lower()
     assert "diamond" in res_data["renderer_prompt"].lower()
+
+
+def test_modify_design_state_unit():
+    """Verify GeminiDesignService.modify_design_state updates requested attributes and preserves unchanged ones."""
+    from app.schemas.ai import DesignState
+
+    service = GeminiDesignService(api_key=None)  # Use fallback
+    initial_state = DesignState(
+        category="Ring",
+        primary_metal="18k yellow gold",
+        metal_finish="polished high-shine",
+        has_gemstones=True,
+        gemstone_type="diamond",
+        gemstone_cut="round brilliant",
+        setting_type="prong setting",
+    )
+
+    # Change metal to rose gold and replace diamond with emerald
+    instruction = "Change the metal to 18k rose gold and replace the center diamond with an emerald."
+    res = asyncio.run(service.modify_design_state(initial_state, instruction))
+
+    assert res.success is True
+    assert res.updated_state.category == "Ring"  # Preserved!
+    assert res.updated_state.primary_metal == "18k rose gold"  # Changed!
+    assert res.updated_state.gemstone_type == "emerald"  # Changed!
+    assert res.updated_state.gemstone_cut == "round brilliant"  # Preserved!
+    assert "primary_metal" in res.changes_detected
+    assert "gemstone_type" in res.changes_detected
+    assert "rose gold" in res.renderer_prompt.lower()
+    assert "emerald" in res.renderer_prompt.lower()
+    assert res.fallback_applied is True
+
+
+def test_design_state_defaults_do_not_hallucinate_gold_diamond_or_ring():
+    """Verify that unspecified attributes in DesignState and natural language instructions
+    never default to or hallucinate 18k yellow gold, diamond, or Ring.
+    Tests the 5 mandatory cases from Directive 7:
+    1. earring without gemstone
+    2. platinum pendant
+    3. silver bangle with no gemstone
+    4. rose gold necklace
+    5. sapphire brooch
+    """
+    service = GeminiDesignService()
+
+    # Case 1: Earring without gemstone
+    state_earring = DesignState(category="Earring")
+    res1 = asyncio.run(service.modify_design_state(state_earring, "Earring without gemstone, pure metal design"))
+    assert res1.updated_state.category == "Earring"
+    assert res1.updated_state.has_gemstones is False
+    assert res1.updated_state.gemstone_type is None
+    assert "diamond" not in res1.renderer_prompt.lower()
+    assert not re.search(r"\bring\b", res1.renderer_prompt.lower())
+
+    # Case 2: Platinum pendant (no gemstone specified)
+    state_pendant = DesignState()
+    res2 = asyncio.run(service.modify_design_state(state_pendant, "A sculptural platinum pendant"))
+    assert res2.updated_state.category == "Pendant"
+    assert "platinum" in res2.updated_state.primary_metal.lower()
+    assert res2.updated_state.gemstone_type is None
+    assert "diamond" not in res2.renderer_prompt.lower()
+    assert "gold" not in res2.renderer_prompt.lower()
+    assert not re.search(r"\bring\b", res2.renderer_prompt.lower())
+
+    # Case 3: Silver bangle with no gemstone
+    state_bangle = DesignState()
+    res3 = asyncio.run(service.modify_design_state(state_bangle, "Silver bangle with no gemstone, polished surface"))
+    assert res3.updated_state.category == "Bangle"
+    assert "silver" in res3.updated_state.primary_metal.lower()
+    assert res3.updated_state.has_gemstones is False
+    assert res3.updated_state.gemstone_type is None
+    assert "diamond" not in res3.renderer_prompt.lower()
+    assert "gold" not in res3.renderer_prompt.lower()
+    assert not re.search(r"\bring\b", res3.renderer_prompt.lower())
+
+    # Case 4: Rose gold necklace
+    state_necklace = DesignState()
+    res4 = asyncio.run(service.modify_design_state(state_necklace, "18k rose gold necklace"))
+    assert res4.updated_state.category == "Necklace"
+    assert "rose gold" in res4.updated_state.primary_metal.lower()
+    assert res4.updated_state.gemstone_type is None
+    assert "diamond" not in res4.renderer_prompt.lower()
+    assert not re.search(r"\bring\b", res4.renderer_prompt.lower())
+
+    # Case 5: Sapphire brooch
+    state_brooch = DesignState()
+    res5 = asyncio.run(service.modify_design_state(state_brooch, "Vintage brooch featuring a blue sapphire"))
+    assert res5.updated_state.category == "Brooch"
+    assert res5.updated_state.gemstone_type == "blue sapphire"
+    assert "diamond" not in res5.renderer_prompt.lower()
+    assert not re.search(r"\bring\b", res5.renderer_prompt.lower())
+
+
+def test_clean_design_state_isolation_between_designs():
+    """Verify Directive 6: Creating Design B after Design A does not leak attributes.
+    Design A: Necklace, Gold, Diamond
+    Design B: Earring, Platinum, Sapphire
+    Verify Design B starts fresh and does not inherit Necklace, Gold, or Diamond.
+    """
+    service = GeminiDesignService()
+
+    # Design A
+    design_a = DesignState()
+    res_a = asyncio.run(service.modify_design_state(design_a, "18k yellow gold necklace with solitaire diamond"))
+    assert res_a.updated_state.category == "Necklace"
+    assert "yellow gold" in res_a.updated_state.primary_metal.lower()
+    assert res_a.updated_state.gemstone_type == "diamond"
+
+    # Design B is created afresh (clean state)
+    design_b = DesignState()
+    res_b = asyncio.run(service.modify_design_state(design_b, "Platinum earring with blue sapphire"))
+    assert res_b.updated_state.category == "Earring"
+    assert "platinum" in res_b.updated_state.primary_metal.lower()
+    assert res_b.updated_state.gemstone_type == "blue sapphire"
+
+    # Ensure ZERO contamination from Design A into Design B
+    assert res_b.updated_state.category != "Necklace"
+    assert "gold" not in res_b.renderer_prompt.lower()
+    assert "diamond" not in res_b.renderer_prompt.lower()
+    assert "necklace" not in res_b.renderer_prompt.lower()
+
+
+def test_fastapi_gemini_modify_design_endpoint(client: TestClient, db_session: Session):
+    """Verify /api/v1/ai/gemini/modify-design endpoint accepts current state and applies instructions."""
+    user = create_test_user(db_session, "gemini_user_modify@jewelmind.com")
+    headers = get_auth_headers(user)
+
+    payload = {
+        "current_state": {
+            "category": "Pendant",
+            "primary_metal": "950 platinum",
+            "metal_finish": "polished",
+            "has_gemstones": True,
+            "gemstone_type": "diamond",
+            "gemstone_cut": "pear",
+            "setting_type": "bezel setting",
+        },
+        "user_instruction": "Change metal to 18k yellow gold and stone to blue sapphire",
+    }
+
+    response = client.post("/api/v1/ai/gemini/modify-design", json=payload, headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["updated_state"]["category"] == "Pendant"
+    assert data["updated_state"]["primary_metal"] == "18k yellow gold"
+    assert data["updated_state"]["gemstone_type"] == "blue sapphire"
+    assert "yellow gold" in data["renderer_prompt"].lower()
+    assert "sapphire" in data["renderer_prompt"].lower()
+    assert len(data["changes_detected"]) >= 2
+
+
+def test_multi_turn_conversational_redesign_chain_modification():
+    """Verify Directive 5: Multi-turn iterative conversational redesign.
+    Turn 1: Platinum pendant with sapphire (V1)
+    Turn 2: "Make the sapphire emerald" (V2)
+    Turn 3: "Make the chain thinner" (V3)
+    Verify that:
+    - pendant remains pendant
+    - platinum remains platinum until explicitly changed
+    - emerald remains emerald
+    - chain modification applies
+    - previous design structure is preserved
+    - no random unrelated jewellery appears
+    """
+    service = GeminiDesignService()
+
+    # Turn 1: Initial state
+    state_v1 = DesignState()
+    res_v1 = asyncio.run(service.modify_design_state(state_v1, "Platinum pendant with sapphire and cable chain"))
+    assert res_v1.updated_state.category == "Pendant"
+    assert "platinum" in res_v1.updated_state.primary_metal.lower()
+    assert res_v1.updated_state.gemstone_type == "sapphire"
+    assert "pendant" in res_v1.renderer_prompt.lower()
+    assert "platinum" in res_v1.renderer_prompt.lower()
+    assert "sapphire" in res_v1.renderer_prompt.lower()
+
+    # Turn 2: "Make the sapphire emerald"
+    res_v2 = asyncio.run(service.modify_design_state(res_v1.updated_state, "Make the sapphire emerald"))
+    assert res_v2.updated_state.category == "Pendant"  # Preserved!
+    assert "platinum" in res_v2.updated_state.primary_metal.lower()  # Preserved!
+    assert res_v2.updated_state.gemstone_type == "emerald"  # Changed!
+    assert "emerald" in res_v2.renderer_prompt.lower()
+    assert "platinum" in res_v2.renderer_prompt.lower()
+    assert "sapphire" not in res_v2.renderer_prompt.lower()
+
+    # Turn 3: "Make the chain thinner"
+    res_v3 = asyncio.run(service.modify_design_state(res_v2.updated_state, "Make the chain thinner"))
+    assert res_v3.updated_state.category == "Pendant"  # Preserved!
+    assert "platinum" in res_v3.updated_state.primary_metal.lower()  # Preserved!
+    assert res_v3.updated_state.gemstone_type == "emerald"  # Preserved!
+    assert "thinner chain" in res_v3.updated_state.engraving_or_details.lower()  # Applied!
+    assert "thinner chain" in res_v3.renderer_prompt.lower()
+    assert "pendant" in res_v3.renderer_prompt.lower()
+    assert "platinum" in res_v3.renderer_prompt.lower()
+    assert "emerald" in res_v3.renderer_prompt.lower()
+    assert not re.search(r"\bring\b", res_v3.renderer_prompt.lower())
+
+
+

@@ -26,9 +26,10 @@ import {
 
 interface DesignsPageProps {
   onSelectDesign: (design: Design) => void;
+  onOpenCanvas?: (designId: string) => void;
 }
 
-export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
+export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign, onOpenCanvas }) => {
   const [designs, setDesigns] = useState<Design[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -97,15 +98,20 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign }) => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleSaveDesign = async (data: DesignCreateInput | DesignUpdateInput) => {
+  const handleSaveDesign = async (data: DesignCreateInput | DesignUpdateInput, openInCanvas?: boolean) => {
     if (editingDesign) {
       await designService.updateDesign(editingDesign.id, data);
       setFeedbackMessage(`Updated design "${data.name || editingDesign.name}" successfully.`);
+      await fetchDesigns();
     } else {
-      await designService.createDesign(data as DesignCreateInput);
+      const created = await designService.createDesign(data as DesignCreateInput);
       setFeedbackMessage(`Created new jewellery design "${data.name}" successfully.`);
+      if (openInCanvas && onOpenCanvas) {
+        onOpenCanvas(created.id);
+        return;
+      }
+      await fetchDesigns();
     }
-    await fetchDesigns();
   };
 
   const handleConfirmDelete = async () => {

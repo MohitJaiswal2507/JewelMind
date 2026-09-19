@@ -28,6 +28,7 @@ export interface RenderResultResponse {
   category?: string;
   source_blueprint_category?: string;
   category_conflict?: boolean;
+  category_conflict_reason?: string | null;
 }
 
 export interface RenderOptions {
@@ -37,6 +38,7 @@ export interface RenderOptions {
   conflict_resolution?: 'blueprint' | 'force_requested';
   design_id?: string;
   sketch_url?: string;
+  previous_render_url?: string;
   prompt?: string;
   negative_prompt?: string;
   material?: string;
@@ -65,6 +67,9 @@ export const aiRenderingService = {
     }
     if (options.sketch_url) {
       formData.append('sketch_url', options.sketch_url);
+    }
+    if (options.previous_render_url) {
+      formData.append('previous_render_url', options.previous_render_url);
     }
 
     if (options.category) formData.append('category', options.category);

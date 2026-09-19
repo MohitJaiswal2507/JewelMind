@@ -16,6 +16,8 @@ from app.schemas.ai import (
     AnalyzeDesignResponse,
     EnhancePromptRequest,
     EnhancePromptResponse,
+    ModifyDesignRequest,
+    ModifyDesignResponse,
     YoloGroundingContext,
 )
 from app.services.gemini_design_service import get_gemini_design_service
@@ -195,3 +197,65 @@ async def enhance_jewellery_prompt(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Prompt enhancement service error: {str(err)}",
         ) from err
+
+
+@router.post(
+    "/modify-design",
+    response_model=ModifyDesignResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Iterative conversational design modification",
+    description=(
+        "Modifies an active fine jewellery design state based on natural language conversation. "
+        "Preserves existing specifications except for explicitly requested adjustments, "
+        "and re-compiles diffusion prompts for iterative rendering."
+    ),
+)
+async def modify_jewellery_design(
+    payload: ModifyDesignRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Modify design state conversationally with Gemini side copilot."""
+    image_bytes: Optional[bytes] = None
+    mime_type = "image/png"
+
+    if payload.image_base64:
+        try:
+            raw_b64 = payload.image_base64
+            if "base64," in raw_b64:
+                header, raw_b64 = raw_b64.split("base64,", 1)
+                if "image/jpeg" in header or "image/jpg" in header:
+                    mime_type = "image/jpeg"
+                elif "image/webp" in header:
+                    mime_type = "image/webp"
+            image_bytes = base64.b64decode(raw_b64)
+        except Exception:
+            pass
+    elif payload.image_url and (payload.image_url.startswith("http://") or payload.image_url.startswith("https://")):
+        try:
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+                resp = await client.get(payload.image_url)
+                if resp.status_code == 200:
+                    image_bytes = resp.content
+                    ct = resp.headers.get("Content-Type", "image/png")
+                    if "jpeg" in ct or "jpg" in ct:
+                        mime_type = "image/jpeg"
+                    elif "webp" in ct:
+                        mime_type = "image/webp"
+        except Exception:
+            pass
+
+    service = get_gemini_design_service()
+    try:
+        response = await service.modify_design_state(
+            current_state=payload.current_state,
+            user_instruction=payload.user_instruction,
+            image_bytes=image_bytes,
+            image_mime_type=mime_type,
+        )
+        return response
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Conversational design modification error: {str(err)}",
+        ) from err
+
