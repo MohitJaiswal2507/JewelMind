@@ -22,7 +22,6 @@ import { DesignModal } from '../components/designs/DesignModal';
 import { DesignDeleteModal } from '../components/designs/DesignDeleteModal';
 import { SketchUploadDropzone } from '../components/designs/SketchUploadDropzone';
 import { SketchDeleteModal } from '../components/designs/SketchDeleteModal';
-import { AiRenderModal } from '../components/studio/AiRenderModal';
 import { designService } from '../services/api/designService';
 import { 
   Design, 
@@ -33,6 +32,7 @@ import {
 interface DesignDetailPageProps {
   designId: string;
   onBack: () => void;
+  onClose?: () => void;
   onOpenCanvas?: (designId: string) => void;
 }
 
@@ -65,17 +65,18 @@ const getStatusBadge = (status: DesignStatus) => {
 export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
   designId,
   onBack,
+  onClose,
   onOpenCanvas,
 }) => {
   const [design, setDesign] = useState<Design | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNotFound, setIsNotFound] = useState<boolean>(false);
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [isSketchDeleteModalOpen, setIsSketchDeleteModalOpen] = useState<boolean>(false);
-  const [isAiRenderOpen, setIsAiRenderOpen] = useState<boolean>(false);
 
   // Sketch replacement mode
   const [showReplaceUpload, setShowReplaceUpload] = useState<boolean>(false);
@@ -83,15 +84,41 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
   // Feedback Toast
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  const handleClose = () => {
+    if (onClose) onClose();
+    else onBack();
+  };
+
   const fetchDesign = async () => {
     setLoading(true);
     setError(null);
+    setIsNotFound(false);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 10000); // 10s strict timeout
+
     try {
-      const data = await designService.getDesign(designId);
-      setDesign(data);
+      const data = await designService.getDesign(designId, controller.signal);
+      clearTimeout(timeoutId);
+      if (!data) {
+        setIsNotFound(true);
+      } else {
+        setDesign(data);
+      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load design details.';
-      setError(msg);
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Loading timed out after 10 seconds. The server may be busy or unreachable.');
+      } else {
+        const msg = err instanceof Error ? err.message : 'Failed to load design details.';
+        if (msg.includes('404') || msg.toLowerCase().includes('not found')) {
+          setIsNotFound(true);
+        } else {
+          setError(msg);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -137,27 +164,105 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
     setFeedback('Sketch removed from Supabase Storage.');
   };
 
+  // Persistent header rendering for loading, error, and not found states
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 space-y-4 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
-        <span className="text-xs font-light">Loading jewellery design details...</span>
+      <div className="space-y-6 max-w-6xl mx-auto py-2 sm:py-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBack}
+            className="border-white/10 text-slate-300 hover:text-white text-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
+            Back to Designs
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClose}
+            className="text-slate-400 hover:text-white text-xs px-2"
+            title="Close Design View"
+          >
+            Esc / Close ✕
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center py-32 space-y-4 text-slate-400 bg-[#0E111A]/40 rounded-2xl border border-white/5">
+          <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
+          <span className="text-xs font-light tracking-wide text-slate-300">Loading jewellery design details...</span>
+          <span className="text-[11px] text-slate-500">ID: {designId}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isNotFound) {
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto py-8">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <Button variant="outline" size="sm" onClick={onBack} className="border-white/10 text-xs">
+            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Designs
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleClose} className="text-slate-400 hover:text-white text-xs">
+            Close ✕
+          </Button>
+        </div>
+        <div className="p-8 rounded-2xl bg-[#0E111A]/90 border border-white/10 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-300 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-serif text-white">Design Not Found</h2>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            The design with ID <code className="font-mono text-amber-300/80">{designId}</code> does not exist or may have been deleted.
+          </p>
+          <div className="pt-2">
+            <Button variant="gold" size="sm" onClick={onBack} className="text-xs font-semibold">
+              Return to Catalogue
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !design) {
     return (
-      <div className="max-w-2xl mx-auto py-12 space-y-6">
-        <Button variant="outline" size="sm" onClick={onBack} className="border-white/10">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Catalogue
-        </Button>
-        <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-3">
+      <div className="space-y-6 max-w-2xl mx-auto py-8">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <Button variant="outline" size="sm" onClick={onBack} className="border-white/10 text-xs">
+            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Designs
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleClose} className="text-slate-400 hover:text-white text-xs">
+            Close ✕
+          </Button>
+        </div>
+        <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-4">
           <div className="flex items-center space-x-2 font-medium">
-            <AlertCircle className="w-5 h-5" />
-            <span>Design Error</span>
+            <AlertCircle className="w-5 h-5 text-rose-400" />
+            <span className="text-sm">Unable to Load Design</span>
           </div>
-          <p className="text-xs">{error || 'Design not found or you do not have permission to view it.'}</p>
+          <p className="text-xs text-rose-200/80 leading-relaxed">
+            {error || 'Design not found or you do not have permission to view it.'}
+          </p>
+          <div className="flex items-center space-x-3 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchDesign}
+              className="text-xs border-rose-400/30 hover:bg-rose-500/20 text-white"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Try Again
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onBack}
+              className="text-xs bg-[#121622] hover:bg-[#181E2E] text-slate-300"
+            >
+              Back to Catalogue
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -181,6 +286,18 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
         </Button>
 
         <div className="flex items-center space-x-2.5">
+          {onOpenCanvas && (
+            <Button
+              variant="gold"
+              size="sm"
+              onClick={() => onOpenCanvas(design.id)}
+              className="text-xs font-semibold shadow"
+            >
+              <Brush className="w-3.5 h-3.5 mr-1.5" />
+              Open in Canva
+            </Button>
+          )}
+
           <Button
             variant="secondary"
             size="sm"
@@ -350,11 +467,11 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
               </CardDescription>
             </div>
 
-            {design.sketch_image_url && (
+            {design.sketch_image_url && onOpenCanvas && (
               <Button
                 variant="gold"
                 size="sm"
-                onClick={() => setIsAiRenderOpen(true)}
+                onClick={() => onOpenCanvas(design.id)}
                 className="h-8 text-xs font-semibold shadow"
               >
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />
@@ -380,11 +497,11 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
                 <div className="p-4 rounded-xl bg-[#080A10] border border-white/5 text-[11px] text-amber-200/90 leading-relaxed max-w-sm font-light">
                   Photorealistic rendering conditioned on your blueprint geometry is active. Synthesize 18K gold and gemstone previews with one click.
                 </div>
-                {design.sketch_image_url && (
+                {design.sketch_image_url && onOpenCanvas && (
                   <Button
                     variant="gold"
                     size="sm"
-                    onClick={() => setIsAiRenderOpen(true)}
+                    onClick={() => onOpenCanvas(design.id)}
                     className="font-semibold text-xs shadow-md"
                   >
                     <Sparkles className="w-3.5 h-3.5 mr-1.5" />
@@ -444,25 +561,6 @@ export const DesignDetailPage: React.FC<DesignDetailPageProps> = ({
         onConfirm={handleDeleteSketch}
         designName={design.name}
       />
-
-      {/* AI Render Modal */}
-      {design.sketch_image_url && (
-        <AiRenderModal
-          isOpen={isAiRenderOpen}
-          onClose={() => {
-            setIsAiRenderOpen(false);
-            fetchDesign();
-          }}
-          sketchUrl={design.sketch_image_url}
-          designTitle={design.name}
-          category={design.category}
-          sourceBlueprintCategory={design.category}
-          designId={design.id}
-          onSuccess={() => {
-            fetchDesign();
-          }}
-        />
-      )}
     </div>
   );
 };

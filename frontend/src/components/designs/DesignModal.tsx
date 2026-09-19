@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Loader2, Sparkles, AlertCircle, Brush } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -16,7 +16,7 @@ import {
 interface DesignModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: DesignCreateInput | DesignUpdateInput) => Promise<void>;
+  onSubmit: (data: DesignCreateInput | DesignUpdateInput, openInCanvas?: boolean) => Promise<void>;
   initialDesign?: Design | null;
 }
 
@@ -59,8 +59,7 @@ export const DesignModal: React.FC<DesignModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (openInCanvas: boolean = false) => {
     if (!name.trim()) {
       setError('Please provide a name for this jewellery design.');
       return;
@@ -77,7 +76,7 @@ export const DesignModal: React.FC<DesignModalProps> = ({
         description: description.trim() || null,
         sketch_image_url: sketchImageUrl.trim() || null,
         ai_prompt: aiPrompt.trim() || null,
-      });
+      }, openInCanvas);
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save jewellery design.';
@@ -120,7 +119,7 @@ export const DesignModal: React.FC<DesignModalProps> = ({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleSave(!isEditing); }} className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-4">
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2.5 text-rose-300 text-xs">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -221,33 +220,65 @@ export const DesignModal: React.FC<DesignModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-white/5 flex items-center justify-end space-x-3">
+          <div className="pt-4 border-t border-white/5 flex flex-wrap items-center justify-end gap-2.5">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={onClose}
               disabled={loading}
-              className="border-white/10"
+              className="text-xs text-slate-400 hover:text-white"
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="gold"
-              disabled={loading}
-              className="font-semibold min-w-[120px]"
-            >
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving...</span>
-                </div>
-              ) : isEditing ? (
-                'Update Design'
-              ) : (
-                'Create Design'
-              )}
-            </Button>
+            
+            {isEditing ? (
+              <Button
+                type="submit"
+                variant="gold"
+                disabled={loading}
+                className="font-semibold text-xs min-w-[120px]"
+              >
+                {loading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Updating...</span>
+                  </div>
+                ) : (
+                  'Update Design'
+                )}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => handleSave(false)}
+                  className="text-xs border-white/10 hover:bg-white/5 text-slate-300"
+                >
+                  Save & Close
+                </Button>
+                <Button
+                  type="button"
+                  variant="gold"
+                  disabled={loading}
+                  onClick={() => handleSave(true)}
+                  className="text-xs font-semibold shadow flex items-center"
+                >
+                  {loading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Creating...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Brush className="w-3.5 h-3.5 mr-1.5" />
+                      Open in Canva
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>

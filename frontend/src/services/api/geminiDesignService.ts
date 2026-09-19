@@ -9,6 +9,8 @@ import {
   AnalyzeDesignResponse,
   EnhancePromptRequest,
   EnhancePromptResponse,
+  ModifyDesignRequest,
+  ModifyDesignResponse,
 } from '../../types/ai';
 
 export const geminiDesignService = {
@@ -53,6 +55,14 @@ export const geminiDesignService = {
    */
   async enhancePrompt(request: EnhancePromptRequest): Promise<EnhancePromptResponse> {
     return apiClient.post<EnhancePromptResponse>('/api/v1/ai/gemini/enhance-prompt', request);
+  },
+
+  /**
+   * Modify jewellery design state conversationally with Gemini side copilot.
+   * Modifies only user-specified attributes while strictly preserving existing design state.
+   */
+  async modifyDesignState(request: ModifyDesignRequest): Promise<ModifyDesignResponse> {
+    return apiClient.post<ModifyDesignResponse>('/api/v1/ai/gemini/modify-design', request);
   },
 };
 

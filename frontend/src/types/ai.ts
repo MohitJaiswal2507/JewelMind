@@ -126,5 +126,43 @@ export interface EnhancePromptResponse {
   fallback_applied: boolean;
 }
 
-export type GeminiStatus = 'idle' | 'analyzing' | 'enhancing' | 'success' | 'error';
+export type GeminiStatus = 'idle' | 'analyzing' | 'enhancing' | 'modifying' | 'success' | 'error';
+
+export interface DesignState {
+  category?: string | null;
+  primary_metal?: string | null;
+  metal_finish?: string | null;
+  accent_metal?: string | null;
+  has_gemstones?: boolean | null;
+  gemstone_type?: string | null;
+  gemstone_cut?: string | null;
+  gemstone_color?: string | null;
+  gemstone_count?: number | null;
+  setting_type?: string | null;
+  accent_stones?: string | null;
+  style_aesthetic?: string | null;
+  silhouette?: string | null;
+  engraving_or_details?: string | null;
+  current_prompt: string;
+  renderer_prompt?: string | null;
+  negative_prompt?: string | null;
+}
+
+export interface ModifyDesignRequest {
+  current_state: DesignState;
+  user_instruction: string;
+  image_base64?: string | null;
+  image_url?: string | null;
+}
+
+export interface ModifyDesignResponse {
+  success: boolean;
+  updated_state: DesignState;
+  assistant_reply: string;
+  changes_detected: string[];
+  renderer_prompt: string;
+  negative_prompt: string;
+  fallback_applied: boolean;
+  warnings: string[];
+}
 

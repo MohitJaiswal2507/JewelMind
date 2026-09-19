@@ -40,8 +40,8 @@ export class DesignService {
   /**
    * Retrieves single design by ID.
    */
-  public async getDesign(id: string): Promise<Design> {
-    return apiClient.get<Design>(`/api/v1/designs/${id}`);
+  public async getDesign(id: string, signal?: AbortSignal): Promise<Design> {
+    return apiClient.get<Design>(`/api/v1/designs/${id}`, { signal });
   }
 
   /**

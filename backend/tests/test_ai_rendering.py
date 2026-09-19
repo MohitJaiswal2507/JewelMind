@@ -149,3 +149,102 @@ def test_render_invalid_category_rejected(auth_client):
     )
     assert response.status_code == 422
     assert "Invalid render parameters" in response.json()["detail"]
+
+
+@patch("app.api.v1.ai_rendering.get_rendering_pipeline")
+def test_text_to_render_without_image_accepts_zero_control_strength(mock_get_pipeline, auth_client):
+    """Ensure Text -> Render without an uploaded image or doodle accepts control_strength=0.0."""
+    mock_pipeline = MagicMock()
+    mock_result = {
+        "model_version": "runwayml/stable-diffusion-v1-5",
+        "controlnet_version": "outputs/rendering_v2_controlnet/controlnet_rendering_v2_final",
+        "image_width": 512,
+        "image_height": 512,
+        "seed": 101,
+        "control_type": "lineart",
+        "control_strength": 0.0,
+        "steps": 20,
+        "guidance_scale": 7.5,
+        "inference_time_ms": 2500.0,
+        "device_used": "cuda:0",
+        "output_url": "/api/v1/ai/render/outputs/render_necklace_101.png",
+        "created_at": "2026-09-19T13:30:00Z",
+    }
+    mock_pipeline.render.return_value = (Image.new("RGB", (512, 512)), mock_result)
+    mock_get_pipeline.return_value = mock_pipeline
+
+    prompt_text = (
+        "Royal South Indian antique gold bridal necklace on a black display stand. "
+        "Heavy gold choker style embedded with uncut kundan polki diamonds, vibrant oval green emeralds, and small red rubies."
+    )
+    response = auth_client.post(
+        "/api/v1/ai/render",
+        data={
+            "category": "necklace",
+            "source_blueprint_category": "necklace",
+            "prompt": prompt_text,
+            "material": "18k yellow gold",
+            "gemstone": "round brilliant diamond",
+            "control_strength": "0.0",
+            "control_type": "lineart",
+        },
+    )
+
+    assert response.status_code == 200, f"Expected 200 but got {response.status_code}: {response.text}"
+    data = response.json()
+    assert data["control_strength"] == 0.0
+    assert data["category"] == "necklace"
+    call_req = mock_pipeline.render.call_args.kwargs["request"]
+    assert call_req.control_strength == 0.0
+    assert call_req.category == "necklace"
+
+
+@patch("app.api.v1.ai_rendering.get_rendering_pipeline")
+def test_text_to_render_category_preservation_not_ring(mock_get_pipeline, auth_client):
+    """Ensure pure text render strictly preserves selected category (NECKLACE) and does not default to RING."""
+    mock_pipeline = MagicMock()
+    mock_result = {
+        "model_version": "runwayml/stable-diffusion-v1-5",
+        "controlnet_version": "outputs/rendering_v2_controlnet/controlnet_rendering_v2_final",
+        "image_width": 512,
+        "image_height": 512,
+        "seed": 102,
+        "control_type": "lineart",
+        "control_strength": 0.0,
+        "steps": 20,
+        "guidance_scale": 7.5,
+        "inference_time_ms": 2500.0,
+        "device_used": "cuda:0",
+        "output_url": "/api/v1/ai/render/outputs/render_necklace_102.png",
+        "created_at": "2026-09-19T13:30:00Z",
+    }
+    mock_pipeline.render.return_value = (Image.new("RGB", (512, 512)), mock_result)
+    mock_get_pipeline.return_value = mock_pipeline
+
+    response = auth_client.post(
+        "/api/v1/ai/render",
+        data={
+            "category": "necklace",
+            "prompt": "18k yellow gold necklace with emeralds and intricate filigree",
+            "control_strength": "0.0",
+        },
+    )
+    assert response.status_code == 200
+    call_req = mock_pipeline.render.call_args.kwargs["request"]
+    assert call_req.category == "necklace"
+    assert call_req.category != "ring"
+
+
+def test_render_negative_control_strength_rejected(auth_client):
+    """Ensure control_strength < 0.0 is rejected by validation."""
+    response = auth_client.post(
+        "/api/v1/ai/render",
+        data={
+            "category": "necklace",
+            "prompt": "18k gold necklace",
+            "control_strength": "-0.5",
+        },
+    )
+    assert response.status_code == 422
+    assert "control_strength" in response.text
+

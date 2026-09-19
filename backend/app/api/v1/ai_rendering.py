@@ -80,12 +80,13 @@ async def render_jewellery_sketch(
     category_source: Optional[str] = Form(None, description="Category authority source ('user_prompt', 'user_selected', 'yolo', etc.)"),
     conflict_resolution: Optional[str] = Form(None, description="Conflict resolution decision ('blueprint' or 'force_requested')"),
     design_id: Optional[uuid.UUID] = Form(None, description="Optional design ID to link and persist the render directly"),
+    previous_render_url: Optional[str] = Form(None, description="Direct URL of previous render output for iterative redesign conditioning"),
     prompt: Optional[str] = Form(None, description="Optional custom prompt additions"),
     negative_prompt: Optional[str] = Form(None, description="Optional custom negative prompt overrides"),
     material: str = Form("18k yellow gold", description="Base jewellery precious metal"),
     gemstone: str = Form("round brilliant diamond", description="Gemstone specification"),
     control_type: str = Form("lineart", description="Conditioning adapter: 'lineart' or 'canny'"),
-    control_strength: float = Form(1.0, ge=0.1, le=1.0, description="ControlNet guidance scale"),
+    control_strength: float = Form(1.0, ge=0.0, le=1.0, description="ControlNet guidance scale"),
     steps: int = Form(20, ge=10, le=50, description="Denoising steps"),
     guidance_scale: float = Form(7.5, ge=1.0, le=15.0, description="Classifier-Free Guidance (CFG) scale"),
     seed: Optional[int] = Form(None, ge=0, description="Seed for deterministic generation"),
@@ -164,8 +165,27 @@ async def render_jewellery_sketch(
                     detail=f"Failed to download remote sketch image: {str(dl_err)}",
                 ) from dl_err
 
-    # 3. Fallback to target_design sketch_image_url
-    if not contents and target_design and target_design.sketch_image_url:
+    # 3. Check previous_render_url (Iterative Redesign flow)
+    if not contents and previous_render_url:
+        if previous_render_url.startswith("data:"):
+            try:
+                _, encoded = previous_render_url.split(",", 1)
+                contents = base64.b64decode(encoded)
+                control_type = "canny"
+            except Exception:
+                pass
+        elif previous_render_url.startswith("http://") or previous_render_url.startswith("https://"):
+            try:
+                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                    resp = await client.get(previous_render_url)
+                    if resp.status_code == 200:
+                        contents = resp.content
+                        control_type = "canny"
+            except Exception:
+                pass
+
+    # 4. Fallback to target_design sketch_image_url (only when spatial control is requested)
+    if not contents and target_design and target_design.sketch_image_url and control_strength > 0.0:
         src = target_design.sketch_image_url
         if src.startswith("http://") or src.startswith("https://"):
             try:
@@ -176,11 +196,17 @@ async def render_jewellery_sketch(
             except Exception:
                 pass
 
-    if not contents:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No sketch image provided. Please upload a sketch file or provide a sketch image URL.",
-        )
+    # 5. Text-to-Render pure generation (neutral canvas conditioning)
+    is_text_to_render = False
+    if not contents or control_strength == 0.0:
+        if not contents:
+            neutral_img = Image.new("RGB", (width, height), color=(255, 255, 255))
+            buf = io.BytesIO()
+            neutral_img.save(buf, format="PNG")
+            contents = buf.getvalue()
+        control_strength = 0.0
+        is_text_to_render = True
+        logger.info("Executing pure Text -> Render with neutral canvas conditioning (control_strength=0.0).")
 
     # Decode image using PIL
     try:
@@ -197,8 +223,8 @@ async def render_jewellery_sketch(
     from app.schemas.design import to_ai_category
 
     # Determine canonical source blueprint category
-    clean_blueprint_cat = canonicalize_category(source_blueprint_category)
-    if not clean_blueprint_cat and target_design and target_design.category:
+    clean_blueprint_cat = canonicalize_category(source_blueprint_category) if not is_text_to_render else None
+    if not clean_blueprint_cat and target_design and target_design.category and not is_text_to_render:
         clean_blueprint_cat = to_ai_category(target_design.category)
 
     # Validate category parameter if explicitly provided by caller
@@ -212,7 +238,7 @@ async def render_jewellery_sketch(
 
     # Determine requested category with strict user precedence
     prompt_cat = GeminiDesignService.extract_explicit_category(prompt)
-    resolved_render_cat = prompt_cat or canonicalize_category(category) or clean_blueprint_cat or "other_jewellery"
+    resolved_render_cat = prompt_cat or clean_blueprint_cat or canonicalize_category(category) or "other_jewellery"
 
     # Detect conflict between source blueprint and requested render category
     category_conflict = False
