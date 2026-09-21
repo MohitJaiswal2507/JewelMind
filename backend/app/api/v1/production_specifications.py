@@ -15,8 +15,12 @@ from app.models.user import User
 from app.schemas.production_specification import (
     ProductionSpecificationGenerateRequest,
     ProductionSpecificationResponse,
+    ProductionSpecificationUpdateRequest,
 )
-from app.services.production_specification_service import production_specification_service
+from app.services.production_specification_service import (
+    production_specification_service,
+    serialize_specification_response,
+)
 
 router = APIRouter(prefix="/production-specifications", tags=["Production Specifications"])
 
@@ -46,7 +50,7 @@ async def generate_production_specification(
         user_id=current_user.id,
         req=request_in,
     )
-    return ProductionSpecificationResponse.model_validate(spec)
+    return serialize_specification_response(spec)
 
 
 @router.get(
@@ -69,7 +73,62 @@ async def get_production_specification(
         user_id=current_user.id,
         specification_id=specification_id,
     )
-    return ProductionSpecificationResponse.model_validate(spec)
+    return serialize_specification_response(spec)
+
+
+@router.patch(
+    "/{specification_id}",
+    response_model=ProductionSpecificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Artisan edit/override a draft production specification",
+    description=(
+        "Allows an authenticated artisan to modify BOM line items, gemstone quantities, "
+        "routing stages, and specification metadata. Overridden items are marked with provenance. "
+        "Approved specifications are immutable and will be rejected with 409 Conflict."
+    ),
+)
+async def update_production_specification(
+    specification_id: uuid.UUID,
+    request_in: ProductionSpecificationUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Updates a draft production specification with artisan review overrides.
+    """
+    spec = await production_specification_service.update_specification(
+        db=db,
+        user_id=current_user.id,
+        specification_id=specification_id,
+        req=request_in,
+    )
+    return serialize_specification_response(spec)
+
+
+@router.post(
+    "/{specification_id}/approve",
+    response_model=ProductionSpecificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Approve a production specification for manufacturing",
+    description=(
+        "Transitions a draft production specification to APPROVED status after validating "
+        "manufacturing readiness. Once approved, the specification is immutable."
+    ),
+)
+async def approve_production_specification(
+    specification_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Validates and locks the production specification as APPROVED.
+    """
+    spec = await production_specification_service.approve_specification(
+        db=db,
+        user_id=current_user.id,
+        specification_id=specification_id,
+    )
+    return serialize_specification_response(spec)
 
 
 @router.get(
@@ -93,4 +152,5 @@ async def get_specifications_by_render(
         user_id=current_user.id,
         render_id=render_id,
     )
-    return [ProductionSpecificationResponse.model_validate(s) for s in specs]
+    return [serialize_specification_response(s) for s in specs]
+

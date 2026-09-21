@@ -15,6 +15,7 @@ import {
   Columns,
   Factory,
   Check,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -22,6 +23,7 @@ import { Separator } from '../ui/separator';
 import { StudioMediaItem } from './StudioMediaCard';
 import { Design, DesignRender } from '../../types/design';
 import { designService } from '../../services/api/designService';
+import { ProductionSpecificationReviewModal } from '../production/ProductionSpecificationReviewModal';
 
 interface StudioMediaDetailsProps {
   item: StudioMediaItem | null;
@@ -52,6 +54,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [deleteTargetType, setDeleteTargetType] = useState<'asset' | 'render'>('render');
   const [error, setError] = useState<string | null>(null);
+  const [showSpecReview, setShowSpecReview] = useState<boolean>(false);
 
   // Sync / fetch renders when item changes
   useEffect(() => {
@@ -364,6 +367,19 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           </Button>
         )}
 
+        {/* Review Production Specification Button */}
+        {activeRender?.is_approved_for_production && (
+          <Button
+            variant="gold"
+            size="sm"
+            className="w-full font-semibold text-xs shadow-md"
+            onClick={() => setShowSpecReview(true)}
+            data-testid="open-spec-review-btn"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Review Production Specification
+          </Button>
+        )}
+
         {/* Send to Production Button */}
         {onSendToProduction && activeRender?.is_approved_for_production && (
           <Button
@@ -461,6 +477,18 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
               </Button>
             </div>
           </div>
+        )}
+
+        {/* Production Specification Review Modal */}
+        {showSpecReview && activeRender && (
+          <ProductionSpecificationReviewModal
+            isOpen={showSpecReview}
+            onClose={() => setShowSpecReview(false)}
+            renderId={activeRender.id}
+            renderThumbnailUrl={activeRender.thumbnail_url || activeRender.image_url}
+            renderVersion={activeRender.version_number}
+            designCategory={item?.design?.category}
+          />
         )}
       </div>
     </aside>
