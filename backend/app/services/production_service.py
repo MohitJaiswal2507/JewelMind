@@ -51,6 +51,7 @@ class ProductionService:
             notes=order.notes,
             render_id=order.render_id,
             approved_render_url=order.approved_render_url,
+            specification_id=getattr(order, "specification_id", None),
             is_overdue=is_overdue,
             design_name=order.design.name if order.design else None,
             design_category=order.design.category if order.design else None,
@@ -196,6 +197,7 @@ class ProductionService:
             notes=order_in.notes,
             render_id=order_in.render_id,
             approved_render_url=approved_url,
+            specification_id=getattr(order_in, "specification_id", None),
         )
 
         db.add(order)
@@ -256,6 +258,9 @@ class ProductionService:
 
         if order_in.approved_render_url is not None:
             order.approved_render_url = order_in.approved_render_url
+
+        if order_in.specification_id is not None:
+            order.specification_id = order_in.specification_id
 
         db.commit()
 

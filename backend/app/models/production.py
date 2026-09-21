@@ -14,6 +14,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.design import Design
+    from app.models.specification import ProductionSpecification
     from app.models.user import User
 
 
@@ -72,10 +73,20 @@ class ProductionOrder(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         String(1024),
         nullable=True,
     )
+    specification_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("production_specifications.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="production_orders")
     design: Mapped["Design"] = relationship("Design", back_populates="production_orders")
+    specification: Mapped[Optional["ProductionSpecification"]] = relationship(
+        "ProductionSpecification",
+        back_populates="production_orders",
+    )
 
     def __repr__(self) -> str:
         return f"<ProductionOrder id={self.id} design_id={self.design_id} qty={self.quantity} priority='{self.priority}' status='{self.status}'>"
