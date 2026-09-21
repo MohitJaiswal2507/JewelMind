@@ -8,11 +8,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple, Union
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.exceptions import AppException
 from app.models.design import Design, DesignRender
 from app.models.production import Machine, ProductionOrder, Worker
+from app.models.specification import ProductionSpecification
 from app.schemas.production import (
     MachineCreate,
     MachineResponse,
@@ -20,6 +21,7 @@ from app.schemas.production import (
     OrderPriority,
     OrderStatus,
     ProductionOrderCreate,
+    ProductionOrderCreateFromSpecification,
     ProductionOrderResponse,
     ProductionOrderUpdate,
     ProductionSummaryResponse,
@@ -40,6 +42,13 @@ class ProductionService:
         deadline_tz = order.deadline if order.deadline.tzinfo else order.deadline.replace(tzinfo=timezone.utc)
         is_overdue = deadline_tz < now_utc and order.status not in (OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value)
 
+        spec = getattr(order, "specification", None)
+        spec_v = spec.version_number if spec else None
+        spec_cat = spec.category if spec else None
+        steps_count = len(spec.steps) if spec and hasattr(spec, "steps") and spec.steps is not None else None
+        mats_count = len(spec.materials) if spec and hasattr(spec, "materials") and spec.materials is not None else None
+        gems_count = len(spec.gemstones) if spec and hasattr(spec, "gemstones") and spec.gemstones is not None else None
+
         return ProductionOrderResponse(
             id=order.id,
             user_id=order.user_id,
@@ -52,6 +61,11 @@ class ProductionService:
             render_id=order.render_id,
             approved_render_url=order.approved_render_url,
             specification_id=getattr(order, "specification_id", None),
+            specification_version=spec_v,
+            specification_category=spec_cat,
+            routing_steps_count=steps_count,
+            materials_count=mats_count,
+            gemstones_count=gems_count,
             is_overdue=is_overdue,
             design_name=order.design.name if order.design else None,
             design_category=order.design.category if order.design else None,
@@ -81,7 +95,16 @@ class ProductionService:
             except ValueError:
                 return ([], 0, 0)
 
-        stmt = select(ProductionOrder).options(joinedload(ProductionOrder.design)).where(ProductionOrder.user_id == user_id)
+        stmt = (
+            select(ProductionOrder)
+            .options(
+                joinedload(ProductionOrder.design),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.steps),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.materials),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.gemstones),
+            )
+            .where(ProductionOrder.user_id == user_id)
+        )
         count_stmt = select(func.count(ProductionOrder.id)).where(ProductionOrder.user_id == user_id)
 
         if status:
@@ -143,13 +166,146 @@ class ProductionService:
 
         stmt = (
             select(ProductionOrder)
-            .options(joinedload(ProductionOrder.design))
+            .options(
+                joinedload(ProductionOrder.design),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.steps),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.materials),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.gemstones),
+            )
             .where(ProductionOrder.id == order_id, ProductionOrder.user_id == user_id)
         )
         order = db.scalar(stmt)
         if not order:
             raise AppException("Production order not found.", code="ORDER_NOT_FOUND", status_code=404)
 
+        return ProductionService._to_order_response(order)
+
+    @staticmethod
+    def create_order_from_specification(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_in: ProductionOrderCreateFromSpecification,
+    ) -> ProductionOrderResponse:
+        """
+        Securely creates a new Production Order from an approved Production Specification.
+        Validates ownership, approved status, design/render lineage, and routing validity.
+        Server derives all authoritative fields (design_id, render_id, approved_render_url, specification_id).
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+
+        # 1. Query specification scoped to user_id (IDOR-safe: 404 if not found or belongs to another user)
+        spec_stmt = (
+            select(ProductionSpecification)
+            .options(
+                selectinload(ProductionSpecification.materials),
+                selectinload(ProductionSpecification.gemstones),
+                selectinload(ProductionSpecification.steps),
+            )
+            .where(
+                ProductionSpecification.id == order_in.specification_id,
+                ProductionSpecification.user_id == user_id,
+            )
+        )
+        spec = db.scalar(spec_stmt)
+        if not spec:
+            raise AppException(
+                "Production specification not found.",
+                code="SPECIFICATION_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 2. Check status: ONLY approved specifications can become a production order
+        if spec.status != "approved":
+            raise AppException(
+                f"Cannot create production order from a '{spec.status}' specification. Only approved specifications can be manufactured.",
+                code="SPECIFICATION_NOT_APPROVED",
+                status_code=400,
+            )
+
+        # 3. Verify Design lineage & ownership
+        design_stmt = select(Design).where(Design.id == spec.design_id, Design.user_id == user_id)
+        design = db.scalar(design_stmt)
+        if not design:
+            raise AppException(
+                "Associated design for specification not found or ownership mismatch.",
+                code="DESIGN_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 4. Verify Render lineage & production approval
+        render_stmt = select(DesignRender).where(
+            DesignRender.id == spec.render_id,
+            DesignRender.design_id == design.id,
+        )
+        render = db.scalar(render_stmt)
+        if not render:
+            raise AppException(
+                "Associated render for specification not found or does not belong to design.",
+                code="RENDER_NOT_FOUND",
+                status_code=400,
+            )
+        if not render.is_approved_for_production:
+            raise AppException(
+                "Specification render is not approved for production.",
+                code="RENDER_NOT_APPROVED",
+                status_code=400,
+            )
+
+        # 5. Verify routing integrity
+        if not spec.steps or len(spec.steps) == 0:
+            raise AppException(
+                "Specification contains no manufacturing routing steps.",
+                code="INVALID_ROUTING",
+                status_code=400,
+            )
+
+        sorted_steps = sorted(spec.steps, key=lambda s: s.step_number)
+        for expected_step_num, step in enumerate(sorted_steps, start=1):
+            if step.step_number != expected_step_num:
+                raise AppException(
+                    f"Specification routing steps are not sequential: expected #{expected_step_num}, found #{step.step_number}.",
+                    code="INVALID_ROUTING",
+                    status_code=400,
+                )
+            if step.base_hours < 0 or step.per_unit_hours < 0:
+                raise AppException(
+                    f"Specification routing step #{step.step_number} has negative duration.",
+                    code="INVALID_DURATION",
+                    status_code=400,
+                )
+
+        # 6. Validate quantity
+        if order_in.quantity <= 0:
+            raise AppException(
+                "Order quantity must be greater than zero.",
+                code="INVALID_QUANTITY",
+                status_code=422,
+            )
+
+        # 7. Atomically create order with server-derived authoritative parameters
+        try:
+            order = ProductionOrder(
+                user_id=user_id,
+                design_id=spec.design_id,
+                quantity=order_in.quantity,
+                priority=order_in.priority.value if isinstance(order_in.priority, OrderPriority) else str(order_in.priority),
+                status=OrderStatus.PENDING.value,
+                deadline=order_in.deadline,
+                notes=order_in.notes,
+                render_id=spec.render_id,
+                approved_render_url=render.image_url,
+                specification_id=spec.id,
+            )
+            db.add(order)
+            db.commit()
+            db.refresh(order)
+        except Exception:
+            db.rollback()
+            raise
+
+        order.design = design
+        order.specification = spec
         return ProductionService._to_order_response(order)
 
     @staticmethod
@@ -160,6 +316,7 @@ class ProductionService:
     ) -> ProductionOrderResponse:
         """
         Creates a new production order linked to an existing, user-owned Design.
+        If specification_id is provided, validates approved status and lineage.
         """
         if isinstance(user_id, str):
             user_id = uuid.UUID(user_id)
@@ -182,7 +339,63 @@ class ProductionService:
             )
 
         approved_url = order_in.approved_render_url
-        if order_in.render_id and not approved_url:
+        spec: Optional[ProductionSpecification] = None
+
+        if order_in.specification_id:
+            spec_stmt = (
+                select(ProductionSpecification)
+                .options(
+                    selectinload(ProductionSpecification.materials),
+                    selectinload(ProductionSpecification.gemstones),
+                    selectinload(ProductionSpecification.steps),
+                )
+                .where(
+                    ProductionSpecification.id == order_in.specification_id,
+                    ProductionSpecification.user_id == user_id,
+                )
+            )
+            spec = db.scalar(spec_stmt)
+            if not spec:
+                raise AppException(
+                    "Production specification not found.",
+                    code="SPECIFICATION_NOT_FOUND",
+                    status_code=404,
+                )
+            if spec.status != "approved":
+                raise AppException(
+                    f"Cannot create production order from a '{spec.status}' specification. Only approved specifications can be manufactured.",
+                    code="SPECIFICATION_NOT_APPROVED",
+                    status_code=400,
+                )
+            if spec.design_id != order_in.design_id:
+                raise AppException(
+                    "Specification belongs to a different design.",
+                    code="SPECIFICATION_DESIGN_MISMATCH",
+                    status_code=400,
+                )
+            if order_in.render_id and order_in.render_id != spec.render_id:
+                raise AppException(
+                    "Specified render_id does not match specification approved render.",
+                    code="SPECIFICATION_RENDER_MISMATCH",
+                    status_code=400,
+                )
+
+            # Check render lineage
+            render_stmt = select(DesignRender).where(
+                DesignRender.id == spec.render_id,
+                DesignRender.design_id == design.id,
+            )
+            render = db.scalar(render_stmt)
+            if not render or not render.is_approved_for_production:
+                raise AppException(
+                    "Specification render is not approved for production.",
+                    code="RENDER_NOT_APPROVED",
+                    status_code=400,
+                )
+
+            order_in.render_id = spec.render_id
+            approved_url = render.image_url
+        elif order_in.render_id and not approved_url:
             render_row = db.query(DesignRender).filter(DesignRender.id == order_in.render_id).first()
             if render_row:
                 approved_url = render_row.image_url
@@ -204,8 +417,9 @@ class ProductionService:
         db.commit()
         db.refresh(order)
 
-        # Load design relationship
+        # Load relationships
         order.design = design
+        order.specification = spec
         return ProductionService._to_order_response(order)
 
     @staticmethod
@@ -225,7 +439,12 @@ class ProductionService:
 
         stmt = (
             select(ProductionOrder)
-            .options(joinedload(ProductionOrder.design))
+            .options(
+                joinedload(ProductionOrder.design),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.steps),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.materials),
+                joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.gemstones),
+            )
             .where(ProductionOrder.id == order_id, ProductionOrder.user_id == user_id)
         )
         order = db.scalar(stmt)
@@ -249,7 +468,26 @@ class ProductionService:
         if order_in.notes is not None:
             order.notes = order_in.notes
 
+        if order_in.specification_id is not None:
+            spec = db.scalar(
+                select(ProductionSpecification)
+                .where(
+                    ProductionSpecification.id == order_in.specification_id,
+                    ProductionSpecification.user_id == user_id,
+                )
+            )
+            if not spec:
+                raise AppException("Production specification not found.", code="SPECIFICATION_NOT_FOUND", status_code=404)
+            if spec.status != "approved":
+                raise AppException(f"Specification must be approved, got '{spec.status}'.", code="SPECIFICATION_NOT_APPROVED", status_code=400)
+            if spec.design_id != order.design_id:
+                raise AppException("Specification design mismatch.", code="SPECIFICATION_DESIGN_MISMATCH", status_code=400)
+            order.specification_id = spec.id
+            order.render_id = spec.render_id
+
         if order_in.render_id is not None:
+            if order.specification_id is not None and order.render_id != order_in.render_id:
+                raise AppException("Cannot change render on an order bound to an approved specification.", code="IMMUTABLE_SPECIFICATION_LINEAGE", status_code=400)
             order.render_id = order_in.render_id
             if not order_in.approved_render_url:
                 render_row = db.query(DesignRender).filter(DesignRender.id == order_in.render_id).first()
@@ -258,9 +496,6 @@ class ProductionService:
 
         if order_in.approved_render_url is not None:
             order.approved_render_url = order_in.approved_render_url
-
-        if order_in.specification_id is not None:
-            order.specification_id = order_in.specification_id
 
         db.commit()
 

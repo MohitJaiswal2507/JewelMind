@@ -69,6 +69,24 @@ class ProductionOrderCreate(ProductionOrderBase):
     pass
 
 
+class ProductionOrderCreateFromSpecification(BaseModel):
+    """Payload to create an authoritative ProductionOrder from an approved ProductionSpecification."""
+    specification_id: uuid.UUID = Field(..., description="ID of the approved production specification")
+    quantity: int = Field(default=1, gt=0, description="Quantity of items to manufacture (> 0)")
+    priority: OrderPriority = Field(default=OrderPriority.MEDIUM, description="Production priority level")
+    deadline: datetime = Field(..., description="Target completion deadline timestamp (UTC)")
+    notes: Optional[str] = Field(None, max_length=2000, description="Special artisan notes or production instructions")
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("quantity")
+    @classmethod
+    def validate_quantity_positive(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("Quantity must be a positive integer greater than zero.")
+        return v
+
+
 class ProductionOrderUpdate(BaseModel):
     quantity: Optional[int] = Field(None, gt=0, description="Updated manufacturing quantity")
     priority: Optional[OrderPriority] = None
@@ -99,6 +117,11 @@ class ProductionOrderResponse(BaseModel):
     render_id: Optional[uuid.UUID] = None
     approved_render_url: Optional[str] = None
     specification_id: Optional[uuid.UUID] = None
+    specification_version: Optional[int] = Field(None, description="Version number of the associated specification")
+    specification_category: Optional[str] = Field(None, description="Category of the associated specification")
+    routing_steps_count: Optional[int] = Field(None, description="Number of manufacturing operations in routing")
+    materials_count: Optional[int] = Field(None, description="Number of material line items in BOM")
+    gemstones_count: Optional[int] = Field(None, description="Number of gemstone requirements in BOM")
     is_overdue: bool = Field(default=False, description="Calculated flag indicating if deadline has passed while active")
     design_name: Optional[str] = Field(None, description="Name of the associated design")
     design_category: Optional[str] = Field(None, description="Category of the associated design")

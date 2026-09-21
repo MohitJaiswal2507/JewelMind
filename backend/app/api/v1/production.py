@@ -19,6 +19,7 @@ from app.schemas.production import (
     OrderPriority,
     OrderStatus,
     ProductionOrderCreate,
+    ProductionOrderCreateFromSpecification,
     ProductionOrderListResponse,
     ProductionOrderResponse,
     ProductionOrderUpdate,
@@ -41,7 +42,7 @@ router = APIRouter(prefix="/production", tags=["Production Management"])
 
 
 # ---------------------------------------------------------------------------
-# Summary KPI Metrics
+# Summary Endpoints
 # ---------------------------------------------------------------------------
 
 @router.get(
@@ -80,6 +81,28 @@ async def create_order(
     Creates a new production order linked to an existing, validated user design.
     """
     return production_service.create_order(
+        db=db,
+        user_id=current_user.id,
+        order_in=order_in,
+    )
+
+
+@router.post(
+    "/orders/from-specification",
+    response_model=ProductionOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a production order directly from an approved specification",
+)
+async def create_order_from_specification(
+    order_in: ProductionOrderCreateFromSpecification,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Creates a new authoritative production order derived strictly from an approved Production Specification.
+    Validates render lineage and server-derives all design/render/routing parameters.
+    """
+    return production_service.create_order_from_specification(
         db=db,
         user_id=current_user.id,
         order_in=order_in,

@@ -18,6 +18,7 @@ from app.core.exceptions import AppException
 from app.models.design import Design
 from app.models.production import Machine, ProductionOrder, Worker
 from app.models.schedule import ProductionSchedule, ScheduledTask
+from app.models.specification import ProductionSpecification
 from app.schemas.optimization import (
     OptimizationMetrics,
     OptimizationRequest,
@@ -36,7 +37,7 @@ PRIORITY_WEIGHTS: Dict[str, int] = {
     "low": 1,
 }
 
-# Standard jewellery manufacturing operations
+# Standard jewellery manufacturing operations (fallback for legacy orders without a specification)
 # (name, eligible_skills, required_machine_types, base_hours, per_unit_hours)
 OPERATION_DEFS = [
     {
@@ -66,6 +67,55 @@ OPERATION_DEFS = [
 class ProductionOptimizationService:
     """Service encapsulating OR-Tools CP-SAT scheduling formulation and persistence."""
 
+    @staticmethod
+    def _get_order_operations(order: ProductionOrder) -> List[Dict[str, Any]]:
+        """
+        Derive dynamic manufacturing operations for a production order.
+        If the order has an approved specification with steps, uses the specification's exact routing.
+        Otherwise falls back to standard legacy 3-stage operations for 100% backward compatibility.
+        """
+        if order.specification and order.specification.steps:
+            sorted_steps = sorted(order.specification.steps, key=lambda s: s.step_number)
+            ops = []
+            for st in sorted_steps:
+                skill_req = st.required_skill.lower().strip() if st.required_skill else "general"
+                skills = {skill_req, "general"}
+                machines = set()
+                if st.required_machine_type and st.required_machine_type.strip() and st.required_machine_type.strip().lower() != "none":
+                    machines = {st.required_machine_type.lower().strip(), "general"}
+                ops.append({
+                    "name": st.stage_name,
+                    "step_number": st.step_number,
+                    "skills": skills,
+                    "machines": machines,
+                    "base_hours": max(0.0, float(st.base_hours)),
+                    "per_unit_hours": max(0.0, float(st.per_unit_hours)),
+                    "quality_checkpoint": st.quality_checkpoint,
+                    "specification_id": order.specification_id,
+                    "is_from_spec": True,
+                    "required_skill_raw": st.required_skill,
+                    "required_machine_raw": st.required_machine_type,
+                })
+            return ops
+
+        # Legacy fallback
+        ops = []
+        for idx, op_def in enumerate(OPERATION_DEFS, start=1):
+            ops.append({
+                "name": op_def["name"],
+                "step_number": idx,
+                "skills": set(op_def["skills"]),
+                "machines": set(op_def["machines"]),
+                "base_hours": float(op_def["base_hours"]),
+                "per_unit_hours": float(op_def["per_unit_hours"]),
+                "quality_checkpoint": None,
+                "specification_id": None,
+                "is_from_spec": False,
+                "required_skill_raw": None,
+                "required_machine_raw": None,
+            })
+        return ops
+
     def optimize(
         self,
         db: Session,
@@ -84,11 +134,16 @@ class ProductionOptimizationService:
 
         horizon_hours = request.horizon_days * 24
 
-        # 2. Fetch user orders
+        # 2. Fetch user orders with design and specification lineage
         query = (
             select(ProductionOrder)
             .where(ProductionOrder.user_id == user_id)
-            .options(selectinload(ProductionOrder.design))
+            .options(
+                selectinload(ProductionOrder.design),
+                selectinload(ProductionOrder.specification).selectinload(ProductionSpecification.steps),
+                selectinload(ProductionOrder.specification).selectinload(ProductionSpecification.materials),
+                selectinload(ProductionOrder.specification).selectinload(ProductionSpecification.gemstones),
+            )
         )
         if request.order_ids:
             query = query.where(ProductionOrder.id.in_(request.order_ids))
@@ -130,11 +185,36 @@ class ProductionOptimizationService:
         if not workers:
             infeasibility_reasons.append("No active workshop artisans/workers available.")
 
+        # Check resource compatibility for specification-derived operations
+        for order in orders:
+            order_ops = self._get_order_operations(order)
+            for op_def in order_ops:
+                if op_def.get("is_from_spec"):
+                    skill_matches = [
+                        w for w in workers
+                        if w.skill.lower() in op_def["skills"] or w.skill.lower() == "general"
+                    ]
+                    if not skill_matches:
+                        infeasibility_reasons.append(
+                            f"Order {order.id}: Operation '{op_def['name']}' requires artisan skill '{op_def.get('required_skill_raw')}', but no active artisan possesses this capability."
+                        )
+                    req_machine = op_def.get("required_machine_raw")
+                    if req_machine and req_machine.strip().lower() not in ("none", ""):
+                        machine_matches = [
+                            m for m in machines
+                            if m.machine_type.lower() in op_def["machines"] or m.machine_type.lower() == "general"
+                        ]
+                        if not machine_matches:
+                            infeasibility_reasons.append(
+                                f"Order {order.id}: Operation '{op_def['name']}' requires machine '{req_machine}', but no active workshop machine matches this requirement."
+                            )
+
         # Calculate estimated total required hours vs available capacity
         total_work_hours_needed = 0.0
         for order in orders:
-            for op_def in OPERATION_DEFS:
-                dur = math.ceil(op_def["base_hours"] + op_def["per_unit_hours"] * max(1, order.quantity))
+            order_ops = self._get_order_operations(order)
+            for op_def in order_ops:
+                dur = max(1, math.ceil(op_def["base_hours"] + op_def["per_unit_hours"] * max(1, order.quantity)))
                 total_work_hours_needed += dur
 
         total_worker_capacity_hours = sum(w.capacity_hours_per_day for w in workers) * request.horizon_days
@@ -173,8 +253,9 @@ class ProductionOptimizationService:
 
         for o_idx, order in enumerate(orders):
             prev_end_var: Optional[cp_model.IntVar] = None
+            order_ops = self._get_order_operations(order)
 
-            for op_idx, op_def in enumerate(OPERATION_DEFS):
+            for op_idx, op_def in enumerate(order_ops):
                 dur_hours = max(1, math.ceil(op_def["base_hours"] + op_def["per_unit_hours"] * max(1, order.quantity)))
 
                 # Start and End integer variables (bounded within horizon)
@@ -196,10 +277,10 @@ class ProductionOptimizationService:
                 # Filter eligible workers (matching skill or general fallback)
                 eligible_workers = [
                     w for w in workers
-                    if w.skill.lower() in op_def["skills"] or w.skill.lower() == "general" or "general" in op_def["skills"]
+                    if w.skill.lower() in op_def["skills"] or w.skill.lower() == "general"
                 ]
-                if not eligible_workers:
-                    # Fallback to any active worker so solver doesn't fail if all workers have unique custom skills
+                if not eligible_workers and not op_def.get("is_from_spec"):
+                    # Fallback to any active worker only for legacy orders without spec
                     eligible_workers = workers
 
                 worker_b_vars: Dict[uuid.UUID, cp_model.IntVar] = {}
@@ -216,7 +297,8 @@ class ProductionOptimizationService:
                     worker_intervals[w.id].append(opt_interval)
 
                 # Exactly one worker assigned per operation
-                model.AddExactlyOne(list(worker_b_vars.values()))
+                if worker_b_vars:
+                    model.AddExactlyOne(list(worker_b_vars.values()))
 
                 # Filter eligible machines
                 machine_b_vars: Dict[uuid.UUID, cp_model.IntVar] = {}
@@ -392,8 +474,11 @@ class ProductionOptimizationService:
                 start_time=task_start_dt,
                 end_time=task_end_dt,
                 duration_hours=float(dur),
-                sequence_order=key[1] + 1,
+                sequence_order=op_def.get("step_number", key[1] + 1),
                 is_overdue=is_task_overdue,
+                specification_id=op_def.get("specification_id") or order.specification_id,
+                step_number=op_def.get("step_number", key[1] + 1),
+                quality_checkpoint=op_def.get("quality_checkpoint"),
             )
             scheduled_task_items.append(task_res)
 
