@@ -55,6 +55,7 @@ class ProductionOrderBase(BaseModel):
     notes: Optional[str] = Field(None, max_length=2000, description="Special artisan notes or production instructions")
     render_id: Optional[uuid.UUID] = Field(None, description="Optional ID of specific approved render")
     approved_render_url: Optional[str] = Field(None, description="Snapshot URL of approved render visual")
+    specification_id: Optional[uuid.UUID] = Field(None, description="Optional ID of associated production specification")
 
     @field_validator("quantity")
     @classmethod
@@ -76,6 +77,7 @@ class ProductionOrderUpdate(BaseModel):
     notes: Optional[str] = Field(None, max_length=2000)
     render_id: Optional[uuid.UUID] = None
     approved_render_url: Optional[str] = None
+    specification_id: Optional[uuid.UUID] = None
 
     @field_validator("quantity")
     @classmethod
@@ -96,6 +98,7 @@ class ProductionOrderResponse(BaseModel):
     notes: Optional[str] = None
     render_id: Optional[uuid.UUID] = None
     approved_render_url: Optional[str] = None
+    specification_id: Optional[uuid.UUID] = None
     is_overdue: bool = Field(default=False, description="Calculated flag indicating if deadline has passed while active")
     design_name: Optional[str] = Field(None, description="Name of the associated design")
     design_category: Optional[str] = Field(None, description="Category of the associated design")

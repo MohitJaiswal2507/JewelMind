@@ -13,6 +13,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.production import ProductionOrder
+    from app.models.specification import ProductionSpecification
 
 
 class Design(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -72,6 +73,12 @@ class Design(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="design",
         cascade="all, delete-orphan",
         order_by="DesignRender.version_number",
+    )
+    specifications: Mapped[list["ProductionSpecification"]] = relationship(
+        "ProductionSpecification",
+        back_populates="design",
+        cascade="all, delete-orphan",
+        order_by="ProductionSpecification.version_number",
     )
 
     def __repr__(self) -> str:
@@ -167,6 +174,10 @@ class DesignRender(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         "DesignRender",
         remote_side="DesignRender.id",
         foreign_keys=[parent_render_id],
+    )
+    specifications: Mapped[list["ProductionSpecification"]] = relationship(
+        "ProductionSpecification",
+        back_populates="render",
     )
 
     def __repr__(self) -> str:
