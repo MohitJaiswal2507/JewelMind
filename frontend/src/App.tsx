@@ -307,6 +307,7 @@ const MainLayout: React.FC = () => {
           <StudioPage
             onNavigateDesigns={() => setCurrentView('designs')}
             onOpenCanvas={handleOpenCanvas}
+            onNavigateProduction={() => setCurrentView('production')}
           />
         )}
 

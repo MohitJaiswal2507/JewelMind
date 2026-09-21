@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Download,
@@ -11,18 +11,27 @@ import {
   Loader2,
   HardDrive,
   Sparkles,
+  CheckCircle2,
+  Columns,
+  Factory,
+  Check,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { StudioMediaItem } from './StudioMediaCard';
-import { AiRenderModal } from './AiRenderModal';
+import { Design, DesignRender } from '../../types/design';
+import { designService } from '../../services/api/designService';
 
 interface StudioMediaDetailsProps {
   item: StudioMediaItem | null;
   onClose: () => void;
   onOpenCanvas: (designId: string) => void;
   onDeleteMedia: (item: StudioMediaItem) => Promise<void>;
+  onApproveRender?: (designId: string, renderId: string) => Promise<void>;
+  onDeleteRender?: (designId: string, renderId: string) => Promise<void>;
+  onCompareVersions?: (design: Design, renders: DesignRender[], renderAId?: string, renderBId?: string) => void;
+  onSendToProduction?: (designId: string, renderId?: string) => void;
 }
 
 export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
@@ -30,26 +39,104 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
   onClose,
   onOpenCanvas,
   onDeleteMedia,
+  onApproveRender,
+  onDeleteRender,
+  onCompareVersions,
+  onSendToProduction,
 }) => {
+  const [renders, setRenders] = useState<DesignRender[]>(item?.design.renders || []);
+  const [selectedRenderId, setSelectedRenderId] = useState<string | null>(item?.renderId || null);
+  const [loadingRenders, setLoadingRenders] = useState<boolean>(false);
+  const [isApproving, setIsApproving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  const [isAiRenderOpen, setIsAiRenderOpen] = useState<boolean>(false);
+  const [deleteTargetType, setDeleteTargetType] = useState<'asset' | 'render'>('render');
   const [error, setError] = useState<string | null>(null);
+
+  // Sync / fetch renders when item changes
+  useEffect(() => {
+    if (!item) return;
+    if (item.design.renders && item.design.renders.length > 0) {
+      setRenders(item.design.renders);
+      setSelectedRenderId(item.renderId || item.design.renders[item.design.renders.length - 1].id);
+    } else {
+      // Fetch fresh renders from API
+      const loadRenders = async () => {
+        setLoadingRenders(true);
+        try {
+          const res = await designService.getDesignRenders(item.designId);
+          setRenders(res.renders);
+          if (res.renders.length > 0) {
+            setSelectedRenderId(item.renderId || res.renders[res.renders.length - 1].id);
+          }
+        } catch {
+          // fallback to empty
+        } finally {
+          setLoadingRenders(false);
+        }
+      };
+      loadRenders();
+    }
+  }, [item]);
 
   if (!item) return null;
 
+  // Active displayed render (if inspecting a render, otherwise blueprint)
+  const activeRender = renders.find((r) => r.id === selectedRenderId) || null;
+  const currentPreviewUrl = activeRender ? activeRender.image_url : item.thumbnailUrl;
+  const isViewingSketch = !activeRender && item.mediaType === 'PNG Sketch';
+
   const handleDownload = () => {
-    if (!item.thumbnailUrl) return;
+    if (!currentPreviewUrl) return;
     const a = document.createElement('a');
-    a.href = item.thumbnailUrl;
-    a.download = `${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${item.sku.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    a.href = currentPreviewUrl;
+    const label = activeRender ? `V${activeRender.version_number}` : 'sketch';
+    a.download = `${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}.png`;
     a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleApprove = async () => {
+    if (!activeRender || !onApproveRender) return;
+    setIsApproving(true);
+    setError(null);
+    try {
+      await onApproveRender(item.designId, activeRender.id);
+      // Update local render list approval state
+      setRenders((prev) =>
+        prev.map((r) => ({
+          ...r,
+          is_approved_for_production: r.id === activeRender.id,
+        }))
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to approve render.';
+      setError(msg);
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleDeleteRenderConfirm = async () => {
+    if (!activeRender || !onDeleteRender) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await onDeleteRender(item.designId, activeRender.id);
+      setRenders((prev) => prev.filter((r) => r.id !== activeRender.id));
+      setSelectedRenderId(null);
+      setShowDeleteConfirm(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete render version.';
+      setError(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAssetConfirm = async () => {
     setIsDeleting(true);
     setError(null);
     try {
@@ -65,11 +152,18 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
   };
 
   return (
-    <aside className="w-full lg:w-80 xl:w-96 bg-[#0A0C12] border-l border-white/[0.07] flex flex-col justify-between select-none p-6 text-slate-300 overflow-y-auto">
-      <div className="space-y-6">
+    <aside className="w-full lg:w-88 xl:w-96 bg-[#0A0C12] border-l border-white/[0.07] flex flex-col justify-between select-none p-5 text-slate-300 overflow-y-auto">
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
-          <h3 className="text-xs font-serif font-medium text-white tracking-wider">Asset Inspector</h3>
+          <h3 className="text-xs font-serif font-medium text-white tracking-wider flex items-center space-x-1.5">
+            <span>Asset Inspector</span>
+            {activeRender && (
+              <Badge variant="gold" className="text-[10px] font-mono">
+                V{activeRender.version_number}
+              </Badge>
+            )}
+          </h3>
           <Button
             variant="ghost"
             size="icon"
@@ -82,42 +176,110 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
         </div>
 
         {/* Large Media Preview */}
-        <div className="w-full bg-[#080A10] rounded-2xl border border-white/[0.07] p-4 flex items-center justify-center min-h-[220px] overflow-hidden group relative">
-          {item.thumbnailUrl ? (
+        <div className="w-full bg-[#080A10] rounded-2xl border border-white/[0.07] p-3 flex items-center justify-center min-h-[200px] max-h-[260px] overflow-hidden group relative">
+          {currentPreviewUrl ? (
             <img
-              src={item.thumbnailUrl}
+              src={currentPreviewUrl}
               alt={item.title}
               className={`max-h-56 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ${
-                item.mediaType === 'PNG Sketch' ? 'filter invert opacity-90' : 'shadow-xl'
+                isViewingSketch ? 'filter invert opacity-90' : 'shadow-xl'
               }`}
             />
           ) : (
             <div className="text-center p-4 text-slate-500 text-xs font-light">No media preview available</div>
           )}
+
+          {activeRender?.is_approved_for_production && (
+            <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 font-bold text-[10px] flex items-center space-x-1 shadow">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Approved for Production</span>
+            </div>
+          )}
         </div>
 
         {/* Title & SKU Header */}
-        <div className="space-y-1.5">
-          <h2 className="font-serif text-lg text-white font-normal tracking-tight leading-snug">
+        <div className="space-y-1">
+          <h2 className="font-serif text-base text-white font-normal tracking-tight leading-snug">
             {item.title}
           </h2>
           <div className="text-xs font-mono font-semibold text-amber-300">
             {item.sku}
           </div>
-          <div className="text-[11px] text-slate-400 font-light">
-            {item.mediaType} • {item.category}
+          <div className="text-[11px] text-slate-400 font-light flex items-center space-x-2">
+            <span>{item.category}</span>
+            <span>•</span>
+            <span className="capitalize">{activeRender ? `${activeRender.render_mode} Guided` : item.mediaType}</span>
           </div>
+        </div>
+
+        {/* Phase H: Render Version History List */}
+        <div className="space-y-2 pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center space-x-1">
+              <Layers className="w-3 h-3 text-amber-300" />
+              <span>Version History ({renders.length})</span>
+            </span>
+            {renders.length >= 2 && onCompareVersions && (
+              <button
+                onClick={() => onCompareVersions(item.design, renders, renders[0]?.id, renders[renders.length - 1]?.id)}
+                className="text-[10px] text-amber-300 hover:text-amber-200 flex items-center space-x-1 font-medium transition cursor-pointer"
+              >
+                <Columns className="w-3 h-3" />
+                <span>Compare</span>
+              </button>
+            )}
+          </div>
+
+          {loadingRenders ? (
+            <div className="flex items-center space-x-2 text-xs text-slate-500 py-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Loading versions...</span>
+            </div>
+          ) : renders.length === 0 ? (
+            <div className="text-xs text-slate-500 italic py-1">No render versions yet. Synthesize in workspace.</div>
+          ) : (
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1.5 scrollbar-thin">
+              {renders.map((r) => {
+                const isSelected = selectedRenderId === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => setSelectedRenderId(r.id)}
+                    className={`relative shrink-0 w-16 h-16 rounded-xl border p-1 overflow-hidden transition cursor-pointer ${
+                      isSelected
+                        ? 'border-amber-400 ring-2 ring-amber-400/30 bg-[#141824]'
+                        : 'border-white/10 hover:border-white/25 bg-[#0E111A]'
+                    }`}
+                  >
+                    <img
+                      src={r.thumbnail_url || r.image_url}
+                      alt={`Version ${r.version_number}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <div className="absolute top-1 left-1 px-1 py-0.2 rounded bg-black/80 text-[9px] font-mono text-amber-300 font-bold">
+                      V{r.version_number}
+                    </div>
+                    {r.is_approved_for_production && (
+                      <div className="absolute bottom-1 right-1 p-0.5 rounded-full bg-amber-400 text-slate-950">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <Separator />
 
         {/* Metadata Specification Table */}
-        <div className="space-y-3.5 text-xs font-light">
+        <div className="space-y-2.5 text-xs font-light">
           <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-            Asset Telemetry
+            Render Telemetry
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center space-x-1.5">
                 <User className="w-3.5 h-3.5 text-slate-500" />
@@ -129,16 +291,36 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center space-x-1.5">
                 <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <span>Creation Date</span>
+                <span>Created</span>
               </span>
               <span className="font-mono text-slate-300 text-[11px]">
-                {new Date(item.createdAt).toLocaleDateString([], {
+                {new Date(activeRender?.created_at || item.createdAt).toLocaleDateString([], {
                   month: 'short',
                   day: 'numeric',
-                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
                 })}
               </span>
             </div>
+
+            {activeRender && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center space-x-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Control Type</span>
+                  </span>
+                  <span className="font-mono text-slate-200 text-[11px]">{activeRender.control_type} ({activeRender.control_strength.toFixed(2)})</span>
+                </div>
+
+                {activeRender.seed && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Seed</span>
+                    <span className="font-mono text-slate-300 text-[11px]">{activeRender.seed}</span>
+                  </div>
+                )}
+              </>
+            )}
 
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center space-x-1.5">
@@ -147,46 +329,70 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
               </span>
               <span className="font-mono text-slate-300 text-[11px]">{item.fileSize}</span>
             </div>
+          </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center space-x-1.5">
-                <Layers className="w-3.5 h-3.5 text-slate-500" />
-                <span>Status</span>
-              </span>
-              <Badge variant={item.status === 'ready' ? 'success' : 'outline'} className="text-[9px]">
-                {item.status.toUpperCase()}
-              </Badge>
+          {activeRender?.prompt && (
+            <div className="p-3 rounded-xl bg-[#0E111A] border border-white/5 space-y-1">
+              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Active Prompt</div>
+              <p className="text-slate-300 leading-relaxed text-[11px] font-light line-clamp-3">"{activeRender.prompt}"</p>
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Design Description if present */}
-        {item.design.description && (
-          <div className="p-3.5 rounded-xl bg-[#0E111A] border border-white/5 text-xs space-y-1">
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Artisan Notes</div>
-            <p className="text-slate-300 leading-relaxed text-[11px] font-light">{item.design.description}</p>
-          </div>
-        )}
       </div>
 
       {/* Action Footer */}
-      <div className="pt-4 border-t border-white/5 space-y-2.5">
-        {/* Generative AI Render Button */}
-        <Button
-          variant="gold"
-          size="sm"
-          className="w-full font-semibold text-xs shadow-md"
-          onClick={() => setIsAiRenderOpen(true)}
-          disabled={!item.thumbnailUrl}
-        >
-          <Sparkles className="w-3.5 h-3.5 mr-1.5" /> AI Render (Diffusion)
-        </Button>
+      <div className="pt-4 border-t border-white/5 space-y-2">
+        {/* Approve for Production Button */}
+        {activeRender && (
+          <Button
+            variant={activeRender.is_approved_for_production ? 'outline' : 'gold'}
+            size="sm"
+            className="w-full font-semibold text-xs shadow-md"
+            onClick={handleApprove}
+            disabled={isApproving || activeRender.is_approved_for_production}
+          >
+            {isApproving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : activeRender.is_approved_for_production ? (
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            {activeRender.is_approved_for_production
+              ? `V${activeRender.version_number} Approved for Production`
+              : `Approve V${activeRender.version_number} for Production`}
+          </Button>
+        )}
+
+        {/* Send to Production Button */}
+        {onSendToProduction && activeRender?.is_approved_for_production && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full font-semibold text-xs bg-[#161B2C] hover:bg-[#1E263E] text-amber-300 border border-amber-400/20"
+            onClick={() => onSendToProduction(item.designId, activeRender.id)}
+          >
+            <Factory className="w-3.5 h-3.5 mr-1.5" /> Send V{activeRender.version_number} to Production
+          </Button>
+        )}
+
+        {/* Compare Versions Button */}
+        {renders.length >= 2 && onCompareVersions && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full font-medium text-xs bg-[#121622] hover:bg-[#181E2E] border-white/5"
+            onClick={() => onCompareVersions(item.design, renders, renders[0]?.id, activeRender?.id || renders[renders.length - 1]?.id)}
+          >
+            <Columns className="w-3.5 h-3.5 mr-1.5" /> Compare Iterations
+          </Button>
+        )}
 
         {/* Open in Interactive Canvas */}
         <Button
           variant="secondary"
           size="sm"
-          className="w-full font-semibold text-xs bg-[#121622] hover:bg-[#181E2E] border-white/5"
+          className="w-full font-medium text-xs bg-[#121622] hover:bg-[#181E2E] border-white/5"
           onClick={() => onOpenCanvas(item.designId)}
         >
           <Brush className="w-3.5 h-3.5 mr-1.5" /> Open in Drawing Desk
@@ -199,7 +405,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
             size="sm"
             className="text-xs font-medium bg-[#121622] hover:bg-[#181E2E] border-white/5"
             onClick={handleDownload}
-            disabled={!item.thumbnailUrl}
+            disabled={!currentPreviewUrl}
           >
             <Download className="w-3.5 h-3.5 mr-1.5" /> Download
           </Button>
@@ -208,21 +414,26 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
             variant="outline"
             size="sm"
             className="text-xs border-white/10 hover:border-rose-500/40 hover:text-rose-300"
-            onClick={() => setShowDeleteConfirm(true)}
+            onClick={() => {
+              setDeleteTargetType(activeRender ? 'render' : 'asset');
+              setShowDeleteConfirm(true);
+            }}
           >
-            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> {activeRender ? `Delete V${activeRender.version_number}` : 'Delete'}
           </Button>
         </div>
 
         {/* Delete Confirmation Sub-Dialog */}
         {showDeleteConfirm && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs space-y-2 animate-in fade-in">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs space-y-2 animate-in fade-in">
             <div className="flex items-center space-x-1.5 font-semibold text-rose-300">
               <AlertTriangle className="w-4 h-4 text-rose-400" />
-              <span>Confirm Delete?</span>
+              <span>Confirm Delete {deleteTargetType === 'render' ? `Version V${activeRender?.version_number}` : 'Media'}?</span>
             </div>
             <p className="text-[11px] text-rose-300 font-light">
-              Are you sure you want to permanently delete this media file from cloud storage?
+              {deleteTargetType === 'render'
+                ? 'Permanently delete this render iteration? If assigned to a production order, deletion will be blocked.'
+                : 'Permanently delete this sketch asset from cloud storage?'}
             </p>
             {error && <p className="text-[10px] text-rose-400 font-semibold">{error}</p>}
             <div className="flex items-center space-x-2 pt-1">
@@ -230,7 +441,10 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
                 variant="outline"
                 size="sm"
                 className="h-7 text-[11px] border-white/10"
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setError(null);
+                }}
                 disabled={isDeleting}
               >
                 Cancel
@@ -239,7 +453,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
                 variant="destructive"
                 size="sm"
                 className="h-7 text-[11px] font-semibold"
-                onClick={handleDeleteConfirm}
+                onClick={deleteTargetType === 'render' ? handleDeleteRenderConfirm : handleDeleteAssetConfirm}
                 disabled={isDeleting}
               >
                 {isDeleting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
@@ -249,20 +463,7 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
           </div>
         )}
       </div>
-
-      {/* AI Generative Diffusion Modal */}
-      {item.thumbnailUrl && isAiRenderOpen && (
-        <AiRenderModal
-          isOpen={isAiRenderOpen}
-          onClose={() => setIsAiRenderOpen(false)}
-          sketchUrl={item.thumbnailUrl}
-          designTitle={item.title}
-          category={item.category}
-          sourceBlueprintCategory={item.category}
-          verifiedYoloCategory={item.category}
-          designId={item.designId}
-        />
-      )}
     </aside>
   );
 };
+export default StudioMediaDetails;

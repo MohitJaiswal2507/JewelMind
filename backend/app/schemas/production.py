@@ -53,6 +53,8 @@ class ProductionOrderBase(BaseModel):
     status: OrderStatus = Field(default=OrderStatus.PENDING, description="Production lifecycle status")
     deadline: datetime = Field(..., description="Target completion deadline timestamp (UTC)")
     notes: Optional[str] = Field(None, max_length=2000, description="Special artisan notes or production instructions")
+    render_id: Optional[uuid.UUID] = Field(None, description="Optional ID of specific approved render")
+    approved_render_url: Optional[str] = Field(None, description="Snapshot URL of approved render visual")
 
     @field_validator("quantity")
     @classmethod
@@ -72,6 +74,8 @@ class ProductionOrderUpdate(BaseModel):
     status: Optional[OrderStatus] = None
     deadline: Optional[datetime] = None
     notes: Optional[str] = Field(None, max_length=2000)
+    render_id: Optional[uuid.UUID] = None
+    approved_render_url: Optional[str] = None
 
     @field_validator("quantity")
     @classmethod
@@ -90,6 +94,8 @@ class ProductionOrderResponse(BaseModel):
     status: OrderStatus
     deadline: datetime
     notes: Optional[str] = None
+    render_id: Optional[uuid.UUID] = None
+    approved_render_url: Optional[str] = None
     is_overdue: bool = Field(default=False, description="Calculated flag indicating if deadline has passed while active")
     design_name: Optional[str] = Field(None, description="Name of the associated design")
     design_category: Optional[str] = Field(None, description="Category of the associated design")
@@ -98,6 +104,7 @@ class ProductionOrderResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class ProductionOrderListResponse(BaseModel):

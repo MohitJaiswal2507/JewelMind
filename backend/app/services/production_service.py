@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.exceptions import AppException
-from app.models.design import Design
+from app.models.design import Design, DesignRender
 from app.models.production import Machine, ProductionOrder, Worker
 from app.schemas.production import (
     MachineCreate,
@@ -49,10 +49,12 @@ class ProductionService:
             status=OrderStatus(order.status),
             deadline=order.deadline,
             notes=order.notes,
+            render_id=order.render_id,
+            approved_render_url=order.approved_render_url,
             is_overdue=is_overdue,
             design_name=order.design.name if order.design else None,
             design_category=order.design.category if order.design else None,
-            design_thumbnail_url=order.design.sketch_image_url or order.design.rendered_image_url if order.design else None,
+            design_thumbnail_url=order.approved_render_url or (order.design.sketch_image_url or order.design.rendered_image_url if order.design else None),
             created_at=order.created_at,
             updated_at=order.updated_at,
         )
@@ -178,6 +180,12 @@ class ProductionService:
                 status_code=422,
             )
 
+        approved_url = order_in.approved_render_url
+        if order_in.render_id and not approved_url:
+            render_row = db.query(DesignRender).filter(DesignRender.id == order_in.render_id).first()
+            if render_row:
+                approved_url = render_row.image_url
+
         order = ProductionOrder(
             user_id=user_id,
             design_id=order_in.design_id,
@@ -186,6 +194,8 @@ class ProductionService:
             status=order_in.status.value if isinstance(order_in.status, OrderStatus) else str(order_in.status),
             deadline=order_in.deadline,
             notes=order_in.notes,
+            render_id=order_in.render_id,
+            approved_render_url=approved_url,
         )
 
         db.add(order)
@@ -237,7 +247,18 @@ class ProductionService:
         if order_in.notes is not None:
             order.notes = order_in.notes
 
+        if order_in.render_id is not None:
+            order.render_id = order_in.render_id
+            if not order_in.approved_render_url:
+                render_row = db.query(DesignRender).filter(DesignRender.id == order_in.render_id).first()
+                if render_row:
+                    order.approved_render_url = render_row.image_url
+
+        if order_in.approved_render_url is not None:
+            order.approved_render_url = order_in.approved_render_url
+
         db.commit()
+
         db.refresh(order)
         return ProductionService._to_order_response(order)
 

@@ -62,6 +62,16 @@ class ProductionOrder(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Text,
         nullable=True,
     )
+    render_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("design_renders.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    approved_render_url: Mapped[Optional[str]] = mapped_column(
+        String(1024),
+        nullable=True,
+    )
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="production_orders")
@@ -69,6 +79,7 @@ class ProductionOrder(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ProductionOrder id={self.id} design_id={self.design_id} qty={self.quantity} priority='{self.priority}' status='{self.status}'>"
+
 
 
 class Worker(Base, UUIDPrimaryKeyMixin, TimestampMixin):

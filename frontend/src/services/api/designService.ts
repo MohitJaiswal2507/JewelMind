@@ -8,6 +8,8 @@ import {
   DesignCreateInput,
   DesignFilters,
   DesignListResponse,
+  DesignRender,
+  DesignRenderListResponse,
   DesignUpdateInput,
 } from '../../types/design';
 
@@ -80,7 +82,29 @@ export class DesignService {
   public async deleteSketch(designId: string): Promise<Design> {
     return apiClient.delete<Design>(`/api/v1/designs/${designId}/sketch`);
   }
+
+  /**
+   * Retrieves chronological render history for a design.
+   */
+  public async getDesignRenders(designId: string, signal?: AbortSignal): Promise<DesignRenderListResponse> {
+    return apiClient.get<DesignRenderListResponse>(`/api/v1/designs/${designId}/renders`, { signal });
+  }
+
+  /**
+   * Approves a render version for production handoff.
+   */
+  public async approveRender(designId: string, renderId: string): Promise<DesignRender> {
+    return apiClient.post<DesignRender>(`/api/v1/designs/${designId}/renders/${renderId}/approve`);
+  }
+
+  /**
+   * Deletes a specific render version.
+   */
+  public async deleteRender(designId: string, renderId: string): Promise<{ success: boolean; message: string; render_id: string }> {
+    return apiClient.delete<{ success: boolean; message: string; render_id: string }>(`/api/v1/designs/${designId}/renders/${renderId}`);
+  }
 }
 
 export const designService = new DesignService();
 export default designService;
+
