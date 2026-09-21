@@ -139,6 +139,34 @@ class DesignUpdate(BaseModel):
         raise ValueError(f"Unsupported jewellery category: '{v}'")
 
 
+class DesignRenderResponse(BaseModel):
+    id: uuid.UUID
+    design_id: uuid.UUID
+    user_id: uuid.UUID
+    version_number: int
+    parent_render_id: Optional[uuid.UUID] = None
+    source_asset_id: Optional[uuid.UUID] = None
+    render_mode: str
+    prompt: str
+    enhanced_prompt: Optional[str] = None
+    structured_state: Optional[dict] = None
+    image_url: str
+    thumbnail_url: Optional[str] = None
+    control_type: str = "none"
+    control_strength: float = 0.0
+    seed: Optional[int] = None
+    is_approved_for_production: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DesignRenderListResponse(BaseModel):
+    renders: List[DesignRenderResponse]
+    total: int
+
+
 class DesignResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
@@ -151,6 +179,7 @@ class DesignResponse(BaseModel):
     ai_prompt: Optional[str]
     created_at: datetime
     updated_at: datetime
+    renders: List[DesignRenderResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -161,3 +190,5 @@ class DesignListResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+

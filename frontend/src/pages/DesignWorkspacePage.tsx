@@ -282,6 +282,9 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
       }
 
       if (res && res.output_url) {
+        if (renderedImageUrl && renderedImageUrl !== res.output_url) {
+          setPreviousRenderUrl(renderedImageUrl);
+        }
         setRenderedImageUrl(res.output_url);
         setWorkspaceView('comparison');
         setFeedback({ type: 'success', message: 'Photorealistic fine jewellery render synthesized successfully!' });
@@ -597,9 +600,15 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
               <div className="relative w-full max-w-4xl h-[80vh] max-h-[600px] bg-[#0E111A] rounded-2xl border border-white/10 overflow-hidden shadow-2xl select-none">
                 {/* Left Side: Original Blueprint or Previous Render */}
                 <div className="absolute inset-0 flex items-center justify-center bg-[#08090D]">
-                  {activeBlueprintUrl || previousRenderUrl ? (
+                  {previousRenderUrl ? (
                     <img
-                      src={activeBlueprintUrl || previousRenderUrl!}
+                      src={previousRenderUrl}
+                      alt="Previous Render Iteration"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : activeBlueprintUrl ? (
+                    <img
+                      src={activeBlueprintUrl}
                       alt="Source Blueprint"
                       className="w-full h-full object-contain filter invert opacity-80"
                     />

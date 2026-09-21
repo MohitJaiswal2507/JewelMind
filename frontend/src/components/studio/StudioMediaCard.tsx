@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Layers, Image as ImageIcon, Calendar } from 'lucide-react';
+import { Layers, Image as ImageIcon, Calendar, CheckCircle2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Design, DesignStatus } from '../../types/design';
 
@@ -16,6 +16,11 @@ export interface StudioMediaItem {
   creatorName: string;
   fileSize: string;
   design: Design;
+  versionNumber?: number;
+  renderId?: string;
+  renderMode?: string;
+  isApprovedForProduction?: boolean;
+  totalVersionsCount?: number;
 }
 
 interface StudioMediaCardProps {
@@ -24,35 +29,19 @@ interface StudioMediaCardProps {
   onSelect: (item: StudioMediaItem) => void;
 }
 
-const getStatusBadge = (status: DesignStatus) => {
-  switch (status) {
-    case 'ready':
-      return <Badge variant="success">Approved</Badge>;
-    case 'rendering':
-      return (
-        <Badge variant="gold" className="animate-pulse">
-          <Sparkles className="w-3 h-3 mr-1" /> Rendering
-        </Badge>
-      );
-    case 'rendered':
-      return (
-        <Badge variant="gold">
-          <Sparkles className="w-3 h-3 mr-1" /> Rendered
-        </Badge>
-      );
-    case 'archived':
-      return <Badge variant="secondary">Archived</Badge>;
-    case 'draft':
-    default:
-      return <Badge variant="outline">Draft</Badge>;
-  }
-};
-
 export const StudioMediaCard: React.FC<StudioMediaCardProps> = ({
   item,
   isSelected,
   onSelect,
 }) => {
+  const getGuidanceLabel = () => {
+    if (item.mediaType === 'PNG Sketch') return 'Sketch Blueprint';
+    if (item.renderMode === 'text') return 'Text Guided';
+    if (item.renderMode === 'doodle') return 'Doodle Guided';
+    if (item.renderMode === 'image') return 'Image Guided';
+    return 'Generative Render';
+  };
+
   return (
     <div
       onClick={() => onSelect(item)}
@@ -79,16 +68,40 @@ export const StudioMediaCard: React.FC<StudioMediaCardProps> = ({
           </div>
         )}
 
-        {/* Media Type Overlay Pill */}
-        <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-[#080A10]/80 backdrop-blur-md border border-white/10 text-[10px] font-semibold text-slate-300 flex items-center space-x-1">
-          <Layers className="w-3 h-3 text-amber-300" />
-          <span>{item.mediaType}</span>
+        {/* Top-Left: Version Pill & Guidance Badge */}
+        <div className="absolute top-3 left-3 flex items-center space-x-1.5">
+          {item.versionNumber ? (
+            <div className="px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 font-mono font-bold text-[10px] shadow">
+              V{item.versionNumber}
+            </div>
+          ) : (
+            <div className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 font-mono text-[10px] border border-white/10">
+              Sketch
+            </div>
+          )}
+          <div className="px-2 py-0.5 rounded-lg bg-[#080A10]/80 backdrop-blur-md border border-white/10 text-[10px] font-medium text-slate-300 flex items-center space-x-1">
+            <Layers className="w-3 h-3 text-amber-300" />
+            <span>{getGuidanceLabel()}</span>
+          </div>
         </div>
 
-        {/* Status Badge */}
-        <div className="absolute top-3 right-3">
-          {getStatusBadge(item.status)}
+        {/* Top-Right: Approval Badge or Render State */}
+        <div className="absolute top-3 right-3 flex items-center space-x-1.5">
+          {item.isApprovedForProduction ? (
+            <Badge variant="gold" className="text-[10px] font-medium shadow-sm">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
+            </Badge>
+          ) : item.status === 'ready' ? (
+            <Badge variant="success" className="text-[10px]">Ready</Badge>
+          ) : null}
         </div>
+
+        {/* Bottom-Right within thumbnail: Versions Count Pill */}
+        {item.totalVersionsCount && item.totalVersionsCount > 1 ? (
+          <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md border border-white/10 text-[10px] font-mono text-slate-300">
+            {item.totalVersionsCount} versions
+          </div>
+        ) : null}
       </div>
 
       {/* Card Metadata Footer */}
@@ -113,3 +126,4 @@ export const StudioMediaCard: React.FC<StudioMediaCardProps> = ({
     </div>
   );
 };
+

@@ -50,6 +50,7 @@ export interface Design {
   ai_prompt: string | null;
   created_at: string;
   updated_at: string;
+  renders?: DesignRender[];
 }
 
 export interface DesignCreateInput {
@@ -87,3 +88,28 @@ export interface DesignListResponse {
   page_size: number;
   pages: number;
 }
+
+export interface DesignRender {
+  id: string;
+  design_id: string;
+  user_id: string;
+  version_number: number;
+  parent_render_id: string | null;
+  render_mode: string;
+  prompt: string;
+  enhanced_prompt: string | null;
+  structured_state: Record<string, any> | null;
+  image_url: string;
+  thumbnail_url: string | null;
+  control_type: string;
+  control_strength: number;
+  seed: number | null;
+  is_approved_for_production: boolean;
+  created_at: string;
+}
+
+export interface DesignRenderListResponse {
+  renders: DesignRender[];
+  total: number;
+}
+

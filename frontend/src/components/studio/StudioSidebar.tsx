@@ -6,7 +6,11 @@ import {
   Trash2,
   Settings,
   Layers,
-  FolderOpen
+  CheckCircle2,
+  Sparkles,
+  Brush,
+  Image as ImageIcon,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -19,10 +23,12 @@ export interface StudioSidebarProps {
   onNavigateDesigns: () => void;
 }
 
-const COLLECTIONS = [
-  { id: 'summer-25', name: "Summer '25 High Jewellery", tag: 'Summer 25' },
-  { id: 'spring-25', name: "Spring '25 Bridal Suite", tag: 'Spring 25' },
-  { id: 'winter-24', name: "Winter '24 Solitaire Editions", tag: 'Winter 24' },
+const GUIDANCE_FILTERS = [
+  { id: 'approved', name: 'Approved Renders', icon: CheckCircle2, color: 'text-amber-400' },
+  { id: 'text', name: 'Text Guided', icon: Sparkles, color: 'text-amber-300' },
+  { id: 'doodle', name: 'Doodle Guided', icon: Brush, color: 'text-amber-300' },
+  { id: 'image', name: 'Image Guided', icon: ImageIcon, color: 'text-amber-300' },
+  { id: 'sketches', name: 'Sketches / Blueprints', icon: Layers, color: 'text-slate-400' },
 ];
 
 export const StudioSidebar: React.FC<StudioSidebarProps> = ({
@@ -108,22 +114,23 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
           </button>
         </div>
 
-        {/* Collections */}
+        {/* Phase H: Guidance & Version Filters */}
         <div className="space-y-1.5 pt-3 border-t border-white/5">
           <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-            <span>Seasonal Collections</span>
-            <FolderOpen className="w-3 h-3" />
+            <span>Guidance & Curation</span>
+            <SlidersHorizontal className="w-3 h-3 text-slate-500" />
           </div>
 
-          {COLLECTIONS.map((col) => {
-            const count = collectionCounts[col.id] || 0;
-            const isSelected = selectedCollection === col.id;
+          {GUIDANCE_FILTERS.map((gf) => {
+            const count = collectionCounts[gf.id] || 0;
+            const isSelected = selectedCollection === gf.id;
+            const Icon = gf.icon;
             return (
               <button
-                key={col.id}
+                key={gf.id}
                 onClick={() => {
                   onSelectSection('collections');
-                  onSelectCollection(col.id);
+                  onSelectCollection(gf.id);
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer ${
                   isSelected
@@ -132,8 +139,8 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
                 }`}
               >
                 <div className="flex items-center space-x-2.5 truncate">
-                  <Layers className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                  <span className="truncate font-light">{col.name}</span>
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${gf.color}`} />
+                  <span className="truncate font-light">{gf.name}</span>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#121622] text-slate-400 font-mono shrink-0">
                   {count}

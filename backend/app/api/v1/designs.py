@@ -4,16 +4,20 @@ Jewellery Design Management API Router
 
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user
 from app.db.session import get_db
+from app.models.design import DesignRender
+from app.models.production import ProductionOrder
 from app.models.user import User
 from app.schemas.design import (
     DesignCategory,
     DesignCreate,
     DesignListResponse,
+    DesignRenderListResponse,
+    DesignRenderResponse,
     DesignResponse,
     DesignStatus,
     DesignUpdate,
@@ -251,3 +255,196 @@ async def delete_design_sketch(
         db.refresh(design)
 
     return DesignResponse.model_validate(design)
+
+
+# ====================================================
+# Phase H: Studio & Render History Management Endpoints
+# ====================================================
+
+@router.get(
+    "/{design_id}/renders",
+    response_model=DesignRenderListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get chronological render history for design",
+)
+async def get_design_renders(
+    design_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Returns all render versions for the specified design, ordered chronologically
+    by version_number ascending. Enforces design ownership check.
+    """
+    design_service.get_user_design_by_id(
+        db=db,
+        user_id=current_user.id,
+        design_id=design_id,
+    )
+
+    renders = (
+        db.query(DesignRender)
+        .filter(
+            DesignRender.design_id == design_id,
+            DesignRender.user_id == current_user.id,
+        )
+        .order_by(DesignRender.version_number.asc())
+        .all()
+    )
+
+    return DesignRenderListResponse(
+        renders=[DesignRenderResponse.model_validate(r) for r in renders],
+        total=len(renders),
+    )
+
+
+@router.post(
+    "/{design_id}/renders/{render_id}/approve",
+    response_model=DesignRenderResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Approve a render version for production",
+)
+async def approve_design_render(
+    design_id: uuid.UUID,
+    render_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Atomically approves a specific render version for production handoff:
+    - Unapproves all other renders for this design.
+    - Sets is_approved_for_production = True on the selected render.
+    - Updates design.rendered_image_url to this approved render's image URL.
+    """
+    design = design_service.get_user_design_by_id(
+        db=db,
+        user_id=current_user.id,
+        design_id=design_id,
+    )
+
+    target_render = (
+        db.query(DesignRender)
+        .filter(
+            DesignRender.id == render_id,
+            DesignRender.design_id == design_id,
+            DesignRender.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not target_render:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Render version not found or does not belong to this design.",
+        )
+
+    # Atomically un-approve all sibling renders
+    db.query(DesignRender).filter(
+        DesignRender.design_id == design_id,
+        DesignRender.user_id == current_user.id,
+    ).update({"is_approved_for_production": False}, synchronize_session="fetch")
+
+    # Set approved on target render
+    target_render.is_approved_for_production = True
+    db.add(target_render)
+
+    # Sync design.rendered_image_url
+    design.rendered_image_url = target_render.image_url
+    db.add(design)
+
+    db.commit()
+    db.refresh(target_render)
+
+    return DesignRenderResponse.model_validate(target_render)
+
+
+@router.delete(
+    "/{design_id}/renders/{render_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a render version",
+)
+async def delete_design_render(
+    design_id: uuid.UUID,
+    render_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Deletes a specific render version:
+    - Rejects with HTTP 409 Conflict if this render is assigned to an active production order.
+    - Deletes render record and triggers storage cleanup.
+    - If the deleted render was design.rendered_image_url, automatically updates
+      design.rendered_image_url to the latest remaining render (or None).
+    """
+    design = design_service.get_user_design_by_id(
+        db=db,
+        user_id=current_user.id,
+        design_id=design_id,
+    )
+
+    target_render = (
+        db.query(DesignRender)
+        .filter(
+            DesignRender.id == render_id,
+            DesignRender.design_id == design_id,
+            DesignRender.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not target_render:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Render version not found or does not belong to this design.",
+        )
+
+    # Protection: check if assigned to a production order
+    active_order = (
+        db.query(ProductionOrder)
+        .filter(ProductionOrder.render_id == render_id)
+        .first()
+    )
+    if active_order:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete render version because it is assigned to a production order.",
+        )
+
+    stored_image_url = target_render.image_url
+
+    # Delete the render record
+    db.delete(target_render)
+    db.commit()
+
+    # Best-effort delete from Supabase storage
+    if stored_image_url:
+        try:
+            await storage_service.delete_rendered_image(stored_image_url)
+        except Exception:
+            pass
+
+    # Update design.rendered_image_url if needed
+    latest_remaining = (
+        db.query(DesignRender)
+        .filter(
+            DesignRender.design_id == design_id,
+            DesignRender.user_id == current_user.id,
+        )
+        .order_by(DesignRender.version_number.desc())
+        .first()
+    )
+
+    if latest_remaining:
+        design.rendered_image_url = latest_remaining.image_url
+    else:
+        design.rendered_image_url = None
+
+    db.add(design)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Render version deleted successfully.",
+        "render_id": str(render_id),
+    }
+

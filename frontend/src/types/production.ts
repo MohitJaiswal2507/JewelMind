@@ -43,6 +43,8 @@ export interface ProductionOrder {
   id: string;
   user_id: string;
   design_id: string;
+  render_id?: string | null;
+  approved_render_url?: string | null;
   quantity: number;
   priority: OrderPriority;
   status: OrderStatus;
@@ -58,6 +60,8 @@ export interface ProductionOrder {
 
 export interface ProductionOrderCreateInput {
   design_id: string;
+  render_id?: string | null;
+  approved_render_url?: string | null;
   quantity: number;
   priority?: OrderPriority;
   status?: OrderStatus;
@@ -66,6 +70,8 @@ export interface ProductionOrderCreateInput {
 }
 
 export interface ProductionOrderUpdateInput {
+  render_id?: string | null;
+  approved_render_url?: string | null;
   quantity?: number;
   priority?: OrderPriority;
   status?: OrderStatus;

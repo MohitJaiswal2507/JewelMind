@@ -286,5 +286,37 @@ class StorageService:
 
         return True
 
+    async def delete_rendered_image(self, storage_path_or_url: Optional[str]) -> bool:
+        """
+        Deletes a rendered image file from Supabase Storage.
+        Safe operation: does not raise errors if object does not exist or URL is null.
+        """
+        if not storage_path_or_url:
+            return True
+
+        storage_path = storage_path_or_url
+        marker = f"/{self.bucket}/"
+        if marker in storage_path:
+            storage_path = storage_path.split(marker, 1)[1]
+
+        if not self._is_mock_or_test_mode():
+            url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{storage_path}"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "apikey": self.api_key,
+            }
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    response = await client.delete(url, headers=headers)
+                    if response.status_code not in (200, 204, 404):
+                        logger.warning(
+                            f"Failed to delete render from storage [{response.status_code}]: {response.text}"
+                        )
+            except Exception as exc:
+                logger.warning(f"Error during render storage delete for {storage_path}: {exc}")
+
+        return True
+
 
 storage_service = StorageService()
+
