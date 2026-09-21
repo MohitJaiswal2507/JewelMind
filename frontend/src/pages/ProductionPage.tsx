@@ -21,6 +21,7 @@ import {
   Timer,
   Play,
   History,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -104,6 +105,8 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
   // -------------------------------------------------------------------------
   const [isOrderModalOpen, setIsOrderModalOpen] = useState<boolean>(false);
   const [editingOrder, setEditingOrder] = useState<ProductionOrder | null>(null);
+  const [orderCreationMode, setOrderCreationMode] = useState<'specification' | 'design'>('specification');
+  const [specInputId, setSpecInputId] = useState<string>('');
 
   const [isWorkerModalOpen, setIsWorkerModalOpen] = useState<boolean>(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
@@ -240,6 +243,8 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
   const handleSaveOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const order_mode = (formData.get('order_mode') as string) || orderCreationMode;
+    const specification_id = (formData.get('specification_id') as string)?.trim() || specInputId.trim();
     const design_id = formData.get('design_id') as string;
     const quantity = parseInt(formData.get('quantity') as string, 10);
     const priority = formData.get('priority') as OrderPriority;
@@ -247,9 +252,18 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
     const deadlineInput = formData.get('deadline') as string;
     const notes = formData.get('notes') as string;
 
-    if (!design_id && !editingOrder) {
-      showFeedback('Please select a jewellery design.', 'error');
-      return;
+    if (!editingOrder) {
+      if (order_mode === 'specification') {
+        if (!specification_id) {
+          showFeedback('Please enter an approved Production Specification ID.', 'error');
+          return;
+        }
+      } else {
+        if (!design_id) {
+          showFeedback('Please select a jewellery design.', 'error');
+          return;
+        }
+      }
     }
     if (isNaN(quantity) || quantity <= 0) {
       showFeedback('Quantity must be greater than zero.', 'error');
@@ -271,6 +285,15 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
           notes: notes.trim() || null,
         });
         showFeedback('Production order updated successfully.');
+      } else if (order_mode === 'specification') {
+        await productionService.createOrderFromSpecification({
+          specification_id,
+          quantity,
+          priority,
+          deadline: deadlineIso,
+          notes: notes.trim() || null,
+        });
+        showFeedback('Production order created from approved specification!');
       } else {
         await productionService.createOrder({
           design_id,
@@ -284,6 +307,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       }
       setIsOrderModalOpen(false);
       setEditingOrder(null);
+      setSpecInputId('');
       fetchOrders();
       fetchSummary();
     } catch (err: unknown) {
@@ -805,22 +829,57 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     return (
                       <tr key={order.id} className="hover:bg-[#161B26]/30 transition-colors">
                         <td className="py-3.5 px-4 font-medium text-white flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-lg bg-[#121622] border border-[#1E2333] overflow-hidden shrink-0 flex items-center justify-center">
-                            {order.design_thumbnail_url ? (
+                          <div className="w-10 h-10 rounded-lg bg-[#121622] border border-[#1E2333] overflow-hidden shrink-0 flex items-center justify-center relative">
+                            {order.approved_render_url || order.design_thumbnail_url ? (
                               <img
-                                src={order.design_thumbnail_url}
+                                src={(order.approved_render_url || order.design_thumbnail_url) ?? undefined}
                                 alt={order.design_name || 'Design'}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
                               <Layers className="w-5 h-5 text-slate-600" />
                             )}
+                            {order.specification_id && (
+                              <span
+                                title="Approved Specification & Render Lineage"
+                                className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-black shadow"
+                              />
+                            )}
                           </div>
                           <div>
-                            <p className="font-semibold text-white leading-snug">
-                              {order.design_name || 'Jewellery Design'}
-                            </p>
-                            <p className="text-xs text-slate-500">{order.design_category || 'Custom Item'}</p>
+                            <div className="flex items-center space-x-1.5">
+                              <p className="font-semibold text-white leading-snug">
+                                {order.design_name || 'Jewellery Design'}
+                              </p>
+                              {order.specification_id && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] py-0 px-1 bg-amber-500/10 text-amber-300 border-amber-500/30 font-mono"
+                                  title={`Backed by Approved Spec v${order.specification_version || 1}`}
+                                >
+                                  Spec v{order.specification_version || 1}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-slate-500 mt-0.5">
+                              <span>{order.design_category || order.specification_category || 'Custom Item'}</span>
+                              {order.routing_steps_count != null && order.routing_steps_count > 0 && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span className="text-cyan-400/90 font-mono text-[10px]">
+                                    {order.routing_steps_count} stages
+                                  </span>
+                                </>
+                              )}
+                              {order.materials_count != null && order.materials_count > 0 && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span className="text-amber-400/80 font-mono text-[10px]">
+                                    {order.materials_count} mats
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </td>
 
@@ -1530,13 +1589,25 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                                 const leftPct = (startH / (totalDays * 24)) * 100;
                                 const widthPct = Math.max(((endH - startH) / (totalDays * 24)) * 100, 3);
 
-                                const opColors: Record<string, string> = {
-                                  casting: 'from-amber-600/80 to-amber-500/80 border-[#D4AF37]/50 text-amber-100',
-                                  stone_setting: 'from-blue-600/80 to-cyan-500/80 border-cyan-400/50 text-cyan-100',
-                                  polishing: 'from-purple-600/80 to-pink-500/80 border-pink-400/50 text-pink-100',
-                                  finishing: 'from-emerald-600/80 to-teal-500/80 border-emerald-400/50 text-emerald-100',
+                                const getOpColor = (opName: string) => {
+                                  const norm = opName.toLowerCase().replace(/[\s-]+/g, '_');
+                                  if (norm.includes('cad') || norm.includes('wax') || norm.includes('design'))
+                                    return 'from-indigo-600/80 to-blue-500/80 border-indigo-400/50 text-indigo-100';
+                                  if (norm.includes('cast'))
+                                    return 'from-amber-600/80 to-amber-500/80 border-[#D4AF37]/50 text-amber-100';
+                                  if (norm.includes('stone') || norm.includes('set') || norm.includes('gem'))
+                                    return 'from-cyan-600/80 to-teal-500/80 border-cyan-400/50 text-cyan-100';
+                                  if (norm.includes('plate') || norm.includes('dip'))
+                                    return 'from-yellow-600/80 to-amber-500/80 border-yellow-400/50 text-yellow-100';
+                                  if (norm.includes('polish') || norm.includes('finish') || norm.includes('buff'))
+                                    return 'from-purple-600/80 to-pink-500/80 border-pink-400/50 text-pink-100';
+                                  if (norm.includes('engrav'))
+                                    return 'from-violet-600/80 to-purple-500/80 border-violet-400/50 text-violet-100';
+                                  if (norm.includes('qa') || norm.includes('qual') || norm.includes('inspect'))
+                                    return 'from-emerald-600/80 to-teal-500/80 border-emerald-400/50 text-emerald-100';
+                                  return 'from-slate-700 to-slate-600 border-slate-500 text-slate-100';
                                 };
-                                const colorClass = opColors[task.operation_name.toLowerCase()] || 'from-slate-700 to-slate-600 border-slate-500 text-slate-100';
+                                const colorClass = getOpColor(task.operation_name);
 
                                 return (
                                   <div
@@ -1625,6 +1696,23 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
                     <span className="text-slate-400">Assigned Equipment:</span>
                     <span className="font-bold text-purple-300">{selectedTaskDetail.machine_name || 'Manual Bench'}</span>
                   </div>
+                  {selectedTaskDetail.specification_id && (
+                    <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
+                      <span className="text-slate-400">Specification Lineage:</span>
+                      <span className="font-mono text-amber-300">
+                        Spec #{selectedTaskDetail.specification_id.slice(0, 8)}
+                        {selectedTaskDetail.step_number != null && ` (Step ${selectedTaskDetail.step_number})`}
+                      </span>
+                    </div>
+                  )}
+                  {selectedTaskDetail.quality_checkpoint && (
+                    <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
+                      <span className="text-slate-400">Quality Checkpoint:</span>
+                      <Badge variant="gold" className="text-[10px] py-0">
+                        {selectedTaskDetail.quality_checkpoint}
+                      </Badge>
+                    </div>
+                  )}
                   <div className="flex justify-between py-1 border-b border-[#1E2333]/60">
                     <span className="text-slate-400">Start Time:</span>
                     <span className="font-mono text-white">
@@ -1678,27 +1766,77 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
             <form onSubmit={handleSaveOrder} className="p-6 space-y-4">
               {!editingOrder && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Associated Jewellery Design <span className="text-rose-400">*</span>
-                  </label>
-                  {userDesigns.length === 0 ? (
-                    <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3 text-xs text-[#F3DB7C]">
-                      No saved designs found. Please create a design in the Studio first.
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2 p-1 bg-[#111625] rounded-xl border border-[#1E2333]">
+                    <button
+                      type="button"
+                      onClick={() => setOrderCreationMode('specification')}
+                      className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                        orderCreationMode === 'specification'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>From Approved Spec</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOrderCreationMode('design')}
+                      className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                        orderCreationMode === 'design'
+                          ? 'bg-[#1E2333] text-white border border-slate-700 shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Custom Design</span>
+                    </button>
+                  </div>
+
+                  <input type="hidden" name="order_mode" value={orderCreationMode} />
+
+                  {orderCreationMode === 'specification' ? (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        Approved Specification ID <span className="text-amber-400">*</span>
+                      </label>
+                      <Input
+                        name="specification_id"
+                        value={specInputId}
+                        onChange={(e) => setSpecInputId(e.target.value)}
+                        placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                        className="bg-[#111625] border-[#1E2333] font-mono text-xs text-amber-200"
+                        required={orderCreationMode === 'specification'}
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Authoritative render, materials BOM, and manufacturing routing are automatically derived from the approved specification.
+                      </p>
                     </div>
                   ) : (
-                    <select
-                      name="design_id"
-                      required
-                      className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-[#D4AF37]"
-                    >
-                      <option value="">-- Choose a jewellery design --</option>
-                      {userDesigns.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name} ({d.category})
-                        </option>
-                      ))}
-                    </select>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        Associated Jewellery Design <span className="text-rose-400">*</span>
+                      </label>
+                      {userDesigns.length === 0 ? (
+                        <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3 text-xs text-[#F3DB7C]">
+                          No saved designs found. Please create a design in the Studio first.
+                        </div>
+                      ) : (
+                        <select
+                          name="design_id"
+                          required={orderCreationMode === 'design'}
+                          className="w-full bg-[#111625] border border-[#1E2333] text-slate-200 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-[#D4AF37]"
+                        >
+                          <option value="">-- Choose a jewellery design --</option>
+                          {userDesigns.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name} ({d.category})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

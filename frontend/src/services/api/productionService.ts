@@ -10,6 +10,7 @@ import {
   MachineUpdateInput,
   ProductionOrder,
   ProductionOrderCreateInput,
+  ProductionOrderCreateFromSpecificationInput,
   ProductionOrderFilters,
   ProductionOrderListResponse,
   ProductionOrderUpdateInput,
@@ -69,6 +70,15 @@ export class ProductionService {
    */
   public async createOrder(data: ProductionOrderCreateInput): Promise<ProductionOrder> {
     return apiClient.post<ProductionOrder>('/api/v1/production/orders', data);
+  }
+
+  /**
+   * Creates an authoritative production order derived strictly from an approved specification.
+   */
+  public async createOrderFromSpecification(
+    data: ProductionOrderCreateFromSpecificationInput
+  ): Promise<ProductionOrder> {
+    return apiClient.post<ProductionOrder>('/api/v1/production/orders/from-specification', data);
   }
 
   /**

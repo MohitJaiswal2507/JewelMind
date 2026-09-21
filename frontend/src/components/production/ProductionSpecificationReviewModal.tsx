@@ -16,9 +16,11 @@ import {
   Scale,
   Hammer,
   HelpCircle,
+  Factory,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { productionService } from '../../services/api/productionService';
 import {
   productionSpecificationService,
   ProductionSpecificationResponse,
@@ -37,6 +39,7 @@ interface ProductionSpecificationReviewModalProps {
   renderVersion?: number | null;
   designCategory?: string | null;
   onSpecificationApproved?: (spec: ProductionSpecificationResponse) => void;
+  onOrderCreated?: (orderId: string) => void;
 }
 
 export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificationReviewModalProps> = ({
@@ -48,11 +51,15 @@ export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificatio
   renderVersion,
   designCategory,
   onSpecificationApproved,
+  onOrderCreated,
 }) => {
   const [specification, setSpecification] = useState<ProductionSpecificationResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [approving, setApproving] = useState<boolean>(false);
+  const [creatingOrder, setCreatingOrder] = useState<boolean>(false);
+  const [orderCreated, setOrderCreated] = useState<boolean>(false);
+  const [orderQuantity, setOrderQuantity] = useState<number>(1);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showApproveConfirm, setShowApproveConfirm] = useState<boolean>(false);
@@ -358,6 +365,38 @@ export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificatio
       setError(err?.message || 'Failed to approve specification');
     } finally {
       setApproving(false);
+    }
+  };
+
+  // Create Production Order from Approved Specification
+  const handleCreateProductionOrder = async () => {
+    if (!specification || specification.status !== 'approved') {
+      setError('Only approved specifications can create a production order.');
+      return;
+    }
+    setCreatingOrder(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const order = await productionService.createOrderFromSpecification({
+        specification_id: specification.id,
+        quantity: orderQuantity > 0 ? orderQuantity : 1,
+      });
+      setOrderCreated(true);
+      setSuccessMessage(
+        `Production Order #${order.id.slice(0, 8)} created successfully with ${
+          order.routing_steps_count ?? steps.length
+        } tailored manufacturing operations!`
+      );
+      if (onOrderCreated) {
+        onOrderCreated(order.id);
+      }
+    } catch (err: any) {
+      console.error('Failed to create production order:', err);
+      setError(err?.message || 'Failed to create production order from specification');
+    } finally {
+      setCreatingOrder(false);
     }
   };
 
@@ -1069,9 +1108,50 @@ export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificatio
           )}
 
           {isApproved && (
-            <div className="flex items-center space-x-2 text-emerald-400 text-xs font-semibold">
-              <Lock className="w-4 h-4" />
-              <span>Specification Approved & Immutable</span>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1.5 text-emerald-400 text-xs font-semibold mr-2">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Approved & Immutable</span>
+              </div>
+
+              <div className="flex items-center space-x-1.5 bg-black/40 border border-white/10 rounded-lg px-2 py-1">
+                <span className="text-[11px] text-slate-400">Qty:</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={orderQuantity}
+                  onChange={(e) => setOrderQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-12 bg-transparent text-xs text-white font-bold outline-none text-center"
+                  disabled={creatingOrder || orderCreated}
+                  data-testid="order-quantity-input"
+                />
+              </div>
+
+              <Button
+                variant="gold"
+                size="sm"
+                onClick={handleCreateProductionOrder}
+                disabled={creatingOrder || orderCreated}
+                className="text-xs shadow-md font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black flex items-center"
+                data-testid="create-production-order-btn"
+              >
+                {creatingOrder ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    <span>Creating Order...</span>
+                  </>
+                ) : orderCreated ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-950" />
+                    <span>Order Created</span>
+                  </>
+                ) : (
+                  <>
+                    <Factory className="w-3.5 h-3.5 mr-1.5 text-black" />
+                    <span>Create Production Order</span>
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </div>

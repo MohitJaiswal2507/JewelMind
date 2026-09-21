@@ -75,6 +75,9 @@ class ScheduledTaskResponse(BaseModel):
     duration_hours: float
     sequence_order: int = 1
     is_overdue: bool = False
+    specification_id: Optional[uuid.UUID] = None
+    step_number: Optional[int] = None
+    quality_checkpoint: Optional[str] = None
 
 
 class OptimizationMetrics(BaseModel):

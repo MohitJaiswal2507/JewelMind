@@ -45,6 +45,12 @@ export interface ProductionOrder {
   design_id: string;
   render_id?: string | null;
   approved_render_url?: string | null;
+  specification_id?: string | null;
+  specification_version?: number | null;
+  specification_category?: string | null;
+  routing_steps_count?: number | null;
+  materials_count?: number | null;
+  gemstones_count?: number | null;
   quantity: number;
   priority: OrderPriority;
   status: OrderStatus;
@@ -62,6 +68,7 @@ export interface ProductionOrderCreateInput {
   design_id: string;
   render_id?: string | null;
   approved_render_url?: string | null;
+  specification_id?: string | null;
   quantity: number;
   priority?: OrderPriority;
   status?: OrderStatus;
@@ -69,9 +76,18 @@ export interface ProductionOrderCreateInput {
   notes?: string | null;
 }
 
+export interface ProductionOrderCreateFromSpecificationInput {
+  specification_id: string;
+  quantity?: number;
+  priority?: OrderPriority;
+  deadline?: string;
+  notes?: string | null;
+}
+
 export interface ProductionOrderUpdateInput {
   render_id?: string | null;
   approved_render_url?: string | null;
+  specification_id?: string | null;
   quantity?: number;
   priority?: OrderPriority;
   status?: OrderStatus;
@@ -194,6 +210,9 @@ export interface ScheduledTask {
   duration_hours: number;
   sequence_order: number;
   is_overdue: boolean;
+  specification_id?: string | null;
+  step_number?: number | null;
+  quality_checkpoint?: string | null;
 }
 
 export interface OptimizationMetrics {
