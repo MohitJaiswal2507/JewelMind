@@ -52,6 +52,13 @@ from .optimization import (
     ProductionScheduleResponse,
     ProductionScheduleListResponse,
 )
+from .execution import (
+    ExecutionStatus,
+    OperationExecutionTransitionRequest,
+    OperationExecutionCreate,
+    OperationExecutionResponse,
+    OperationExecutionListResponse,
+)
 
 __all__ = [
     "ApiResponse",
@@ -98,4 +105,9 @@ __all__ = [
     "OptimizationResponse",
     "ProductionScheduleResponse",
     "ProductionScheduleListResponse",
+    "ExecutionStatus",
+    "OperationExecutionTransitionRequest",
+    "OperationExecutionCreate",
+    "OperationExecutionResponse",
+    "OperationExecutionListResponse",
 ]

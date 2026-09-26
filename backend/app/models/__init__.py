@@ -8,6 +8,7 @@ from .specification import (
     ProductionGemstone,
     ProductionStep,
 )
+from .execution import OperationExecution
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "ProductionMaterial",
     "ProductionGemstone",
     "ProductionStep",
+    "OperationExecution",
 ]

@@ -14,6 +14,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.design import Design
+    from app.models.execution import OperationExecution
     from app.models.specification import ProductionSpecification
     from app.models.user import User
 
@@ -86,6 +87,11 @@ class ProductionOrder(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     specification: Mapped[Optional["ProductionSpecification"]] = relationship(
         "ProductionSpecification",
         back_populates="production_orders",
+    )
+    executions: Mapped[list["OperationExecution"]] = relationship(
+        "OperationExecution",
+        back_populates="production_order",
+        order_by="OperationExecution.created_at",
     )
 
     def __repr__(self) -> str:

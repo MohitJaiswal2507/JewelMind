@@ -14,6 +14,7 @@ from app.api.v1 import (
     health,
     production,
     production_specifications,
+    production_execution,
 )
 
 api_v1_router = APIRouter()
@@ -27,6 +28,7 @@ api_v1_router.include_router(ai_rendering.router)
 api_v1_router.include_router(ai_gemini.router)
 api_v1_router.include_router(production.router)
 api_v1_router.include_router(production_specifications.router)
+api_v1_router.include_router(production_execution.router)
 api_v1_router.include_router(dashboard.router)
 
 
