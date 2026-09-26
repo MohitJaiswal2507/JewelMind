@@ -52,6 +52,157 @@ def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.astimezone(timezone.utc)
 
 
+def get_worker_skills(worker: Optional[Worker]) -> Set[str]:
+    """Extracts normalized set of craft skills possessed by a worker."""
+    if not worker or not worker.skill:
+        return set()
+    raw = worker.skill.strip()
+    if raw.startswith("[") and raw.endswith("]"):
+        import json
+        try:
+            items = json.loads(raw)
+            if isinstance(items, list):
+                return {str(i).strip().lower() for i in items if str(i).strip()}
+        except Exception:
+            pass
+    return {s.strip().lower() for s in raw.split(",") if s.strip()}
+
+
+def is_worker_skill_eligible(worker: Optional[Worker], required_skill: Optional[str]) -> bool:
+    """
+    Determines if a worker is eligible for an operation requiring a specific craft skill.
+    Matching is deterministic and case-normalized.
+    - If required_skill is empty, None, 'none', or 'general', any worker is eligible.
+    - If worker has 'general' skill, the worker is eligible as fallback.
+    - Otherwise, worker must possess the required skill.
+    """
+    if not required_skill or not required_skill.strip():
+        return True
+    req = required_skill.strip().lower()
+    if req in ("none", "general"):
+        return True
+    if not worker:
+        return False
+    skills = get_worker_skills(worker)
+    if "general" in skills:
+        return True
+    return req in skills
+
+
+def get_machine_types(machine: Optional[Machine]) -> Set[str]:
+    """Extracts normalized set of functional machine types for a piece of equipment."""
+    if not machine or not machine.machine_type:
+        return set()
+    raw = machine.machine_type.strip()
+    if raw.startswith("[") and raw.endswith("]"):
+        import json
+        try:
+            items = json.loads(raw)
+            if isinstance(items, list):
+                return {str(i).strip().lower() for i in items if str(i).strip()}
+        except Exception:
+            pass
+    return {s.strip().lower() for s in raw.split(",") if s.strip()}
+
+
+def is_machine_compatible(machine: Optional[Machine], required_machine_type: Optional[str]) -> bool:
+    """
+    Determines if a machine is compatible with an operation requiring a specific machine type.
+    Matching is deterministic and case-normalized.
+    - If required_machine_type is empty, None, or 'none', no machine is required (compatible).
+    - If required_machine_type is 'general', any machine is compatible.
+    - If machine is 'general', it is compatible as general workshop equipment.
+    - Otherwise, machine must match the required machine type.
+    """
+    if not required_machine_type or not required_machine_type.strip():
+        return True
+    req = required_machine_type.strip().lower()
+    if req in ("none", "general"):
+        return True
+    if not machine:
+        return False
+    types = get_machine_types(machine)
+    if "general" in types:
+        return True
+    return req in types
+
+
+def check_worker_active_conflict(
+    db: Session,
+    user_id: Union[str, uuid.UUID],
+    worker_id: Union[str, uuid.UUID],
+    exclude_execution_id: Optional[Union[str, uuid.UUID]] = None,
+    for_update: bool = True,
+) -> Optional[OperationExecution]:
+    """
+    Checks if a worker is actively engaged in another operation (IN_PROGRESS or PAUSED).
+    Returns the conflicting OperationExecution if found, or None if available.
+    Uses row-level locking (with_for_update) to prevent concurrent double-booking.
+    """
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
+    if isinstance(worker_id, str):
+        worker_id = uuid.UUID(worker_id)
+    if isinstance(exclude_execution_id, str):
+        exclude_execution_id = uuid.UUID(exclude_execution_id)
+
+    stmt = (
+        select(OperationExecution)
+        .where(
+            OperationExecution.user_id == user_id,
+            OperationExecution.worker_id == worker_id,
+            OperationExecution.status.in_([
+                ExecutionStatus.IN_PROGRESS.value,
+                ExecutionStatus.PAUSED.value,
+            ]),
+        )
+    )
+    if exclude_execution_id:
+        stmt = stmt.where(OperationExecution.id != exclude_execution_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+
+    return db.scalar(stmt)
+
+
+def check_machine_active_conflict(
+    db: Session,
+    user_id: Union[str, uuid.UUID],
+    machine_id: Union[str, uuid.UUID],
+    exclude_execution_id: Optional[Union[str, uuid.UUID]] = None,
+    for_update: bool = True,
+) -> Optional[OperationExecution]:
+    """
+    Checks if a machine is actively engaged in another operation (IN_PROGRESS or PAUSED).
+    Returns the conflicting OperationExecution if found, or None if available.
+    Uses row-level locking (with_for_update) to prevent concurrent double-booking.
+    """
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
+    if isinstance(machine_id, str):
+        machine_id = uuid.UUID(machine_id)
+    if isinstance(exclude_execution_id, str):
+        exclude_execution_id = uuid.UUID(exclude_execution_id)
+
+    stmt = (
+        select(OperationExecution)
+        .where(
+            OperationExecution.user_id == user_id,
+            OperationExecution.machine_id == machine_id,
+            OperationExecution.status.in_([
+                ExecutionStatus.IN_PROGRESS.value,
+                ExecutionStatus.PAUSED.value,
+            ]),
+        )
+    )
+    if exclude_execution_id:
+        stmt = stmt.where(OperationExecution.id != exclude_execution_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+
+    return db.scalar(stmt)
+
+
 def serialize_execution_response(
     execution: OperationExecution,
     has_uncompleted_predecessors: bool = False,
@@ -59,11 +210,29 @@ def serialize_execution_response(
     """
     Serializes an OperationExecution ORM instance into its response schema,
     denormalizing step and resource information for operator inspection.
+    Exposes planned vs actual execution resources (Phase J.3).
     """
     step = execution.production_step
     worker = execution.worker
     machine = execution.machine
+    task = execution.scheduled_task
     current_status = execution.status
+
+    task_worker_id = task.worker_id if task else None
+    task_machine_id = task.machine_id if task else None
+    task_worker_name = task.worker.name if (task and task.worker) else None
+    task_machine_name = task.machine.name if (task and task.machine) else None
+
+    worker_eligible = (
+        is_worker_skill_eligible(worker, step.required_skill)
+        if (worker and step and step.required_skill)
+        else (True if (not step or not step.required_skill) else None)
+    )
+    machine_compatible = (
+        is_machine_compatible(machine, step.required_machine_type)
+        if (machine and step and step.required_machine_type)
+        else (True if (not step or not step.required_machine_type) else None)
+    )
 
     return OperationExecutionResponse(
         id=execution.id,
@@ -93,6 +262,16 @@ def serialize_execution_response(
         quality_checkpoint=step.quality_checkpoint if step else None,
         worker_name=worker.name if worker else None,
         machine_name=machine.name if machine else None,
+        actual_worker_id=execution.worker_id,
+        actual_machine_id=execution.machine_id,
+        planned_worker_id=task_worker_id,
+        planned_machine_id=task_machine_id,
+        planned_worker_name=task_worker_name,
+        planned_machine_name=task_machine_name,
+        worker_skill=worker.skill if worker else None,
+        machine_type=machine.machine_type if machine else None,
+        worker_eligible=worker_eligible,
+        machine_compatible=machine_compatible,
         is_terminal=(current_status == ExecutionStatus.COMPLETED.value),
         can_start=(current_status == ExecutionStatus.READY.value),
         has_uncompleted_predecessors=has_uncompleted_predecessors,
@@ -423,7 +602,8 @@ class ProductionExecutionService:
                 joinedload(OperationExecution.production_step),
                 joinedload(OperationExecution.worker),
                 joinedload(OperationExecution.machine),
-                joinedload(OperationExecution.scheduled_task),
+                joinedload(OperationExecution.scheduled_task).joinedload(ScheduledTask.worker),
+                joinedload(OperationExecution.scheduled_task).joinedload(ScheduledTask.machine),
             )
             .where(
                 OperationExecution.production_order_id == order_id,
@@ -482,7 +662,8 @@ class ProductionExecutionService:
                 joinedload(OperationExecution.production_step),
                 joinedload(OperationExecution.worker),
                 joinedload(OperationExecution.machine),
-                joinedload(OperationExecution.scheduled_task),
+                joinedload(OperationExecution.scheduled_task).joinedload(ScheduledTask.worker),
+                joinedload(OperationExecution.scheduled_task).joinedload(ScheduledTask.machine),
             )
             .where(
                 OperationExecution.id == execution_id,
@@ -502,17 +683,243 @@ class ProductionExecutionService:
         return execution
 
     @staticmethod
+    def is_worker_available(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        worker_id: Union[str, uuid.UUID],
+        exclude_execution_id: Optional[Union[str, uuid.UUID]] = None,
+    ) -> Tuple[bool, Optional[OperationExecution]]:
+        """
+        Determines if a worker is currently available to start an operation.
+        A worker is unavailable if actively engaged in an operation with status IN_PROGRESS or PAUSED.
+        Returns (True, None) if available, or (False, conflicting_execution) if busy.
+        """
+        conflict = check_worker_active_conflict(
+            db=db,
+            user_id=user_id,
+            worker_id=worker_id,
+            exclude_execution_id=exclude_execution_id,
+            for_update=False,
+        )
+        if conflict:
+            return False, conflict
+        return True, None
+
+    @staticmethod
+    def is_machine_available(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        machine_id: Union[str, uuid.UUID],
+        exclude_execution_id: Optional[Union[str, uuid.UUID]] = None,
+    ) -> Tuple[bool, Optional[OperationExecution]]:
+        """
+        Determines if a machine is currently available to start an operation.
+        A machine is unavailable if actively utilized in an operation with status IN_PROGRESS or PAUSED.
+        Returns (True, None) if available, or (False, conflicting_execution) if busy.
+        """
+        conflict = check_machine_active_conflict(
+            db=db,
+            user_id=user_id,
+            machine_id=machine_id,
+            exclude_execution_id=exclude_execution_id,
+            for_update=False,
+        )
+        if conflict:
+            return False, conflict
+        return True, None
+
+    @staticmethod
+    def assign_worker(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+        worker_id: Union[str, uuid.UUID],
+    ) -> OperationExecution:
+        """
+        Assigns an eligible worker to an operation execution.
+        Validates:
+        1. Multi-tenant ownership of execution.
+        2. Execution state: rejects assignment to COMPLETED or reassignment while IN_PROGRESS / PAUSED.
+        3. Multi-tenant ownership of worker (without exposing other tenant existence).
+        4. Worker active presence/availability flag.
+        5. Worker skill eligibility against ProductionStep required_skill.
+        Atomically updates and commits worker_id.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+        if isinstance(worker_id, str):
+            worker_id = uuid.UUID(worker_id)
+
+        execution = ProductionExecutionService.get_execution_by_id(
+            db=db,
+            user_id=user_id,
+            execution_id=execution_id,
+            for_update=True,
+        )
+
+        # 1. State validation
+        if execution.status == ExecutionStatus.COMPLETED.value:
+            raise AppException(
+                "Completed operation executions are immutable and cannot be assigned a worker.",
+                code="EXECUTION_ALREADY_COMPLETED",
+                status_code=409,
+            )
+        if execution.status in (ExecutionStatus.IN_PROGRESS.value, ExecutionStatus.PAUSED.value):
+            raise AppException(
+                f"Cannot reassign worker while operation is in '{execution.status}' state.",
+                code="REASSIGNMENT_NOT_ALLOWED",
+                status_code=409,
+            )
+
+        # 2. Worker ownership validation
+        worker = db.scalar(
+            select(Worker).where(Worker.id == worker_id, Worker.user_id == user_id)
+        )
+        if not worker:
+            raise AppException(
+                "Worker not found or belongs to another tenant.",
+                code="WORKER_NOT_FOUND",
+                status_code=404,
+            )
+        if not worker.is_available:
+            raise AppException(
+                f"Worker '{worker.name}' is currently marked unavailable.",
+                code="WORKER_NOT_AVAILABLE",
+                status_code=409,
+            )
+
+        # 3. Skill eligibility validation
+        if not execution.production_step:
+            execution.production_step = db.scalar(
+                select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+            )
+        step = execution.production_step
+        if step and step.required_skill:
+            if not is_worker_skill_eligible(worker, step.required_skill):
+                raise AppException(
+                    f"Worker '{worker.name}' does not possess required skill '{step.required_skill}'. "
+                    f"Worker skill: '{worker.skill}'.",
+                    code="WORKER_INELIGIBLE_SKILL",
+                    status_code=409,
+                )
+
+        execution.worker_id = worker.id
+        execution.worker = worker
+
+        try:
+            db.commit()
+            db.refresh(execution)
+        except Exception:
+            db.rollback()
+            raise
+
+        return execution
+
+    @staticmethod
+    def assign_machine(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+        machine_id: Union[str, uuid.UUID],
+    ) -> OperationExecution:
+        """
+        Assigns compatible equipment to an operation execution.
+        Validates:
+        1. Multi-tenant ownership of execution.
+        2. Execution state: rejects assignment to COMPLETED or reassignment while IN_PROGRESS / PAUSED.
+        3. Multi-tenant ownership of machine (without exposing other tenant existence).
+        4. Machine operational availability flag.
+        5. Machine compatibility against ProductionStep required_machine_type.
+        Atomically updates and commits machine_id.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+        if isinstance(machine_id, str):
+            machine_id = uuid.UUID(machine_id)
+
+        execution = ProductionExecutionService.get_execution_by_id(
+            db=db,
+            user_id=user_id,
+            execution_id=execution_id,
+            for_update=True,
+        )
+
+        # 1. State validation
+        if execution.status == ExecutionStatus.COMPLETED.value:
+            raise AppException(
+                "Completed operation executions are immutable and cannot be assigned a machine.",
+                code="EXECUTION_ALREADY_COMPLETED",
+                status_code=409,
+            )
+        if execution.status in (ExecutionStatus.IN_PROGRESS.value, ExecutionStatus.PAUSED.value):
+            raise AppException(
+                f"Cannot reassign machine while operation is in '{execution.status}' state.",
+                code="REASSIGNMENT_NOT_ALLOWED",
+                status_code=409,
+            )
+
+        # 2. Machine ownership validation
+        machine = db.scalar(
+            select(Machine).where(Machine.id == machine_id, Machine.user_id == user_id)
+        )
+        if not machine:
+            raise AppException(
+                "Machine not found or belongs to another tenant.",
+                code="MACHINE_NOT_FOUND",
+                status_code=404,
+            )
+        if not machine.is_available:
+            raise AppException(
+                f"Machine '{machine.name}' is currently marked unavailable/offline.",
+                code="MACHINE_NOT_AVAILABLE",
+                status_code=409,
+            )
+
+        # 3. Machine compatibility validation
+        if not execution.production_step:
+            execution.production_step = db.scalar(
+                select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+            )
+        step = execution.production_step
+        if step and step.required_machine_type:
+            if not is_machine_compatible(machine, step.required_machine_type):
+                raise AppException(
+                    f"Machine '{machine.name}' (type '{machine.machine_type}') is incompatible with "
+                    f"required machine type '{step.required_machine_type}'.",
+                    code="MACHINE_INCOMPATIBLE_TYPE",
+                    status_code=409,
+                )
+
+        execution.machine_id = machine.id
+        execution.machine = machine
+
+        try:
+            db.commit()
+            db.refresh(execution)
+        except Exception:
+            db.rollback()
+            raise
+
+        return execution
+
+    @staticmethod
     def transition_execution(
         db: Session,
         user_id: Union[str, uuid.UUID],
         execution_id: Union[str, uuid.UUID],
         req: OperationExecutionTransitionRequest,
+        validate_resources: Optional[bool] = None,
         _simulate_advancement_failure: bool = False,
     ) -> OperationExecution:
         """
         Executes a validated state transition on an OperationExecution.
         Updates shop-floor timestamps, calculates elapsed/pause durations,
-        validates resource ownership, advances next sequential operation atomically (Phase J.2),
+        validates resource ownership and eligibility (Phase J.3),
+        advances next sequential operation atomically (Phase J.2),
         and updates production order status atomically.
         """
         if isinstance(user_id, str):
@@ -531,6 +938,7 @@ class ProductionExecutionService:
         current_status = ExecutionStatus(execution.status)
         target_status = req.target_status
         now = datetime.now(timezone.utc)
+        eff_validate_resources = validate_resources if validate_resources is not None else getattr(req, "validate_resources", None)
 
         # 2. Immutability check: once completed, execution cannot be restarted
         if current_status == ExecutionStatus.COMPLETED:
@@ -559,24 +967,163 @@ class ProductionExecutionService:
                     status_code=409,
                 )
 
-        # 5. Optional resource ownership validation
-        if req.worker_id is not None:
+        # 5. Reassignment validation for active/completed operations (Phase J.3)
+        if current_status in (ExecutionStatus.IN_PROGRESS, ExecutionStatus.PAUSED, ExecutionStatus.COMPLETED):
+            if req.worker_id is not None and req.worker_id != execution.worker_id:
+                raise AppException(
+                    f"Cannot reassign worker while operation is in '{current_status.value}' state.",
+                    code="REASSIGNMENT_NOT_ALLOWED",
+                    status_code=409,
+                )
+            if req.machine_id is not None and req.machine_id != execution.machine_id:
+                raise AppException(
+                    f"Cannot reassign machine while operation is in '{current_status.value}' state.",
+                    code="REASSIGNMENT_NOT_ALLOWED",
+                    status_code=409,
+                )
+
+        # Optional resource assignment during transition (valid in READY, PENDING, BLOCKED)
+        if req.worker_id is not None and current_status not in (ExecutionStatus.IN_PROGRESS, ExecutionStatus.PAUSED, ExecutionStatus.COMPLETED):
             worker = db.scalar(
                 select(Worker).where(Worker.id == req.worker_id, Worker.user_id == user_id)
             )
             if not worker:
                 raise AppException("Worker not found or belongs to another tenant.", code="WORKER_NOT_FOUND", status_code=404)
+            if not worker.is_available:
+                raise AppException(f"Worker '{worker.name}' is currently unavailable.", code="WORKER_NOT_AVAILABLE", status_code=409)
+            if not execution.production_step:
+                execution.production_step = db.scalar(
+                    select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+                )
+            if execution.production_step and execution.production_step.required_skill:
+                if not is_worker_skill_eligible(worker, execution.production_step.required_skill):
+                    raise AppException(
+                        f"Worker '{worker.name}' lacks required skill '{execution.production_step.required_skill}'.",
+                        code="WORKER_INELIGIBLE_SKILL",
+                        status_code=409,
+                    )
             execution.worker_id = worker.id
             execution.worker = worker
 
-        if req.machine_id is not None:
+        if req.machine_id is not None and current_status not in (ExecutionStatus.IN_PROGRESS, ExecutionStatus.PAUSED, ExecutionStatus.COMPLETED):
             machine = db.scalar(
                 select(Machine).where(Machine.id == req.machine_id, Machine.user_id == user_id)
             )
             if not machine:
                 raise AppException("Machine not found or belongs to another tenant.", code="MACHINE_NOT_FOUND", status_code=404)
+            if not machine.is_available:
+                raise AppException(f"Machine '{machine.name}' is currently unavailable.", code="MACHINE_NOT_AVAILABLE", status_code=409)
+            if not execution.production_step:
+                execution.production_step = db.scalar(
+                    select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+                )
+            if execution.production_step and execution.production_step.required_machine_type:
+                if not is_machine_compatible(machine, execution.production_step.required_machine_type):
+                    raise AppException(
+                        f"Machine '{machine.name}' is incompatible with required type '{execution.production_step.required_machine_type}'.",
+                        code="MACHINE_INCOMPATIBLE_TYPE",
+                        status_code=409,
+                    )
             execution.machine_id = machine.id
             execution.machine = machine
+
+        # 5b. Start Requirements & Resource Conflict validation (READY -> IN_PROGRESS)
+        if target_status == ExecutionStatus.IN_PROGRESS:
+            if not execution.production_step:
+                execution.production_step = db.scalar(
+                    select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+                )
+            step = execution.production_step
+
+            # Check if tenant has workshop resources registered
+            has_tenant_workers = db.scalar(select(Worker.id).where(Worker.user_id == user_id).limit(1)) is not None
+            has_tenant_machines = db.scalar(select(Machine.id).where(Machine.user_id == user_id).limit(1)) is not None
+            should_validate = (
+                (eff_validate_resources is True)
+                or (eff_validate_resources is None and (has_tenant_workers or has_tenant_machines))
+            )
+
+            # Worker validation
+            worker_required = bool(
+                step
+                and step.required_skill
+                and step.required_skill.strip()
+                and step.required_skill.strip().lower() != "none"
+            )
+            if worker_required and should_validate:
+                if not execution.worker_id:
+                    raise AppException(
+                        f"Operation step #{step.step_number} ('{step.stage_name}') requires an artisan "
+                        f"with skill '{step.required_skill}', but no worker is assigned.",
+                        code="MISSING_REQUIRED_WORKER",
+                        status_code=409,
+                    )
+
+            if execution.worker_id:
+                if not execution.worker:
+                    execution.worker = db.scalar(select(Worker).where(Worker.id == execution.worker_id))
+                if worker_required and step and not is_worker_skill_eligible(execution.worker, step.required_skill):
+                    raise AppException(
+                        f"Assigned worker '{execution.worker.name}' lacks required skill '{step.required_skill}'.",
+                        code="WORKER_INELIGIBLE_SKILL",
+                        status_code=409,
+                    )
+                # Worker availability / conflict check
+                conflict_w = check_worker_active_conflict(
+                    db=db,
+                    user_id=user_id,
+                    worker_id=execution.worker_id,
+                    exclude_execution_id=execution.id,
+                    for_update=True,
+                )
+                if conflict_w:
+                    raise AppException(
+                        f"Worker '{execution.worker.name if execution.worker else execution.worker_id}' is currently active on "
+                        f"another operation (Execution ID: {conflict_w.id}, status: '{conflict_w.status}').",
+                        code="WORKER_RESOURCE_CONFLICT",
+                        status_code=409,
+                    )
+
+            # Machine validation
+            machine_required = bool(
+                step
+                and step.required_machine_type
+                and step.required_machine_type.strip()
+                and step.required_machine_type.strip().lower() != "none"
+            )
+            if machine_required and should_validate:
+                if not execution.machine_id:
+                    raise AppException(
+                        f"Operation step #{step.step_number} ('{step.stage_name}') requires equipment "
+                        f"of type '{step.required_machine_type}', but no machine is assigned.",
+                        code="MISSING_REQUIRED_MACHINE",
+                        status_code=409,
+                    )
+
+            if execution.machine_id:
+                if not execution.machine:
+                    execution.machine = db.scalar(select(Machine).where(Machine.id == execution.machine_id))
+                if machine_required and step and not is_machine_compatible(execution.machine, step.required_machine_type):
+                    raise AppException(
+                        f"Assigned machine '{execution.machine.name}' is incompatible with required type '{step.required_machine_type}'.",
+                        code="MACHINE_INCOMPATIBLE_TYPE",
+                        status_code=409,
+                    )
+                # Machine availability / conflict check
+                conflict_m = check_machine_active_conflict(
+                    db=db,
+                    user_id=user_id,
+                    machine_id=execution.machine_id,
+                    exclude_execution_id=execution.id,
+                    for_update=True,
+                )
+                if conflict_m:
+                    raise AppException(
+                        f"Machine '{execution.machine.name if execution.machine else execution.machine_id}' is currently in use on "
+                        f"another operation (Execution ID: {conflict_m.id}, status: '{conflict_m.status}').",
+                        code="MACHINE_RESOURCE_CONFLICT",
+                        status_code=409,
+                    )
 
         # 6. Apply timing logic according to the transition
         if current_status == ExecutionStatus.READY and target_status == ExecutionStatus.IN_PROGRESS:
@@ -785,13 +1332,22 @@ class ProductionExecutionService:
                 )
             matched_task = task
 
-        # 5. Validate Worker & Machine ownership
+        # 5. Validate Worker & Machine ownership and compatibility
         if create_in.worker_id is not None:
             worker = db.scalar(
                 select(Worker).where(Worker.id == create_in.worker_id, Worker.user_id == user_id)
             )
             if not worker:
                 raise AppException("Worker not found or belongs to another tenant.", code="WORKER_NOT_FOUND", status_code=404)
+            if not worker.is_available:
+                raise AppException(f"Worker '{worker.name}' is currently unavailable.", code="WORKER_NOT_AVAILABLE", status_code=409)
+            if step and step.required_skill:
+                if not is_worker_skill_eligible(worker, step.required_skill):
+                    raise AppException(
+                        f"Worker '{worker.name}' lacks required skill '{step.required_skill}'.",
+                        code="WORKER_INELIGIBLE_SKILL",
+                        status_code=409,
+                    )
 
         if create_in.machine_id is not None:
             machine = db.scalar(
@@ -799,6 +1355,15 @@ class ProductionExecutionService:
             )
             if not machine:
                 raise AppException("Machine not found or belongs to another tenant.", code="MACHINE_NOT_FOUND", status_code=404)
+            if not machine.is_available:
+                raise AppException(f"Machine '{machine.name}' is currently unavailable.", code="MACHINE_NOT_AVAILABLE", status_code=409)
+            if step and step.required_machine_type:
+                if not is_machine_compatible(machine, step.required_machine_type):
+                    raise AppException(
+                        f"Machine '{machine.name}' is incompatible with required type '{step.required_machine_type}'.",
+                        code="MACHINE_INCOMPATIBLE_TYPE",
+                        status_code=409,
+                    )
 
         # 6. Predecessor validation: determine initial status (READY vs PENDING)
         predecessor_steps = [

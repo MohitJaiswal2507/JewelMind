@@ -55,6 +55,32 @@ class ProductionExecutionService {
       req
     );
   }
+
+  /**
+   * Assigns an eligible workshop artisan to an operation execution.
+   */
+  async assignWorker(
+    executionId: string,
+    workerId: string
+  ): Promise<OperationExecution> {
+    return apiClient.post<OperationExecution>(
+      `/api/v1/production/executions/${executionId}/assign-worker`,
+      { worker_id: workerId }
+    );
+  }
+
+  /**
+   * Assigns compatible equipment to an operation execution.
+   */
+  async assignMachine(
+    executionId: string,
+    machineId: string
+  ): Promise<OperationExecution> {
+    return apiClient.post<OperationExecution>(
+      `/api/v1/production/executions/${executionId}/assign-machine`,
+      { machine_id: machineId }
+    );
+  }
 }
 
 export const productionExecutionService = new ProductionExecutionService();

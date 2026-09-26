@@ -57,6 +57,20 @@ export interface OperationExecution {
   worker_name?: string | null;
   machine_name?: string | null;
 
+  // Planned vs Actual execution resources (Phase J.3)
+  actual_worker_id?: string | null;
+  actual_machine_id?: string | null;
+  planned_worker_id?: string | null;
+  planned_machine_id?: string | null;
+  planned_worker_name?: string | null;
+  planned_machine_name?: string | null;
+
+  // Resource validation & eligibility flags (Phase J.3)
+  worker_skill?: string | null;
+  machine_type?: string | null;
+  worker_eligible?: boolean | null;
+  machine_compatible?: boolean | null;
+
   // Workflow indicators (Phase J.2)
   is_terminal?: boolean;
   can_start?: boolean;
@@ -68,6 +82,15 @@ export interface OperationExecutionTransitionRequest {
   operator_notes?: string | null;
   worker_id?: string | null;
   machine_id?: string | null;
+  validate_resources?: boolean | null;
+}
+
+export interface WorkerAssignmentRequest {
+  worker_id: string;
+}
+
+export interface MachineAssignmentRequest {
+  machine_id: string;
 }
 
 export interface OperationExecutionCreate {
