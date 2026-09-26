@@ -131,13 +131,29 @@ class OperationExecutionResponse(BaseModel):
     worker_name: Optional[str] = None
     machine_name: Optional[str] = None
 
+    # Workflow indicators (Phase J.2)
+    is_terminal: bool = False
+    can_start: bool = False
+    has_uncompleted_predecessors: bool = False
+
 
 class OperationExecutionListResponse(BaseModel):
     """
-    List response containing all execution records for a production order.
+    List response containing all execution records for a production order
+    with workflow progress metrics (Phase J.2).
     """
     model_config = ConfigDict(from_attributes=True)
 
     order_id: uuid.UUID
     total: int
     items: List[OperationExecutionResponse]
+
+    # Workflow summary metrics
+    order_status: Optional[str] = None
+    completed_count: int = 0
+    in_progress_count: int = 0
+    ready_count: int = 0
+    pending_count: int = 0
+    blocked_count: int = 0
+    current_step_number: Optional[int] = None
+    overall_progress_percent: float = 0.0

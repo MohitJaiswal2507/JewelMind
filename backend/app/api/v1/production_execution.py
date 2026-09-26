@@ -70,16 +70,10 @@ async def list_order_executions(
     """
     Retrieves execution records for a production order. Enforces tenant isolation.
     """
-    executions = production_execution_service.get_order_executions(
+    return production_execution_service.get_order_execution_list_response(
         db=db,
         user_id=current_user.id,
         order_id=order_id,
-    )
-    items = [serialize_execution_response(e) for e in executions]
-    return OperationExecutionListResponse(
-        order_id=order_id,
-        total=len(items),
-        items=items,
     )
 
 

@@ -532,18 +532,36 @@ def test_transition_in_progress_to_completed_duration_calculation(db_session: Se
 
 
 def test_transition_pending_to_ready(db_session: Session):
-    """Test 12: PENDING -> READY allows advancing subsequent routing steps."""
+    """Test 12: PENDING -> READY enforces predecessor completion, then advances to READY."""
     user = create_test_user(db_session, "pendingready")
     _, _, spec, order, steps, _ = setup_complete_order_environment(db_session, user, num_steps=2)
     executions = production_execution_service.initialize_order_executions(db_session, user.id, order.id)
+    step1_ex = executions[0]
     step2_ex = executions[1]
     assert step2_ex.status == "pending"
 
-    updated = production_execution_service.transition_execution(
-        db_session, user.id, step2_ex.id,
-        OperationExecutionTransitionRequest(target_status=ExecutionStatus.READY),
+    # Predecessor incomplete: transition to READY is rejected
+    with pytest.raises(AppException) as exc_info:
+        production_execution_service.transition_execution(
+            db_session, user.id, step2_ex.id,
+            OperationExecutionTransitionRequest(target_status=ExecutionStatus.READY),
+        )
+    assert exc_info.value.code == "PREDECESSOR_NOT_COMPLETED"
+    assert exc_info.value.status_code == 409
+
+    # Complete Step 1
+    production_execution_service.transition_execution(
+        db_session, user.id, step1_ex.id,
+        OperationExecutionTransitionRequest(target_status=ExecutionStatus.IN_PROGRESS),
     )
-    assert updated.status == "ready"
+    production_execution_service.transition_execution(
+        db_session, user.id, step1_ex.id,
+        OperationExecutionTransitionRequest(target_status=ExecutionStatus.COMPLETED),
+    )
+
+    # Step 2 is now automatically advanced to READY
+    db_session.refresh(step2_ex)
+    assert step2_ex.status == "ready"
 
 
 def test_transition_blocked_and_unblocked(db_session: Session):

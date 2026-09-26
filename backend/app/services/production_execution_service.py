@@ -2,7 +2,8 @@
 Production Execution Service
 Core business logic and state machine engine for shop-floor manufacturing operations.
 Enforces strict state transitions, accurate bench/pause time calculations,
-multi-tenant authorization, and authoritative ProductionStep/ScheduledTask linkage.
+multi-tenant authorization, authoritative ProductionStep/ScheduledTask linkage,
+and automatic sequential routing progression (Phase J.2).
 """
 
 import math
@@ -21,6 +22,7 @@ from app.models.specification import ProductionSpecification, ProductionStep
 from app.schemas.execution import (
     ExecutionStatus,
     OperationExecutionCreate,
+    OperationExecutionListResponse,
     OperationExecutionResponse,
     OperationExecutionTransitionRequest,
 )
@@ -36,7 +38,7 @@ VALID_TRANSITIONS: Dict[ExecutionStatus, Set[ExecutionStatus]] = {
     },
     ExecutionStatus.PAUSED: {ExecutionStatus.IN_PROGRESS, ExecutionStatus.BLOCKED},
     ExecutionStatus.BLOCKED: {ExecutionStatus.READY},
-    # COMPLETED is terminal in J.1: no valid outward transitions
+    # COMPLETED is terminal: no valid outward transitions
     ExecutionStatus.COMPLETED: set(),
 }
 
@@ -50,7 +52,10 @@ def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.astimezone(timezone.utc)
 
 
-def serialize_execution_response(execution: OperationExecution) -> OperationExecutionResponse:
+def serialize_execution_response(
+    execution: OperationExecution,
+    has_uncompleted_predecessors: bool = False,
+) -> OperationExecutionResponse:
     """
     Serializes an OperationExecution ORM instance into its response schema,
     denormalizing step and resource information for operator inspection.
@@ -58,6 +63,7 @@ def serialize_execution_response(execution: OperationExecution) -> OperationExec
     step = execution.production_step
     worker = execution.worker
     machine = execution.machine
+    current_status = execution.status
 
     return OperationExecutionResponse(
         id=execution.id,
@@ -67,7 +73,7 @@ def serialize_execution_response(execution: OperationExecution) -> OperationExec
         scheduled_task_id=execution.scheduled_task_id,
         worker_id=execution.worker_id,
         machine_id=execution.machine_id,
-        status=ExecutionStatus(execution.status),
+        status=ExecutionStatus(current_status),
         planned_start_time=execution.planned_start_time,
         planned_end_time=execution.planned_end_time,
         planned_duration_hours=execution.planned_duration_hours,
@@ -87,14 +93,162 @@ def serialize_execution_response(execution: OperationExecution) -> OperationExec
         quality_checkpoint=step.quality_checkpoint if step else None,
         worker_name=worker.name if worker else None,
         machine_name=machine.name if machine else None,
+        is_terminal=(current_status == ExecutionStatus.COMPLETED.value),
+        can_start=(current_status == ExecutionStatus.READY.value),
+        has_uncompleted_predecessors=has_uncompleted_predecessors,
+    )
+
+
+def build_order_execution_list_response(
+    order: ProductionOrder,
+    executions: List[OperationExecution],
+) -> OperationExecutionListResponse:
+    """
+    Builds an OperationExecutionListResponse enriched with shop-floor workflow metrics.
+    """
+    total = len(executions)
+    completed_count = sum(1 for e in executions if e.status == ExecutionStatus.COMPLETED.value)
+    in_progress_count = sum(1 for e in executions if e.status == ExecutionStatus.IN_PROGRESS.value)
+    ready_count = sum(1 for e in executions if e.status == ExecutionStatus.READY.value)
+    pending_count = sum(1 for e in executions if e.status == ExecutionStatus.PENDING.value)
+    blocked_count = sum(1 for e in executions if e.status == ExecutionStatus.BLOCKED.value)
+    overall_progress_percent = round((completed_count / total * 100.0), 2) if total > 0 else 0.0
+
+    # Determine active operation step number
+    active_ex = (
+        next((e for e in executions if e.status == ExecutionStatus.IN_PROGRESS.value), None)
+        or next((e for e in executions if e.status == ExecutionStatus.READY.value), None)
+        or next((e for e in executions if e.status == ExecutionStatus.BLOCKED.value), None)
+        or (executions[-1] if completed_count == total and total > 0 else None)
+    )
+    current_step_number = active_ex.production_step.step_number if active_ex and active_ex.production_step else None
+
+    items: List[OperationExecutionResponse] = []
+    for e in executions:
+        step_num = e.production_step.step_number if e.production_step else 0
+        has_uncompleted = any(
+            other.production_step.step_number < step_num and other.status != ExecutionStatus.COMPLETED.value
+            for other in executions if other.production_step
+        )
+        items.append(serialize_execution_response(e, has_uncompleted_predecessors=has_uncompleted))
+
+    return OperationExecutionListResponse(
+        order_id=order.id,
+        order_status=order.status,
+        total=total,
+        completed_count=completed_count,
+        in_progress_count=in_progress_count,
+        ready_count=ready_count,
+        pending_count=pending_count,
+        blocked_count=blocked_count,
+        current_step_number=current_step_number,
+        overall_progress_percent=overall_progress_percent,
+        items=items,
     )
 
 
 class ProductionExecutionService:
     """
     Foundational manufacturing execution service managing actual workshop
-    operations, artisan transitions, timing reconciliation, and order tracking.
+    operations, artisan transitions, timing reconciliation, order tracking,
+    and automatic routing progression (Phase J.2).
     """
+
+    @staticmethod
+    def get_predecessors_for_execution(
+        db: Session,
+        execution: OperationExecution,
+    ) -> List[OperationExecution]:
+        """
+        Returns all predecessor OperationExecution records for a given execution
+        within its ProductionOrder routing.
+        In the current sequential routing architecture:
+        All operations with step_number < current execution's step_number are predecessors.
+        """
+        if not execution.production_step:
+            execution.production_step = db.scalar(
+                select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+            )
+
+        current_step_number = execution.production_step.step_number if execution.production_step else 0
+
+        order_executions = list(
+            db.scalars(
+                select(OperationExecution)
+                .options(joinedload(OperationExecution.production_step))
+                .where(
+                    OperationExecution.production_order_id == execution.production_order_id,
+                    OperationExecution.user_id == execution.user_id,
+                )
+            ).all()
+        )
+
+        predecessors = [
+            ex for ex in order_executions
+            if ex.production_step and ex.production_step.step_number < current_step_number
+        ]
+        predecessors.sort(key=lambda ex: ex.production_step.step_number)
+        return predecessors
+
+    @staticmethod
+    def validate_predecessors_completed(
+        db: Session,
+        execution: OperationExecution,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Validates that all predecessor operations for an execution are COMPLETED.
+        Cross-references with the authoritative ProductionSpecification routing steps.
+        Returns (True, None) if satisfied, or (False, error_message) if not.
+        """
+        if not execution.production_step:
+            execution.production_step = db.scalar(
+                select(ProductionStep).where(ProductionStep.id == execution.production_step_id)
+            )
+
+        current_step_number = execution.production_step.step_number if execution.production_step else 0
+
+        # Load order with specification routing steps
+        order = db.scalar(
+            select(ProductionOrder)
+            .options(joinedload(ProductionOrder.specification).selectinload(ProductionSpecification.steps))
+            .where(ProductionOrder.id == execution.production_order_id)
+        )
+
+        if order and order.specification and order.specification.steps:
+            required_predecessors = [
+                s for s in order.specification.steps
+                if s.step_number < current_step_number
+            ]
+            if required_predecessors:
+                order_executions = list(
+                    db.scalars(
+                        select(OperationExecution)
+                        .options(joinedload(OperationExecution.production_step))
+                        .where(
+                            OperationExecution.production_order_id == execution.production_order_id,
+                            OperationExecution.user_id == execution.user_id,
+                        )
+                    ).all()
+                )
+                exec_by_step_id = {e.production_step_id: e for e in order_executions}
+
+                for req_step in sorted(required_predecessors, key=lambda s: s.step_number):
+                    pred_exec = exec_by_step_id.get(req_step.id)
+                    if not pred_exec:
+                        return False, f"Predecessor step #{req_step.step_number} ('{req_step.stage_name}') has no execution record and must be COMPLETED."
+                    if pred_exec.status != ExecutionStatus.COMPLETED.value:
+                        return False, f"Predecessor step #{req_step.step_number} ('{req_step.stage_name}') is currently in '{pred_exec.status}' state and must be COMPLETED."
+
+                return True, None
+
+        # Fallback if specification not directly resolvable
+        predecessors = ProductionExecutionService.get_predecessors_for_execution(db, execution)
+        for pred in predecessors:
+            if pred.status != ExecutionStatus.COMPLETED.value:
+                step_num = pred.production_step.step_number if pred.production_step else "?"
+                stage = pred.production_step.stage_name if pred.production_step else "Unknown"
+                return False, f"Predecessor step #{step_num} ('{stage}') is currently in '{pred.status}' state and must be COMPLETED."
+        return True, None
 
     @staticmethod
     def initialize_order_executions(
@@ -134,7 +288,6 @@ class ProductionExecutionService:
 
         # 2. Check if executions have already been initialized (Idempotency / Duplicate protection)
         if order.executions and len(order.executions) > 0:
-            # Sort by step_number and return existing executions
             sorted_existing = sorted(
                 order.executions,
                 key=lambda e: (e.production_step.step_number if e.production_step else 0),
@@ -176,7 +329,6 @@ class ProductionExecutionService:
         )
         scheduled_tasks: List[ScheduledTask] = list(db.scalars(tasks_stmt).all())
 
-        # Map scheduled tasks by step/sequence order for planned timing alignment
         task_by_seq: Dict[int, ScheduledTask] = {
             t.sequence_order: t for t in scheduled_tasks
         }
@@ -184,13 +336,10 @@ class ProductionExecutionService:
         # 5. Build executions atomically
         executions_to_create: List[OperationExecution] = []
         for idx, step in enumerate(sorted_steps):
-            # First operation begins READY; subsequent operations are PENDING
             initial_status = ExecutionStatus.READY.value if idx == 0 else ExecutionStatus.PENDING.value
 
-            # Attempt matching to scheduled task
             matched_task: Optional[ScheduledTask] = task_by_seq.get(step.step_number)
             if not matched_task and idx < len(scheduled_tasks):
-                # Fallback to index-based sequence match if step_number offset differs
                 matched_task = scheduled_tasks[idx]
 
             planned_start = matched_task.start_time if matched_task else None
@@ -201,7 +350,6 @@ class ProductionExecutionService:
                 assigned_machine_id = matched_task.machine_id
                 matched_task_id = matched_task.id
             else:
-                # Direct unscheduled duration estimation
                 calc_dur = step.base_hours + (step.per_unit_hours * max(1, order.quantity))
                 planned_duration = float(max(1, math.ceil(calc_dur)))
                 assigned_worker_id = None
@@ -240,7 +388,6 @@ class ProductionExecutionService:
             db.rollback()
             raise
 
-        # Attach step relationships for response mapping
         for idx, ex in enumerate(executions_to_create):
             ex.production_step = sorted_steps[idx]
 
@@ -261,7 +408,6 @@ class ProductionExecutionService:
         if isinstance(order_id, str):
             order_id = uuid.UUID(order_id)
 
-        # Verify order exists and belongs to user
         order = db.scalar(
             select(ProductionOrder).where(
                 ProductionOrder.id == order_id,
@@ -289,14 +435,41 @@ class ProductionExecutionService:
         return executions
 
     @staticmethod
+    def get_order_execution_list_response(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_id: Union[str, uuid.UUID],
+    ) -> OperationExecutionListResponse:
+        """
+        Retrieves all executions for an order enriched with workflow progress indicators.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(order_id, str):
+            order_id = uuid.UUID(order_id)
+
+        order = db.scalar(
+            select(ProductionOrder).where(
+                ProductionOrder.id == order_id,
+                ProductionOrder.user_id == user_id,
+            )
+        )
+        if not order:
+            raise AppException("Production order not found.", code="ORDER_NOT_FOUND", status_code=404)
+
+        executions = ProductionExecutionService.get_order_executions(db, user_id, order_id)
+        return build_order_execution_list_response(order, executions)
+
+    @staticmethod
     def get_execution_by_id(
         db: Session,
         user_id: Union[str, uuid.UUID],
         execution_id: Union[str, uuid.UUID],
+        for_update: bool = False,
     ) -> OperationExecution:
         """
         Retrieves a single operation execution with loaded relationships,
-        enforcing multi-tenant isolation.
+        enforcing multi-tenant isolation and optional row-level locking.
         """
         if isinstance(user_id, str):
             user_id = uuid.UUID(user_id)
@@ -316,6 +489,9 @@ class ProductionExecutionService:
                 OperationExecution.user_id == user_id,
             )
         )
+        if for_update:
+            stmt = stmt.with_for_update()
+
         execution = db.scalar(stmt)
         if not execution:
             raise AppException(
@@ -331,22 +507,25 @@ class ProductionExecutionService:
         user_id: Union[str, uuid.UUID],
         execution_id: Union[str, uuid.UUID],
         req: OperationExecutionTransitionRequest,
+        _simulate_advancement_failure: bool = False,
     ) -> OperationExecution:
         """
         Executes a validated state transition on an OperationExecution.
         Updates shop-floor timestamps, calculates elapsed/pause durations,
-        validates resource ownership, and commits atomically.
+        validates resource ownership, advances next sequential operation atomically (Phase J.2),
+        and updates production order status atomically.
         """
         if isinstance(user_id, str):
             user_id = uuid.UUID(user_id)
         if isinstance(execution_id, str):
             execution_id = uuid.UUID(execution_id)
 
-        # 1. Load execution with tenant isolation
+        # 1. Load execution with tenant isolation and row-level lock
         execution = ProductionExecutionService.get_execution_by_id(
             db=db,
             user_id=user_id,
             execution_id=execution_id,
+            for_update=True,
         )
 
         current_status = ExecutionStatus(execution.status)
@@ -370,7 +549,17 @@ class ProductionExecutionService:
                 status_code=400,
             )
 
-        # 4. Optional resource ownership validation
+        # 4. Predecessor validation: an operation cannot become READY or IN_PROGRESS unless all predecessors are COMPLETED
+        if target_status in (ExecutionStatus.READY, ExecutionStatus.IN_PROGRESS):
+            is_valid, err_msg = ProductionExecutionService.validate_predecessors_completed(db, execution)
+            if not is_valid:
+                raise AppException(
+                    f"Cannot transition operation to '{target_status.value}': {err_msg}",
+                    code="PREDECESSOR_NOT_COMPLETED",
+                    status_code=409,
+                )
+
+        # 5. Optional resource ownership validation
         if req.worker_id is not None:
             worker = db.scalar(
                 select(Worker).where(Worker.id == req.worker_id, Worker.user_id == user_id)
@@ -389,18 +578,15 @@ class ProductionExecutionService:
             execution.machine_id = machine.id
             execution.machine = machine
 
-        # 5. Apply timing logic according to the transition
+        # 6. Apply timing logic according to the transition
         if current_status == ExecutionStatus.READY and target_status == ExecutionStatus.IN_PROGRESS:
-            # Operation starts: record actual_start_time if not already set
             if not execution.actual_start_time:
                 execution.actual_start_time = now
 
         elif current_status == ExecutionStatus.IN_PROGRESS and target_status == ExecutionStatus.PAUSED:
-            # Operation pauses: record pause start timestamp
             execution.last_paused_at = now
 
         elif current_status == ExecutionStatus.PAUSED and target_status == ExecutionStatus.IN_PROGRESS:
-            # Operation resumes: reconcile pause duration and reset pause mark
             last_p = _ensure_utc(execution.last_paused_at)
             if last_p:
                 pause_delta_hours = (now - last_p).total_seconds() / 3600.0
@@ -408,7 +594,6 @@ class ProductionExecutionService:
                 execution.last_paused_at = None
 
         elif current_status == ExecutionStatus.IN_PROGRESS and target_status == ExecutionStatus.COMPLETED:
-            # Operation completes: record end timestamp and calculate net duration
             execution.actual_end_time = now
             execution.completed_at = now
 
@@ -421,19 +606,17 @@ class ProductionExecutionService:
                 execution.actual_duration_hours = 0.0
 
         elif target_status == ExecutionStatus.BLOCKED:
-            # If blocking from IN_PROGRESS, mark pause timestamp to prevent double-counting duration
             if current_status == ExecutionStatus.IN_PROGRESS:
                 execution.last_paused_at = now
 
         elif current_status == ExecutionStatus.BLOCKED and target_status == ExecutionStatus.READY:
-            # Unblocking back to READY: if paused while in progress, accumulate pause duration
             last_p = _ensure_utc(execution.last_paused_at)
             if last_p:
                 pause_delta_hours = (now - last_p).total_seconds() / 3600.0
                 execution.pause_duration_hours += max(0.0, pause_delta_hours)
                 execution.last_paused_at = None
 
-        # 6. Apply status and notes
+        # 7. Apply status and notes
         execution.status = target_status.value
         if req.operator_notes is not None:
             if execution.operator_notes:
@@ -441,7 +624,80 @@ class ProductionExecutionService:
             else:
                 execution.operator_notes = req.operator_notes
 
-        # 7. Atomically commit transition
+        # 8. Automatic Routing Progression & Order Status reconciliation (Phase J.2)
+        if target_status == ExecutionStatus.COMPLETED:
+            # Query all executions for this order to find the immediate next sequential step
+            order_executions = list(
+                db.scalars(
+                    select(OperationExecution)
+                    .options(joinedload(OperationExecution.production_step))
+                    .where(
+                        OperationExecution.production_order_id == execution.production_order_id,
+                        OperationExecution.user_id == user_id,
+                    )
+                    .with_for_update()
+                ).all()
+            )
+            order_executions.sort(key=lambda e: (e.production_step.step_number if e.production_step else 0))
+
+            curr_step_num = execution.production_step.step_number if execution.production_step else 0
+
+            # Find subsequent execution(s)
+            subsequent = [
+                e for e in order_executions
+                if e.production_step and e.production_step.step_number > curr_step_num
+            ]
+
+            if subsequent:
+                next_ex = subsequent[0]
+                # Check if all predecessors of next_ex are completed (including current execution)
+                can_advance = True
+                for e in order_executions:
+                    if e.production_step and e.production_step.step_number < next_ex.production_step.step_number:
+                        if e.id == execution.id:
+                            continue  # Current execution is already marked completed above
+                        if e.status != ExecutionStatus.COMPLETED.value:
+                            can_advance = False
+                            break
+
+                if can_advance and next_ex.status == ExecutionStatus.PENDING.value:
+                    # Test simulation hook for atomic rollback testing
+                    if _simulate_advancement_failure or getattr(req, "_simulate_advancement_failure", False):
+                        raise RuntimeError("Simulated failure during next-step advancement.")
+
+                    next_ex.status = ExecutionStatus.READY.value
+                    stage_name = execution.production_step.stage_name if execution.production_step else ""
+                    auto_note = (
+                        f"[{now.strftime('%Y-%m-%d %H:%M:%S UTC')}] Automatically advanced to READY "
+                        f"upon completion of step #{curr_step_num} ('{stage_name}')."
+                    )
+                    next_ex.operator_notes = (
+                        f"{next_ex.operator_notes}\n{auto_note}" if next_ex.operator_notes else auto_note
+                    )
+
+            # Reconcile parent ProductionOrder status
+            order = db.scalar(
+                select(ProductionOrder)
+                .where(ProductionOrder.id == execution.production_order_id, ProductionOrder.user_id == user_id)
+                .with_for_update()
+            )
+            if order:
+                all_completed = all(e.status == ExecutionStatus.COMPLETED.value for e in order_executions)
+                if all_completed:
+                    order.status = "completed"
+                elif order.status == "pending":
+                    order.status = "in_progress"
+
+        elif target_status == ExecutionStatus.IN_PROGRESS:
+            order = db.scalar(
+                select(ProductionOrder)
+                .where(ProductionOrder.id == execution.production_order_id, ProductionOrder.user_id == user_id)
+                .with_for_update()
+            )
+            if order and order.status == "pending":
+                order.status = "in_progress"
+
+        # 9. Atomically commit all changes (both current and next execution)
         try:
             db.commit()
             db.refresh(execution)
@@ -458,10 +714,12 @@ class ProductionExecutionService:
         create_in: OperationExecutionCreate,
     ) -> OperationExecution:
         """
-        Manually creates an OperationExecution record with strict linkage validation:
+        Manually creates an OperationExecution record with strict linkage & predecessor validation:
         - Verifies that the ProductionStep belongs to the ProductionSpecification of the ProductionOrder.
         - Verifies that any referenced ScheduledTask belongs to the same order and user.
         - Verifies that any referenced Worker or Machine belongs to the user.
+        - Rejects duplicate execution creation for the same order and step.
+        - Enforces predecessor validation: starts READY only if predecessors are complete, otherwise PENDING.
         """
         if isinstance(user_id, str):
             user_id = uuid.UUID(user_id)
@@ -486,7 +744,21 @@ class ProductionExecutionService:
                 status_code=400,
             )
 
-        # 2. Validate ProductionStep belongs to this order's specification
+        # 2. Check for duplicate execution
+        existing = db.scalar(
+            select(OperationExecution).where(
+                OperationExecution.production_order_id == order.id,
+                OperationExecution.production_step_id == create_in.production_step_id,
+            )
+        )
+        if existing:
+            raise AppException(
+                "An execution record already exists for this production order and step.",
+                code="EXECUTION_ALREADY_EXISTS",
+                status_code=409,
+            )
+
+        # 3. Validate ProductionStep belongs to this order's specification
         valid_step_ids = {s.id for s in order.specification.steps}
         if create_in.production_step_id not in valid_step_ids:
             raise AppException(
@@ -497,7 +769,7 @@ class ProductionExecutionService:
 
         step = next(s for s in order.specification.steps if s.id == create_in.production_step_id)
 
-        # 3. Validate ScheduledTask linkage if provided
+        # 4. Validate ScheduledTask linkage if provided
         matched_task: Optional[ScheduledTask] = None
         if create_in.scheduled_task_id is not None:
             task = db.scalar(
@@ -513,7 +785,7 @@ class ProductionExecutionService:
                 )
             matched_task = task
 
-        # 4. Validate Worker & Machine ownership
+        # 5. Validate Worker & Machine ownership
         if create_in.worker_id is not None:
             worker = db.scalar(
                 select(Worker).where(Worker.id == create_in.worker_id, Worker.user_id == user_id)
@@ -528,7 +800,29 @@ class ProductionExecutionService:
             if not machine:
                 raise AppException("Machine not found or belongs to another tenant.", code="MACHINE_NOT_FOUND", status_code=404)
 
-        # 5. Timing defaults
+        # 6. Predecessor validation: determine initial status (READY vs PENDING)
+        predecessor_steps = [
+            s for s in order.specification.steps if s.step_number < step.step_number
+        ]
+        if predecessor_steps:
+            pred_step_ids = {s.id for s in predecessor_steps}
+            completed_preds = set(
+                db.scalars(
+                    select(OperationExecution.production_step_id).where(
+                        OperationExecution.production_order_id == order.id,
+                        OperationExecution.production_step_id.in_(pred_step_ids),
+                        OperationExecution.status == ExecutionStatus.COMPLETED.value,
+                    )
+                ).all()
+            )
+            if len(completed_preds) < len(predecessor_steps):
+                initial_status = ExecutionStatus.PENDING.value
+            else:
+                initial_status = ExecutionStatus.READY.value
+        else:
+            initial_status = ExecutionStatus.READY.value
+
+        # 7. Timing defaults
         planned_start = matched_task.start_time if matched_task else None
         planned_end = matched_task.end_time if matched_task else None
         if matched_task:
@@ -545,7 +839,7 @@ class ProductionExecutionService:
             scheduled_task_id=create_in.scheduled_task_id,
             worker_id=create_in.worker_id,
             machine_id=create_in.machine_id,
-            status=ExecutionStatus.PENDING.value,
+            status=initial_status,
             planned_start_time=planned_start,
             planned_end_time=planned_end,
             planned_duration_hours=planned_duration,

@@ -56,6 +56,11 @@ export interface OperationExecution {
   quality_checkpoint?: string | null;
   worker_name?: string | null;
   machine_name?: string | null;
+
+  // Workflow indicators (Phase J.2)
+  is_terminal?: boolean;
+  can_start?: boolean;
+  has_uncompleted_predecessors?: boolean;
 }
 
 export interface OperationExecutionTransitionRequest {
@@ -78,4 +83,14 @@ export interface OperationExecutionListResponse {
   order_id: string;
   total: number;
   items: OperationExecution[];
+
+  // Workflow summary metrics (Phase J.2)
+  order_status?: string | null;
+  completed_count?: number;
+  in_progress_count?: number;
+  ready_count?: number;
+  pending_count?: number;
+  blocked_count?: number;
+  current_step_number?: number | null;
+  overall_progress_percent?: number;
 }
