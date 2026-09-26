@@ -5,18 +5,20 @@ actual shop-floor manufacturing operations (OperationExecution).
 """
 
 import uuid
-from typing import List
-from fastapi import APIRouter, Depends, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.execution import (
+    MachineAssignmentRequest,
     OperationExecutionCreate,
     OperationExecutionListResponse,
     OperationExecutionResponse,
     OperationExecutionTransitionRequest,
+    WorkerAssignmentRequest,
 )
 from app.services.production_execution_service import (
     production_execution_service,
@@ -101,6 +103,64 @@ async def get_execution(
 
 
 @router.post(
+    "/executions/{execution_id}/assign-worker",
+    response_model=OperationExecutionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Assign an eligible artisan to an operation execution",
+    description=(
+        "Assigns a workshop artisan to a READY, PENDING, or BLOCKED operation. "
+        "Validates multi-tenant ownership, artisan presence/availability, and skill eligibility. "
+        "Rejects assignment to COMPLETED operations or reassignment while IN_PROGRESS or PAUSED."
+    ),
+)
+async def assign_worker(
+    execution_id: uuid.UUID,
+    payload: WorkerAssignmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Assigns an eligible artisan to an execution record. Enforces skill matching and tenant isolation.
+    """
+    execution = production_execution_service.assign_worker(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+        worker_id=payload.worker_id,
+    )
+    return serialize_execution_response(execution)
+
+
+@router.post(
+    "/executions/{execution_id}/assign-machine",
+    response_model=OperationExecutionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Assign compatible equipment to an operation execution",
+    description=(
+        "Assigns workshop equipment to a READY, PENDING, or BLOCKED operation. "
+        "Validates multi-tenant ownership, equipment operational status, and type compatibility. "
+        "Rejects assignment to COMPLETED operations or reassignment while IN_PROGRESS or PAUSED."
+    ),
+)
+async def assign_machine(
+    execution_id: uuid.UUID,
+    payload: MachineAssignmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Assigns compatible equipment to an execution record. Enforces machine compatibility and tenant isolation.
+    """
+    execution = production_execution_service.assign_machine(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+        machine_id=payload.machine_id,
+    )
+    return serialize_execution_response(execution)
+
+
+@router.post(
     "/executions/{execution_id}/transition",
     response_model=OperationExecutionResponse,
     status_code=status.HTTP_200_OK,
@@ -108,23 +168,31 @@ async def get_execution(
     description=(
         "Executes a state transition (e.g. READY -> IN_PROGRESS, IN_PROGRESS -> PAUSED, "
         "PAUSED -> IN_PROGRESS, IN_PROGRESS -> COMPLETED). Validates state machine rules, "
-        "records actual start/end timestamps, calculates net bench duration, and audits notes."
+        "records actual start/end timestamps, calculates net bench duration, audits notes, "
+        "and enforces artisan skill eligibility, equipment compatibility, and conflict prevention."
     ),
 )
 async def transition_execution(
     execution_id: uuid.UUID,
     request_in: OperationExecutionTransitionRequest,
+    validate_resources: Optional[bool] = Query(
+        None,
+        description="Optional override to strictly enforce or bypass required worker/machine checks on start",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """
-    Transitions an operation execution. Enforces strict state-machine rules and immutability.
+    Transitions an operation execution. Enforces strict state-machine rules, immutability,
+    predecessor completion, and worker/machine execution eligibility (Phase J.3).
     """
+    resolved_val = validate_resources if validate_resources is not None else request_in.validate_resources
     execution = production_execution_service.transition_execution(
         db=db,
         user_id=current_user.id,
         execution_id=execution_id,
         req=request_in,
+        validate_resources=resolved_val,
     )
     return serialize_execution_response(execution)
 

@@ -53,6 +53,30 @@ class OperationExecutionTransitionRequest(BaseModel):
         None,
         description="Optional machine/equipment ID utilized for this operation",
     )
+    validate_resources: Optional[bool] = Field(
+        None,
+        description="Optional override to strictly enforce or bypass required worker/machine checks on start",
+    )
+
+
+class WorkerAssignmentRequest(BaseModel):
+    """Payload to assign an eligible artisan to an operation execution."""
+    model_config = ConfigDict(extra="forbid")
+
+    worker_id: uuid.UUID = Field(
+        ...,
+        description="ID of the eligible workshop artisan to assign",
+    )
+
+
+class MachineAssignmentRequest(BaseModel):
+    """Payload to assign compatible equipment to an operation execution."""
+    model_config = ConfigDict(extra="forbid")
+
+    machine_id: uuid.UUID = Field(
+        ...,
+        description="ID of the compatible equipment to assign",
+    )
 
 
 class OperationExecutionCreate(BaseModel):
@@ -130,6 +154,20 @@ class OperationExecutionResponse(BaseModel):
     quality_checkpoint: Optional[str] = None
     worker_name: Optional[str] = None
     machine_name: Optional[str] = None
+
+    # Planned vs Actual resources (Phase J.3)
+    actual_worker_id: Optional[uuid.UUID] = None
+    actual_machine_id: Optional[uuid.UUID] = None
+    planned_worker_id: Optional[uuid.UUID] = None
+    planned_machine_id: Optional[uuid.UUID] = None
+    planned_worker_name: Optional[str] = None
+    planned_machine_name: Optional[str] = None
+
+    # Resource validation & eligibility flags (Phase J.3)
+    worker_skill: Optional[str] = None
+    machine_type: Optional[str] = None
+    worker_eligible: Optional[bool] = None
+    machine_compatible: Optional[bool] = None
 
     # Workflow indicators (Phase J.2)
     is_terminal: bool = False
