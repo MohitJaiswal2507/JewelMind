@@ -119,6 +119,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 *.local
+*.md
 
 # --------------------------------------------------
 # IDEs, Text Editors & OS System Files

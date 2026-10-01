@@ -14,10 +14,13 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.execution import (
     MachineAssignmentRequest,
+    MaterialConsumptionCreate,
+    MaterialConsumptionResponse,
     OperationExecutionCreate,
     OperationExecutionListResponse,
     OperationExecutionResponse,
     OperationExecutionTransitionRequest,
+    OrderMaterialSummaryResponse,
     WorkerAssignmentRequest,
 )
 from app.services.production_execution_service import (
@@ -218,3 +221,105 @@ async def create_execution(
         create_in=create_in,
     )
     return serialize_execution_response(execution)
+
+
+# =========================================================================
+# Phase J.4: Material Consumption & Wastage Tracking Endpoints
+# =========================================================================
+
+@router.post(
+    "/executions/{execution_id}/material-consumption",
+    response_model=MaterialConsumptionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record actual material consumption against an operation execution",
+    description=(
+        "Records what material was actually consumed and wasted during a shop-floor operation execution. "
+        "Distinguishes planned baseline from actual usage and scrap. Validates execution state (IN_PROGRESS "
+        "or COMPLETED only), quantity constraints, and authoritative specification item alignment."
+    ),
+)
+async def record_material_consumption(
+    execution_id: uuid.UUID,
+    payload: MaterialConsumptionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Records actual material consumption for an execution step. Enforces tenant ownership
+    and prevents modifying the authoritative specification baseline or CP-SAT schedule.
+    """
+    return production_execution_service.record_material_consumption(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+        payload=payload,
+    )
+
+
+@router.get(
+    "/executions/{execution_id}/material-consumption",
+    response_model=List[MaterialConsumptionResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List material consumption records for an operation execution",
+    description="Returns all actual material consumption and wastage records recorded for a specific operation execution.",
+)
+async def list_execution_material_consumptions(
+    execution_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves material consumption records for an execution step. Enforces tenant isolation.
+    """
+    return production_execution_service.get_execution_material_consumptions(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+    )
+
+
+@router.get(
+    "/orders/{order_id}/material-consumption",
+    response_model=List[MaterialConsumptionResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List all material consumption records for a production order",
+    description="Returns all actual material consumption records across all execution steps for a production order.",
+)
+async def list_order_material_consumptions(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves all material consumption records for an entire production order. Enforces tenant isolation.
+    """
+    return production_execution_service.get_order_material_consumptions(
+        db=db,
+        user_id=current_user.id,
+        order_id=order_id,
+    )
+
+
+@router.get(
+    "/orders/{order_id}/material-summary",
+    response_model=OrderMaterialSummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get planned vs actual material consumption summary for an order",
+    description=(
+        "Returns a concise summary comparing planned quantity, actual consumed quantity, "
+        "and wastage quantity grouped by material identity/type for a production order."
+    ),
+)
+async def get_order_material_summary(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves concise material summary for an order. Enforces multi-tenant isolation.
+    """
+    return production_execution_service.get_order_material_summary(
+        db=db,
+        user_id=current_user.id,
+        order_id=order_id,
+    )

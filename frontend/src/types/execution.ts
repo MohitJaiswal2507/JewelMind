@@ -117,3 +117,60 @@ export interface OperationExecutionListResponse {
   current_step_number?: number | null;
   overall_progress_percent?: number;
 }
+
+/**
+ * Phase J.4: Material Consumption & Wastage Tracking Types
+ */
+
+export type MaterialCategory = 'METAL' | 'GEMSTONE';
+
+export interface MaterialConsumption {
+  id: string;
+  user_id: string;
+  production_order_id: string;
+  operation_execution_id: string;
+  specification_material_id: string | null;
+  specification_gemstone_id: string | null;
+  material_type: string;
+  material_name: string;
+  unit: string;
+  planned_quantity: number;
+  actual_quantity: number;
+  wastage_quantity: number;
+  wastage_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MaterialConsumptionCreate {
+  material_type?: string;
+  material_name?: string;
+  unit?: string;
+  planned_quantity?: number;
+  actual_quantity: number;
+  wastage_quantity?: number;
+  wastage_reason?: string | null;
+  notes?: string | null;
+  specification_material_id?: string | null;
+  specification_gemstone_id?: string | null;
+}
+
+export interface MaterialSummaryItem {
+  material_type: string;
+  material_name: string;
+  unit: string;
+  planned_quantity: number;
+  actual_quantity: number;
+  wastage_quantity: number;
+  net_consumed_quantity: number;
+}
+
+export interface OrderMaterialSummaryResponse {
+  order_id: string;
+  total_planned_quantity: number;
+  total_actual_quantity: number;
+  total_wastage_quantity: number;
+  total_net_quantity: number;
+  items: MaterialSummaryItem[];
+}

@@ -6,9 +6,12 @@
 
 import { apiClient } from './client';
 import {
+  MaterialConsumption,
+  MaterialConsumptionCreate,
   OperationExecution,
   OperationExecutionListResponse,
   OperationExecutionTransitionRequest,
+  OrderMaterialSummaryResponse,
 } from '../../types/execution';
 
 class ProductionExecutionService {
@@ -79,6 +82,52 @@ class ProductionExecutionService {
     return apiClient.post<OperationExecution>(
       `/api/v1/production/executions/${executionId}/assign-machine`,
       { machine_id: machineId }
+    );
+  }
+
+  /**
+   * Records actual material consumption against an operation execution (Phase J.4).
+   */
+  async recordMaterialConsumption(
+    executionId: string,
+    payload: MaterialConsumptionCreate
+  ): Promise<MaterialConsumption> {
+    return apiClient.post<MaterialConsumption>(
+      `/api/v1/production/executions/${executionId}/material-consumption`,
+      payload
+    );
+  }
+
+  /**
+   * Lists all material consumption records for an operation execution (Phase J.4).
+   */
+  async getExecutionMaterialConsumptions(
+    executionId: string
+  ): Promise<MaterialConsumption[]> {
+    return apiClient.get<MaterialConsumption[]>(
+      `/api/v1/production/executions/${executionId}/material-consumption`
+    );
+  }
+
+  /**
+   * Lists all material consumption records for a production order (Phase J.4).
+   */
+  async getOrderMaterialConsumptions(
+    orderId: string
+  ): Promise<MaterialConsumption[]> {
+    return apiClient.get<MaterialConsumption[]>(
+      `/api/v1/production/orders/${orderId}/material-consumption`
+    );
+  }
+
+  /**
+   * Retrieves planned vs actual material consumption summary for an order (Phase J.4).
+   */
+  async getOrderMaterialSummary(
+    orderId: string
+  ): Promise<OrderMaterialSummaryResponse> {
+    return apiClient.get<OrderMaterialSummaryResponse>(
+      `/api/v1/production/orders/${orderId}/material-summary`
     );
   }
 }
