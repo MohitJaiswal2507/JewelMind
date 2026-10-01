@@ -14,7 +14,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.design import Design
-    from app.models.execution import MaterialConsumption, OperationExecution
+    from app.models.execution import MaterialConsumption, OperationExecution, QualityCheck
     from app.models.specification import ProductionSpecification
     from app.models.user import User
 
@@ -97,6 +97,11 @@ class ProductionOrder(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         "MaterialConsumption",
         back_populates="production_order",
         order_by="MaterialConsumption.created_at",
+    )
+    quality_checks: Mapped[list["QualityCheck"]] = relationship(
+        "QualityCheck",
+        back_populates="production_order",
+        order_by="QualityCheck.checked_at.desc()",
     )
 
     def __repr__(self) -> str:

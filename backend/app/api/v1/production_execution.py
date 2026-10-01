@@ -21,6 +21,10 @@ from app.schemas.execution import (
     OperationExecutionResponse,
     OperationExecutionTransitionRequest,
     OrderMaterialSummaryResponse,
+    OrderQualitySummaryResponse,
+    QualityCheckCreate,
+    QualityCheckResponse,
+    ReworkExecutionCreate,
     WorkerAssignmentRequest,
 )
 from app.services.production_execution_service import (
@@ -323,3 +327,143 @@ async def get_order_material_summary(
         user_id=current_user.id,
         order_id=order_id,
     )
+
+
+# =========================================================================
+# Phase J.5: Quality Control & Controlled Rework Endpoints
+# =========================================================================
+
+@router.post(
+    "/executions/{execution_id}/quality-check",
+    response_model=QualityCheckResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record quality control inspection result for an operation execution",
+    description=(
+        "Records an append-only quality check outcome (PASS, FAIL, REWORK) against a COMPLETED "
+        "operation execution. Strictly derives user, order, step, and inspection timestamps server-side. "
+        "Enforces tenant ownership and automatically evaluates the order completion quality gate."
+    ),
+)
+async def record_quality_check(
+    execution_id: uuid.UUID,
+    payload: QualityCheckCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Records a quality inspection result for an execution step. Enforces tenant ownership
+    and validates that the execution is COMPLETED.
+    """
+    return production_execution_service.record_quality_check(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+        payload=payload,
+    )
+
+
+@router.get(
+    "/executions/{execution_id}/quality-check",
+    response_model=List[QualityCheckResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Get quality check history for an operation execution",
+    description="Returns chronological inspection records for a specific operation execution, ordered newest first.",
+)
+async def get_execution_quality_checks(
+    execution_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves QC history for an execution step. Enforces multi-tenant isolation.
+    """
+    return production_execution_service.get_execution_quality_checks(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+    )
+
+
+@router.post(
+    "/executions/{execution_id}/rework",
+    response_model=OperationExecutionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Authorize and initialize controlled rework execution",
+    description=(
+        "Initializes a new rework OperationExecution following a REWORK quality check outcome. "
+        "Preserves the original execution historically in COMPLETED state and begins the rework "
+        "execution in READY state, ready for artisan/equipment allocation and material tracking."
+    ),
+)
+async def create_rework_execution(
+    execution_id: uuid.UUID,
+    payload: Optional[ReworkExecutionCreate] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Initializes a controlled rework execution. Enforces multi-tenant ownership and REWORK QC validation.
+    """
+    rework_ex = production_execution_service.create_rework_execution(
+        db=db,
+        user_id=current_user.id,
+        execution_id=execution_id,
+        payload=payload,
+    )
+    return serialize_execution_response(rework_ex)
+
+
+@router.get(
+    "/orders/{order_id}/quality-checks",
+    response_model=OrderQualitySummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get order quality summary and gate status",
+    description=(
+        "Returns authoritative quality summary metrics for all routing operations in a production order, "
+        "including total operations, passed, failed, rework, pending inspections, and quality gate status."
+    ),
+)
+async def get_order_quality_summary(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves concise quality gate summary for a production order. Enforces multi-tenant isolation.
+    """
+    return production_execution_service.get_order_quality_summary(
+        db=db,
+        user_id=current_user.id,
+        order_id=order_id,
+    )
+
+
+@router.post(
+    "/orders/{order_id}/complete",
+    status_code=status.HTTP_200_OK,
+    summary="Explicitly complete production order with quality gate verification",
+    description=(
+        "Validates that all manufacturing routing operations for an order are finished and have "
+        "100% PASS quality check outcomes. Rejects with 409 if any operation is pending, failed, "
+        "under rework, or uninspected."
+    ),
+)
+async def complete_order(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Explicitly completes a production order upon satisfying the Phase J.5 Quality Control gate.
+    """
+    order = production_execution_service.complete_order(
+        db=db,
+        user_id=current_user.id,
+        order_id=order_id,
+    )
+    return {
+        "order_id": str(order.id),
+        "status": order.status,
+        "message": "Production order successfully completed with verified quality gate.",
+    }
+
