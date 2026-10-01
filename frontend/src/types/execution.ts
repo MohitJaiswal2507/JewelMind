@@ -75,6 +75,14 @@ export interface OperationExecution {
   is_terminal?: boolean;
   can_start?: boolean;
   has_uncompleted_predecessors?: boolean;
+
+  // Phase J.5 Controlled Rework & Quality Control
+  execution_type?: 'normal' | 'rework';
+  rework_of_execution_id?: string | null;
+  attempt_number?: number;
+  latest_qc_result?: QualityCheckResult | null;
+  latest_defect_severity?: DefectSeverity | null;
+  quality_gate_passed?: boolean;
 }
 
 export interface OperationExecutionTransitionRequest {
@@ -173,4 +181,68 @@ export interface OrderMaterialSummaryResponse {
   total_wastage_quantity: number;
   total_net_quantity: number;
   items: MaterialSummaryItem[];
+}
+
+/**
+ * Phase J.5: Quality Control & Controlled Rework Types
+ */
+
+export type QualityCheckResult = 'PASS' | 'FAIL' | 'REWORK';
+export type DefectSeverity = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface QualityCheck {
+  id: string;
+  user_id: string;
+  production_order_id: string;
+  operation_execution_id: string;
+  production_step_id: string;
+  result: QualityCheckResult;
+  defect_severity: DefectSeverity;
+  defect_type: string | null;
+  notes: string | null;
+  checked_by: string | null;
+  checked_at: string;
+  created_at: string;
+  updated_at: string;
+  step_number?: number | null;
+  stage_name?: string | null;
+  quality_checkpoint?: string | null;
+}
+
+export interface QualityCheckCreate {
+  result: QualityCheckResult;
+  defect_severity?: DefectSeverity;
+  defect_type?: string | null;
+  notes?: string | null;
+  checked_by?: string | null;
+}
+
+export interface ExecutionQualitySummaryItem {
+  execution_id: string;
+  step_id: string;
+  step_number?: number | null;
+  stage_name?: string | null;
+  execution_type: string;
+  attempt_number: number;
+  execution_status: string;
+  latest_qc_result: string | null;
+  latest_defect_severity: string | null;
+  total_checks: number;
+  has_passed: boolean;
+}
+
+export interface OrderQualitySummaryResponse {
+  order_id: string;
+  total_operations: number;
+  completed_operations: number;
+  passed: number;
+  failed: number;
+  rework: number;
+  pending_quality_checks: number;
+  quality_gate_passed: boolean;
+  items: ExecutionQualitySummaryItem[];
+}
+
+export interface ReworkExecutionCreate {
+  operator_notes?: string | null;
 }

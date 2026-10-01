@@ -12,6 +12,10 @@ import {
   OperationExecutionListResponse,
   OperationExecutionTransitionRequest,
   OrderMaterialSummaryResponse,
+  OrderQualitySummaryResponse,
+  QualityCheck,
+  QualityCheckCreate,
+  ReworkExecutionCreate,
 } from '../../types/execution';
 
 class ProductionExecutionService {
@@ -128,6 +132,70 @@ class ProductionExecutionService {
   ): Promise<OrderMaterialSummaryResponse> {
     return apiClient.get<OrderMaterialSummaryResponse>(
       `/api/v1/production/orders/${orderId}/material-summary`
+    );
+  }
+
+  // =========================================================================
+  // Phase J.5: Quality Control & Controlled Rework Methods
+  // =========================================================================
+
+  /**
+   * Records a quality inspection outcome (PASS, FAIL, REWORK) for a completed operation execution.
+   */
+  async recordQualityCheck(
+    executionId: string,
+    payload: QualityCheckCreate
+  ): Promise<QualityCheck> {
+    return apiClient.post<QualityCheck>(
+      `/api/v1/production/executions/${executionId}/quality-check`,
+      payload
+    );
+  }
+
+  /**
+   * Retrieves complete chronological quality inspection records for an execution step.
+   */
+  async getExecutionQualityChecks(
+    executionId: string
+  ): Promise<QualityCheck[]> {
+    return apiClient.get<QualityCheck[]>(
+      `/api/v1/production/executions/${executionId}/quality-check`
+    );
+  }
+
+  /**
+   * Authorizes and initializes a controlled rework OperationExecution following a REWORK QC outcome.
+   */
+  async createReworkExecution(
+    executionId: string,
+    payload?: ReworkExecutionCreate
+  ): Promise<OperationExecution> {
+    return apiClient.post<OperationExecution>(
+      `/api/v1/production/executions/${executionId}/rework`,
+      payload || {}
+    );
+  }
+
+  /**
+   * Retrieves concise quality gate summary and completion status for a production order.
+   */
+  async getOrderQualitySummary(
+    orderId: string
+  ): Promise<OrderQualitySummaryResponse> {
+    return apiClient.get<OrderQualitySummaryResponse>(
+      `/api/v1/production/orders/${orderId}/quality-checks`
+    );
+  }
+
+  /**
+   * Explicitly completes a production order upon verifying 100% passing quality checks.
+   */
+  async completeOrder(
+    orderId: string
+  ): Promise<{ order_id: string; status: string; message: string }> {
+    return apiClient.post<{ order_id: string; status: string; message: string }>(
+      `/api/v1/production/orders/${orderId}/complete`,
+      {}
     );
   }
 }

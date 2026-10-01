@@ -11,11 +11,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.exceptions import AppException
-from app.models.execution import MaterialConsumption, OperationExecution
+from app.models.execution import MaterialConsumption, OperationExecution, QualityCheck
 from app.models.production import Machine, ProductionOrder, Worker
 from app.models.schedule import ScheduledTask
 from app.models.specification import (
@@ -25,6 +25,8 @@ from app.models.specification import (
     ProductionStep,
 )
 from app.schemas.execution import (
+    DefectSeverity,
+    ExecutionQualitySummaryItem,
     ExecutionStatus,
     MaterialConsumptionCreate,
     MaterialConsumptionResponse,
@@ -34,6 +36,11 @@ from app.schemas.execution import (
     OperationExecutionResponse,
     OperationExecutionTransitionRequest,
     OrderMaterialSummaryResponse,
+    OrderQualitySummaryResponse,
+    QualityCheckCreate,
+    QualityCheckResponse,
+    QualityCheckResult,
+    ReworkExecutionCreate,
 )
 
 # Valid state transitions for shop-floor operations
@@ -243,6 +250,12 @@ def serialize_execution_response(
         else (True if (not step or not step.required_machine_type) else None)
     )
 
+    # Phase J.5 Quality Control & Rework Context
+    latest_qc = execution.quality_checks[0] if (hasattr(execution, "quality_checks") and execution.quality_checks) else None
+    latest_qc_result = latest_qc.result if latest_qc else None
+    latest_defect_severity = latest_qc.defect_severity if latest_qc else None
+    quality_gate_passed = (latest_qc_result == "PASS") if latest_qc_result else False
+
     return OperationExecutionResponse(
         id=execution.id,
         user_id=execution.user_id,
@@ -284,6 +297,12 @@ def serialize_execution_response(
         is_terminal=(current_status == ExecutionStatus.COMPLETED.value),
         can_start=(current_status == ExecutionStatus.READY.value),
         has_uncompleted_predecessors=has_uncompleted_predecessors,
+        execution_type=getattr(execution, "execution_type", "normal") or "normal",
+        rework_of_execution_id=getattr(execution, "rework_of_execution_id", None),
+        attempt_number=getattr(execution, "attempt_number", 1) or 1,
+        latest_qc_result=latest_qc_result,
+        latest_defect_severity=latest_defect_severity,
+        quality_gate_passed=quality_gate_passed,
     )
 
 
@@ -1240,7 +1259,25 @@ class ProductionExecutionService:
             if order:
                 all_completed = all(e.status == ExecutionStatus.COMPLETED.value for e in order_executions)
                 if all_completed:
-                    order.status = "completed"
+                    # Phase J.5 Quality Control Completion Gate:
+                    # If quality checks exist on this order, verify 100% PASS before marking COMPLETED
+                    qc_exists = db.scalar(
+                        select(func.count(QualityCheck.id))
+                        .where(
+                            QualityCheck.production_order_id == order.id,
+                            QualityCheck.user_id == user_id,
+                        )
+                    ) or 0
+                    if qc_exists > 0:
+                        metrics = ProductionExecutionService.calculate_order_quality_metrics(
+                            db, user_id, order.id, order_executions
+                        )
+                        if metrics["quality_gate_passed"]:
+                            order.status = "completed"
+                        else:
+                            order.status = "in_progress"
+                    else:
+                        order.status = "completed"
                 elif order.status == "pending":
                     order.status = "in_progress"
 
@@ -1814,5 +1851,567 @@ class ProductionExecutionService:
             items=items,
         )
 
+    # =========================================================================
+    # Phase J.5: Quality Control & Controlled Rework Methods
+    # =========================================================================
+
+    @staticmethod
+    def calculate_order_quality_metrics(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_id: Union[str, uuid.UUID],
+        executions: Optional[List[OperationExecution]] = None,
+    ) -> Dict[str, any]:
+        """
+        Calculates authoritative quality gate metrics for a production order.
+        Groups execution history by routing step to evaluate the latest attempt's latest QC result.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(order_id, str):
+            order_id = uuid.UUID(order_id)
+
+        if executions is None:
+            executions = list(
+                db.scalars(
+                    select(OperationExecution)
+                    .where(
+                        OperationExecution.production_order_id == order_id,
+                        OperationExecution.user_id == user_id,
+                    )
+                    .options(
+                        joinedload(OperationExecution.production_step),
+                        selectinload(OperationExecution.quality_checks),
+                    )
+                    .order_by(
+                        OperationExecution.attempt_number.asc(),
+                        OperationExecution.created_at.asc(),
+                    )
+                ).all()
+            )
+
+        # Group executions by production_step_id
+        step_executions: Dict[uuid.UUID, List[OperationExecution]] = {}
+        for ex in executions:
+            s_id = ex.production_step_id
+            if s_id not in step_executions:
+                step_executions[s_id] = []
+            step_executions[s_id].append(ex)
+
+        total_operations = len(step_executions)
+        completed_operations = 0
+        passed_count = 0
+        failed_count = 0
+        rework_count = 0
+        pending_qc_count = 0
+        total_checks = 0
+
+        items: List[ExecutionQualitySummaryItem] = []
+
+        for step_id, ex_list in step_executions.items():
+            # Latest execution attempt for this step
+            latest_ex = max(ex_list, key=lambda e: (getattr(e, "attempt_number", 1) or 1))
+            is_completed = (latest_ex.status == ExecutionStatus.COMPLETED.value)
+            if is_completed:
+                completed_operations += 1
+
+            # Checks for this latest attempt (ordered by checked_at desc)
+            checks = latest_ex.quality_checks if (hasattr(latest_ex, "quality_checks") and latest_ex.quality_checks) else []
+            if not checks and latest_ex.id:
+                checks = list(
+                    db.scalars(
+                        select(QualityCheck)
+                        .where(QualityCheck.operation_execution_id == latest_ex.id)
+                        .order_by(QualityCheck.checked_at.desc(), QualityCheck.created_at.desc())
+                    ).all()
+                )
+            total_checks += len(checks)
+
+            latest_qc = checks[0] if checks else None
+            latest_res = latest_qc.result.upper() if latest_qc else None
+            latest_sev = latest_qc.defect_severity if latest_qc else None
+
+            has_passed = (latest_res == "PASS")
+            if latest_res == "PASS":
+                passed_count += 1
+            elif latest_res == "FAIL":
+                failed_count += 1
+            elif latest_res == "REWORK":
+                rework_count += 1
+            elif is_completed:
+                pending_qc_count += 1
+
+            step = latest_ex.production_step
+            items.append(
+                ExecutionQualitySummaryItem(
+                    execution_id=latest_ex.id,
+                    step_id=step_id,
+                    step_number=step.step_number if step else None,
+                    stage_name=step.stage_name if step else None,
+                    execution_type=latest_ex.execution_type,
+                    attempt_number=latest_ex.attempt_number,
+                    execution_status=latest_ex.status,
+                    latest_qc_result=latest_res,
+                    latest_defect_severity=latest_sev,
+                    total_checks=len(checks),
+                    has_passed=has_passed,
+                )
+            )
+
+        # Sort items by step_number
+        items.sort(key=lambda x: (x.step_number or 0))
+
+        # Quality gate passes ONLY IF all operations are completed and all latest attempts have PASS
+        quality_gate_passed = (
+            total_operations > 0
+            and completed_operations == total_operations
+            and passed_count == total_operations
+            and failed_count == 0
+            and rework_count == 0
+            and pending_qc_count == 0
+        )
+
+        return {
+            "order_id": order_id,
+            "total_operations": total_operations,
+            "completed_operations": completed_operations,
+            "passed": passed_count,
+            "failed": failed_count,
+            "rework": rework_count,
+            "pending_quality_checks": pending_qc_count,
+            "total_checks": total_checks,
+            "quality_gate_passed": quality_gate_passed,
+            "items": items,
+        }
+
+    @staticmethod
+    def record_quality_check(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+        payload: QualityCheckCreate,
+    ) -> QualityCheckResponse:
+        """
+        Records an append-only quality inspection result against an OperationExecution.
+        Validates tenant ownership, completed execution state, and specification linkage.
+        Automatically reconciles parent ProductionOrder completion status based on quality gate.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+
+        # 1. Fetch execution with lock
+        execution = db.scalar(
+            select(OperationExecution)
+            .where(
+                OperationExecution.id == execution_id,
+                OperationExecution.user_id == user_id,
+            )
+            .options(
+                joinedload(OperationExecution.production_step),
+                joinedload(OperationExecution.production_order),
+            )
+            .with_for_update()
+        )
+        if not execution:
+            raise AppException(
+                "Operation execution not found.",
+                code="EXECUTION_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 2. Enforce execution state: must be COMPLETED
+        if execution.status != ExecutionStatus.COMPLETED.value:
+            raise AppException(
+                f"Quality inspection can only be recorded for COMPLETED operations (current status: '{execution.status}').",
+                code="INVALID_EXECUTION_STATE",
+                status_code=409,
+            )
+
+        # 3. Fetch and lock order
+        order = db.scalar(
+            select(ProductionOrder)
+            .where(
+                ProductionOrder.id == execution.production_order_id,
+                ProductionOrder.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if not order:
+            raise AppException(
+                "Production order not found.",
+                code="ORDER_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 4. Verify step
+        step = execution.production_step
+        if not step or step.id != execution.production_step_id:
+            step = db.scalar(
+                select(ProductionStep)
+                .where(ProductionStep.id == execution.production_step_id)
+            )
+        if not step:
+            raise AppException(
+                "Production step not found.",
+                code="STEP_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 5. Create append-only QualityCheck record
+        norm_result = payload.result.value.upper()
+        norm_severity = payload.defect_severity.value.upper()
+        now = datetime.now(timezone.utc)
+
+        qc = QualityCheck(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            production_order_id=order.id,
+            operation_execution_id=execution.id,
+            production_step_id=step.id,
+            result=norm_result,
+            defect_severity=norm_severity,
+            defect_type=payload.defect_type.strip() if payload.defect_type else None,
+            notes=payload.notes,
+            checked_by=payload.checked_by.strip() if payload.checked_by else None,
+            checked_at=now,
+        )
+        db.add(qc)
+        db.flush()
+
+        # 6. Reconcile parent ProductionOrder status based on quality gate
+        metrics = ProductionExecutionService.calculate_order_quality_metrics(
+            db, user_id, order.id
+        )
+        if metrics["quality_gate_passed"]:
+            order.status = "completed"
+        else:
+            if order.status == "completed":
+                order.status = "in_progress"
+
+        try:
+            db.commit()
+            db.refresh(qc)
+        except Exception:
+            db.rollback()
+            raise
+
+        return QualityCheckResponse(
+            id=qc.id,
+            user_id=qc.user_id,
+            production_order_id=qc.production_order_id,
+            operation_execution_id=qc.operation_execution_id,
+            production_step_id=qc.production_step_id,
+            result=qc.result,
+            defect_severity=qc.defect_severity,
+            defect_type=qc.defect_type,
+            notes=qc.notes,
+            checked_by=qc.checked_by,
+            checked_at=qc.checked_at,
+            created_at=qc.created_at,
+            updated_at=qc.updated_at,
+            step_number=step.step_number if step else None,
+            stage_name=step.stage_name if step else None,
+            quality_checkpoint=step.quality_checkpoint if step else None,
+        )
+
+    @staticmethod
+    def get_execution_quality_checks(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+    ) -> List[QualityCheckResponse]:
+        """
+        Retrieves complete chronological quality check history for an operation execution,
+        ordered latest first (descending).
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+
+        execution = db.scalar(
+            select(OperationExecution)
+            .where(
+                OperationExecution.id == execution_id,
+                OperationExecution.user_id == user_id,
+            )
+            .options(joinedload(OperationExecution.production_step))
+        )
+        if not execution:
+            raise AppException(
+                "Operation execution not found.",
+                code="EXECUTION_NOT_FOUND",
+                status_code=404,
+            )
+
+        step = execution.production_step
+        records = list(
+            db.scalars(
+                select(QualityCheck)
+                .where(
+                    QualityCheck.operation_execution_id == execution_id,
+                    QualityCheck.user_id == user_id,
+                )
+                .order_by(QualityCheck.checked_at.desc(), QualityCheck.created_at.desc())
+            ).all()
+        )
+
+        return [
+            QualityCheckResponse(
+                id=q.id,
+                user_id=q.user_id,
+                production_order_id=q.production_order_id,
+                operation_execution_id=q.operation_execution_id,
+                production_step_id=q.production_step_id,
+                result=q.result,
+                defect_severity=q.defect_severity,
+                defect_type=q.defect_type,
+                notes=q.notes,
+                checked_by=q.checked_by,
+                checked_at=q.checked_at,
+                created_at=q.created_at,
+                updated_at=q.updated_at,
+                step_number=step.step_number if step else None,
+                stage_name=step.stage_name if step else None,
+                quality_checkpoint=step.quality_checkpoint if step else None,
+            )
+            for q in records
+        ]
+
+    @staticmethod
+    def get_order_quality_summary(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_id: Union[str, uuid.UUID],
+    ) -> OrderQualitySummaryResponse:
+        """
+        Returns authoritative quality check summary metrics for an entire production order.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(order_id, str):
+            order_id = uuid.UUID(order_id)
+
+        order = db.scalar(
+            select(ProductionOrder)
+            .where(
+                ProductionOrder.id == order_id,
+                ProductionOrder.user_id == user_id,
+            )
+        )
+        if not order:
+            raise AppException(
+                "Production order not found.",
+                code="ORDER_NOT_FOUND",
+                status_code=404,
+            )
+
+        metrics = ProductionExecutionService.calculate_order_quality_metrics(
+            db, user_id, order_id
+        )
+
+        return OrderQualitySummaryResponse(
+            order_id=metrics["order_id"],
+            total_operations=metrics["total_operations"],
+            completed_operations=metrics["completed_operations"],
+            passed=metrics["passed"],
+            failed=metrics["failed"],
+            rework=metrics["rework"],
+            pending_quality_checks=metrics["pending_quality_checks"],
+            quality_gate_passed=metrics["quality_gate_passed"],
+            items=metrics["items"],
+        )
+
+    @staticmethod
+    def create_rework_execution(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+        payload: Optional[ReworkExecutionCreate] = None,
+    ) -> OperationExecution:
+        """
+        Explicitly initializes a controlled rework OperationExecution following a REWORK QC outcome.
+        Leaves original execution historically intact and immutable in COMPLETED status.
+        Initializes rework execution in READY status for shop-floor artisan/machine assignment (Phase J.3)
+        and subsequent material consumption tracking (Phase J.4).
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+
+        # 1. Fetch original execution with lock
+        original = db.scalar(
+            select(OperationExecution)
+            .where(
+                OperationExecution.id == execution_id,
+                OperationExecution.user_id == user_id,
+            )
+            .options(
+                joinedload(OperationExecution.production_step),
+                joinedload(OperationExecution.production_order),
+                selectinload(OperationExecution.quality_checks),
+            )
+            .with_for_update()
+        )
+        if not original:
+            raise AppException(
+                "Operation execution not found.",
+                code="EXECUTION_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 2. Must be COMPLETED
+        if original.status != ExecutionStatus.COMPLETED.value:
+            raise AppException(
+                f"Rework can only be authorized for COMPLETED operations (current status: '{original.status}').",
+                code="INVALID_EXECUTION_STATE",
+                status_code=409,
+            )
+
+        # 3. Verify latest QC check is REWORK
+        latest_qc = original.quality_checks[0] if (hasattr(original, "quality_checks") and original.quality_checks) else None
+        if not latest_qc:
+            latest_qc = db.scalar(
+                select(QualityCheck)
+                .where(QualityCheck.operation_execution_id == original.id)
+                .order_by(QualityCheck.checked_at.desc(), QualityCheck.created_at.desc())
+            )
+
+        if not latest_qc or latest_qc.result.upper() != "REWORK":
+            raise AppException(
+                "Rework execution requires an explicit REWORK quality check outcome.",
+                code="REWORK_NOT_PERMITTED",
+                status_code=409,
+            )
+
+        # 4. Check if an active/uncompleted rework already exists for this step in this order
+        active_rework = db.scalar(
+            select(OperationExecution)
+            .where(
+                OperationExecution.production_order_id == original.production_order_id,
+                OperationExecution.production_step_id == original.production_step_id,
+                OperationExecution.status != ExecutionStatus.COMPLETED.value,
+            )
+        )
+        if active_rework:
+            raise AppException(
+                f"An active rework execution #{active_rework.attempt_number} (status '{active_rework.status}') already exists for this step.",
+                code="ACTIVE_REWORK_EXISTS",
+                status_code=409,
+            )
+
+        # 5. Determine next attempt number
+        max_attempt = db.scalar(
+            select(func.max(OperationExecution.attempt_number))
+            .where(
+                OperationExecution.production_order_id == original.production_order_id,
+                OperationExecution.production_step_id == original.production_step_id,
+            )
+        ) or 1
+        next_attempt = max_attempt + 1
+
+        # 6. Create rework execution in READY state
+        custom_notes = payload.operator_notes.strip() if (payload and payload.operator_notes) else None
+        rework_notes = (
+            f"Rework attempt #{next_attempt} authorized following QC inspection on execution {original.id}."
+        )
+        if custom_notes:
+            rework_notes = f"{rework_notes}\nNotes: {custom_notes}"
+
+        rework_ex = OperationExecution(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            production_order_id=original.production_order_id,
+            production_step_id=original.production_step_id,
+            scheduled_task_id=original.scheduled_task_id,
+            worker_id=None,
+            machine_id=None,
+            status=ExecutionStatus.READY.value,
+            planned_start_time=None,
+            planned_end_time=None,
+            planned_duration_hours=original.planned_duration_hours,
+            execution_type="rework",
+            rework_of_execution_id=original.id,
+            attempt_number=next_attempt,
+            operator_notes=rework_notes,
+        )
+        db.add(rework_ex)
+
+        # 7. Update order status: since an uncompleted rework exists, order cannot be completed
+        order = original.production_order
+        if not order:
+            order = db.scalar(
+                select(ProductionOrder)
+                .where(ProductionOrder.id == original.production_order_id)
+                .with_for_update()
+            )
+        if order and order.status == "completed":
+            order.status = "in_progress"
+
+        try:
+            db.commit()
+            db.refresh(rework_ex)
+        except Exception:
+            db.rollback()
+            raise
+
+        return rework_ex
+
+    @staticmethod
+    def complete_order(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_id: Union[str, uuid.UUID],
+    ) -> ProductionOrder:
+        """
+        Explicitly completes a ProductionOrder after validating that all manufacturing operations
+        have completed and the Phase J.5 Quality Control gate has passed with 100% PASS outcomes.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(order_id, str):
+            order_id = uuid.UUID(order_id)
+
+        order = db.scalar(
+            select(ProductionOrder)
+            .where(
+                ProductionOrder.id == order_id,
+                ProductionOrder.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if not order:
+            raise AppException(
+                "Production order not found.",
+                code="ORDER_NOT_FOUND",
+                status_code=404,
+            )
+
+        metrics = ProductionExecutionService.calculate_order_quality_metrics(
+            db, user_id, order_id
+        )
+
+        if not metrics["quality_gate_passed"]:
+            raise AppException(
+                f"Cannot complete order: quality gate has not passed (passed={metrics['passed']}/{metrics['total_operations']}, "
+                f"failed={metrics['failed']}, rework={metrics['rework']}, pending_qc={metrics['pending_quality_checks']}).",
+                code="QUALITY_GATE_NOT_MET",
+                status_code=409,
+            )
+
+        order.status = "completed"
+        try:
+            db.commit()
+            db.refresh(order)
+        except Exception:
+            db.rollback()
+            raise
+
+        return order
+
 
 production_execution_service = ProductionExecutionService()
+

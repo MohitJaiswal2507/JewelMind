@@ -5,13 +5,14 @@ of manufacturing routing steps for a production order.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -47,7 +48,8 @@ class OperationExecution(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         UniqueConstraint(
             "production_order_id",
             "production_step_id",
-            name="uq_operation_executions_order_step",
+            "attempt_number",
+            name="uq_operation_executions_order_step_attempt",
         ),
         CheckConstraint(
             "status IN ('pending', 'ready', 'in_progress', 'paused', 'completed', 'blocked')",
@@ -164,6 +166,26 @@ class OperationExecution(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=True,
     )
 
+    # Phase J.5 Controlled Rework Fields
+    execution_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="normal",
+        server_default="normal",
+    )
+    rework_of_execution_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("operation_executions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    attempt_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
+
     # Relationships
     user: Mapped["User"] = relationship("User")
     production_order: Mapped["ProductionOrder"] = relationship(
@@ -179,6 +201,17 @@ class OperationExecution(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="operation_execution",
         cascade="all, delete-orphan",
         order_by="MaterialConsumption.created_at",
+    )
+    quality_checks: Mapped[List["QualityCheck"]] = relationship(
+        "QualityCheck",
+        back_populates="operation_execution",
+        cascade="all, delete-orphan",
+        order_by="QualityCheck.checked_at.desc()",
+    )
+    rework_of: Mapped[Optional["OperationExecution"]] = relationship(
+        "OperationExecution",
+        remote_side="[OperationExecution.id]",
+        foreign_keys=[rework_of_execution_id],
     )
 
     def __repr__(self) -> str:
@@ -312,4 +345,97 @@ class MaterialConsumption(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             f"<MaterialConsumption id={self.id} order_id={self.production_order_id} "
             f"execution_id={self.operation_execution_id} type='{self.material_type}' "
             f"actual={self.actual_quantity} wastage={self.wastage_quantity}>"
+        )
+
+
+class QualityCheck(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """
+    QualityCheck entity representing physical quality inspection results, defect classification,
+    and rework authorization recorded against an OperationExecution for a ProductionOrder.
+
+    Traceability chain:
+    ProductionSpecification -> ProductionOrder -> OperationExecution -> QualityCheck
+    """
+    __tablename__ = "quality_checks"
+    __table_args__ = (
+        CheckConstraint(
+            "result IN ('PASS', 'FAIL', 'REWORK', 'pass', 'fail', 'rework')",
+            name="ck_quality_checks_result",
+        ),
+        CheckConstraint(
+            "defect_severity IN ('NONE', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'none', 'low', 'medium', 'high', 'critical')",
+            name="ck_quality_checks_defect_severity",
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    production_order_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("production_orders.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    operation_execution_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("operation_executions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    production_step_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("production_steps.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    result: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+    defect_severity: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="NONE",
+    )
+    defect_type: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    checked_by: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    production_order: Mapped["ProductionOrder"] = relationship(
+        "ProductionOrder",
+        back_populates="quality_checks",
+    )
+    operation_execution: Mapped["OperationExecution"] = relationship(
+        "OperationExecution",
+        back_populates="quality_checks",
+    )
+    production_step: Mapped["ProductionStep"] = relationship("ProductionStep")
+
+    def __repr__(self) -> str:
+        return (
+            f"<QualityCheck id={self.id} exec_id={self.operation_execution_id} "
+            f"result='{self.result}' severity='{self.defect_severity}'>"
         )

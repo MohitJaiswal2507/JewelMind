@@ -174,6 +174,14 @@ class OperationExecutionResponse(BaseModel):
     can_start: bool = False
     has_uncompleted_predecessors: bool = False
 
+    # Phase J.5 Controlled Rework & Quality Control
+    execution_type: str = "normal"
+    rework_of_execution_id: Optional[uuid.UUID] = None
+    attempt_number: int = 1
+    latest_qc_result: Optional[str] = None
+    latest_defect_severity: Optional[str] = None
+    quality_gate_passed: bool = False
+
 
 class OperationExecutionListResponse(BaseModel):
     """
@@ -346,3 +354,139 @@ class OrderMaterialSummaryResponse(BaseModel):
     total_wastage_quantity: float
     total_net_quantity: float = 0.0
     items: List[MaterialSummaryItem]
+
+
+# =========================================================================
+# Phase J.5: Quality Control & Controlled Rework Schemas
+# =========================================================================
+
+class QualityCheckResult(str, Enum):
+    """Authoritative quality control outcomes."""
+    PASS = "PASS"
+    FAIL = "FAIL"
+    REWORK = "REWORK"
+
+
+class DefectSeverity(str, Enum):
+    """Graded defect severity levels for jewelry manufacturing quality checks."""
+    NONE = "NONE"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class QualityCheckCreate(BaseModel):
+    """
+    Payload for recording a quality inspection against a completed operation execution.
+    Strictly forbids client-controlled user_id, production_order_id, production_step_id,
+    or checked_at timestamps.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    result: QualityCheckResult = Field(
+        ...,
+        description="Quality check outcome: PASS, FAIL, or REWORK",
+    )
+    defect_severity: DefectSeverity = Field(
+        default=DefectSeverity.NONE,
+        description="Defect severity classification",
+    )
+    defect_type: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Defect code or category (e.g., 'POROSITY', 'PRONG_ALIGNMENT', 'SCRATCH')",
+    )
+    notes: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Inspector notes, audit observations, or rework guidance",
+    )
+    checked_by: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Optional inspector identity or badge number",
+    )
+
+    @model_validator(mode="after")
+    def validate_result_and_severity(self):
+        # Validate that FAIL or REWORK with NONE severity defaults or flags appropriately
+        if self.result == QualityCheckResult.PASS and self.defect_severity not in (
+            DefectSeverity.NONE,
+            DefectSeverity.LOW,
+        ):
+            # In jewelry QA, a passing piece shouldn't have critical/high defect
+            raise ValueError(
+                f"A PASS result cannot have defect severity '{self.defect_severity.value}'."
+            )
+        return self
+
+
+class QualityCheckResponse(BaseModel):
+    """
+    Authoritative response schema for a QualityCheck record.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    production_order_id: uuid.UUID
+    operation_execution_id: uuid.UUID
+    production_step_id: uuid.UUID
+
+    result: str
+    defect_severity: str
+    defect_type: Optional[str] = None
+    notes: Optional[str] = None
+    checked_by: Optional[str] = None
+    checked_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    # Contextual step / stage info
+    step_number: Optional[int] = None
+    stage_name: Optional[str] = None
+    quality_checkpoint: Optional[str] = None
+
+
+class ExecutionQualitySummaryItem(BaseModel):
+    """Quality summary for a specific execution / attempt."""
+    model_config = ConfigDict(from_attributes=True)
+
+    execution_id: uuid.UUID
+    step_id: uuid.UUID
+    step_number: Optional[int] = None
+    stage_name: Optional[str] = None
+    execution_type: str = "normal"
+    attempt_number: int = 1
+    execution_status: str
+    latest_qc_result: Optional[str] = None
+    latest_defect_severity: Optional[str] = None
+    total_checks: int = 0
+    has_passed: bool = False
+
+
+class OrderQualitySummaryResponse(BaseModel):
+    """Authoritative summary response for an order's quality gate status."""
+    model_config = ConfigDict(from_attributes=True)
+
+    order_id: uuid.UUID
+    total_operations: int
+    completed_operations: int
+    passed: int
+    failed: int
+    rework: int
+    pending_quality_checks: int
+    quality_gate_passed: bool
+    items: List[ExecutionQualitySummaryItem]
+
+
+class ReworkExecutionCreate(BaseModel):
+    """Payload for explicitly authorizing and initializing a rework execution."""
+    model_config = ConfigDict(extra="forbid")
+
+    operator_notes: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Rework rationale, supervisor notes, or artisan instructions",
+    )
