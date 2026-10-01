@@ -35,8 +35,13 @@ from app.schemas.optimization import (
     ProductionScheduleListResponse,
     ProductionScheduleResponse,
 )
+from app.schemas.analytics import (
+    AtelierAnalyticsSummaryResponse,
+    ProductionOrderAnalyticsResponse,
+)
 from app.services.production_service import production_service
 from app.services.production_optimization_service import production_optimization_service
+from app.services.production_analytics_service import production_analytics_service
 
 router = APIRouter(prefix="/production", tags=["Production Management"])
 
@@ -532,3 +537,58 @@ async def delete_schedule(
         schedule_id=schedule_id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Phase J.7: Planned vs Actual Production Analytics Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/orders/{order_id}/analytics",
+    response_model=ProductionOrderAnalyticsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get planned vs actual production analytics for an order",
+    description=(
+        "Returns comprehensive deterministic analytics comparing planned specification metrics "
+        "(hours, material quantities) against actual shop-floor execution durations, consumption, "
+        "wastage, rework rates, QC verdicts, and schedule variance."
+    ),
+)
+async def get_order_analytics(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves read-only Planned vs Actual analytics for an order.
+    Enforces multi-tenant isolation (returns 404 for unauthorized access).
+    """
+    return production_analytics_service.get_order_analytics(
+        db=db,
+        user_id=current_user.id,
+        order_id=order_id,
+    )
+
+
+@router.get(
+    "/analytics/summary",
+    response_model=AtelierAnalyticsSummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get workshop-wide planned vs actual analytics summary",
+    description=(
+        "Returns aggregated workshop metrics comparing total planned vs actual hours, net time variance, "
+        "overall rework rate, and quality inspection pass rates across all orders for the authenticated user."
+    ),
+)
+async def get_atelier_analytics_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieves read-only aggregate Planned vs Actual workshop summary for the user's atelier.
+    """
+    return production_analytics_service.get_atelier_analytics_summary(
+        db=db,
+        user_id=current_user.id,
+    )
+

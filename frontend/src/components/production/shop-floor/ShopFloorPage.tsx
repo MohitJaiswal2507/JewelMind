@@ -15,10 +15,12 @@ import { QualityCheckDialog } from './QualityCheckDialog';
 import { MaterialConsumptionDialog } from './MaterialConsumptionDialog';
 import { MaterialSummaryCard } from './MaterialSummaryCard';
 import { ProductionProgressCard } from './ProductionProgressCard';
+import { OrderAnalyticsCard } from './OrderAnalyticsCard';
 
 import { productionService } from '../../../services/api/productionService';
 import { productionExecutionService } from '../../../services/api/productionExecutionService';
 import { ProductionOrder, Worker, Machine } from '../../../types/production';
+import { ProductionOrderAnalyticsResponse } from '../../../types/analytics';
 import {
   OperationExecution,
   OrderMaterialSummaryResponse,
@@ -44,6 +46,7 @@ export const ShopFloorPage: React.FC<ShopFloorPageProps> = ({
   const [machines, setMachines] = useState<Machine[]>([]);
   const [materialSummary, setMaterialSummary] = useState<OrderMaterialSummaryResponse | null>(null);
   const [qualitySummary, setQualitySummary] = useState<OrderQualitySummaryResponse | null>(null);
+  const [analytics, setAnalytics] = useState<ProductionOrderAnalyticsResponse | null>(null);
 
   // Loading & Feedback
   const [loading, setLoading] = useState<boolean>(true);
@@ -112,14 +115,16 @@ export const ShopFloorPage: React.FC<ShopFloorPageProps> = ({
       setWorkers(workersData.items);
       setMachines(machinesData.items);
 
-      // 5. Fetch Material & QC Summaries
+      // 5. Fetch Material, QC & Analytics Summaries
       try {
-        const [matSum, qcSum] = await Promise.all([
+        const [matSum, qcSum, analyticsData] = await Promise.all([
           productionExecutionService.getOrderMaterialSummary(orderId),
           productionExecutionService.getOrderQualitySummary(orderId),
+          productionExecutionService.getOrderAnalytics(orderId).catch(() => null),
         ]);
         setMaterialSummary(matSum);
         setQualitySummary(qcSum);
+        if (analyticsData) setAnalytics(analyticsData);
       } catch {
         // Summaries are non-fatal
       }
@@ -294,6 +299,9 @@ export const ShopFloorPage: React.FC<ShopFloorPageProps> = ({
         onRefresh={() => loadStationData(false)}
         isRefreshing={refreshing}
       />
+
+      {/* Planned vs Actual Analytics Overview */}
+      {analytics && <OrderAnalyticsCard analytics={analytics} />}
 
       {/* 2. Main Workstation Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
