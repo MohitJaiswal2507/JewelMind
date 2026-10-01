@@ -198,6 +198,32 @@ class ProductionExecutionService {
       {}
     );
   }
+
+  // =========================================================================
+  // Phase J.7: Planned vs Actual Production Analytics Methods
+  // =========================================================================
+
+  /**
+   * Retrieves comprehensive Planned vs Actual analytics for an individual production order.
+   */
+  async getOrderAnalytics(
+    orderId: string
+  ): Promise<import('../../types/analytics').ProductionOrderAnalyticsResponse> {
+    return apiClient.get<import('../../types/analytics').ProductionOrderAnalyticsResponse>(
+      `/api/v1/production/orders/${orderId}/analytics`
+    );
+  }
+
+  /**
+   * Retrieves aggregate Planned vs Actual workshop metrics across all orders.
+   */
+  async getAtelierAnalyticsSummary(): Promise<
+    import('../../types/analytics').AtelierAnalyticsSummaryResponse
+  > {
+    return apiClient.get<import('../../types/analytics').AtelierAnalyticsSummaryResponse>(
+      `/api/v1/production/analytics/summary`
+    );
+  }
 }
 
 export const productionExecutionService = new ProductionExecutionService();

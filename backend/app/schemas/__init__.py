@@ -72,6 +72,18 @@ from .execution import (
     OrderQualitySummaryResponse,
     ReworkExecutionCreate,
 )
+from .analytics import (
+    MaterialVarianceItem,
+    PlannedOrderAnalytics,
+    ActualOrderAnalytics,
+    VarianceOrderAnalytics,
+    OperationsOrderAnalytics,
+    QualityOrderAnalytics,
+    ReworkOrderAnalytics,
+    ScheduleOrderAnalytics,
+    ProductionOrderAnalyticsResponse,
+    AtelierAnalyticsSummaryResponse,
+)
 
 __all__ = [
     "ApiResponse",
@@ -136,4 +148,14 @@ __all__ = [
     "ExecutionQualitySummaryItem",
     "OrderQualitySummaryResponse",
     "ReworkExecutionCreate",
+    "MaterialVarianceItem",
+    "PlannedOrderAnalytics",
+    "ActualOrderAnalytics",
+    "VarianceOrderAnalytics",
+    "OperationsOrderAnalytics",
+    "QualityOrderAnalytics",
+    "ReworkOrderAnalytics",
+    "ScheduleOrderAnalytics",
+    "ProductionOrderAnalyticsResponse",
+    "AtelierAnalyticsSummaryResponse",
 ]
