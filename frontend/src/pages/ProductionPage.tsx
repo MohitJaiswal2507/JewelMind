@@ -48,15 +48,24 @@ import {
   OptimizationResponse,
 } from '../types/production';
 
-type ActiveTab = 'orders' | 'workers' | 'machines' | 'optimization';
+import { ShopFloorPage } from '../components/production/shop-floor/ShopFloorPage';
+import { ProductionDashboard } from '../components/production/dashboard/ProductionDashboard';
+
+type ActiveTab = 'dashboard' | 'orders' | 'shop-floor' | 'workers' | 'machines' | 'optimization';
 
 interface ProductionPageProps {
   onNavigateToStudio?: () => void;
   onSelectDesign?: (design: Design) => void;
+  initialTab?: ActiveTab;
+  initialOrderId?: string;
 }
 
-export const ProductionPage: React.FC<ProductionPageProps> = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('orders');
+export const ProductionPage: React.FC<ProductionPageProps> = ({
+  initialTab = 'dashboard',
+  initialOrderId,
+}) => {
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  const [shopFloorOrderId, setShopFloorOrderId] = useState<string | null>(initialOrderId || null);
   const [summary, setSummary] = useState<ProductionSummary | null>(null);
 
   // -------------------------------------------------------------------------
@@ -659,6 +668,18 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
       {/* Tab Navigation */}
       <div className="flex space-x-1 border-b border-[#1E2333] my-6 overflow-x-auto">
         <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+            activeTab === 'dashboard'
+              ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>Workshop Dashboard</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('orders')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'orders'
@@ -717,7 +738,47 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
             OR-Tools
           </Badge>
         </button>
+
+        {shopFloorOrderId && (
+          <button
+            onClick={() => setActiveTab('shop-floor')}
+            className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === 'shop-floor'
+                ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Factory className="w-4 h-4 text-amber-300" />
+            <span>Shop Floor Workstation</span>
+            <Badge variant="outline" className="text-[9px] ml-1 font-mono bg-amber-400/10 text-amber-300 border-amber-400/30">
+              #{shopFloorOrderId.slice(0, 4)}
+            </Badge>
+          </button>
+        )}
       </div>
+
+      {/* ===================================================================== */}
+      {/* TAB 0: WORKSHOP PRODUCTION DASHBOARD */}
+      {/* ===================================================================== */}
+      {activeTab === 'dashboard' && (
+        <ProductionDashboard
+          onOpenShopFloor={(orderId) => {
+            setShopFloorOrderId(orderId);
+            setActiveTab('shop-floor');
+          }}
+          onNavigateToTab={(tab) => setActiveTab(tab)}
+        />
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB: SHOP-FLOOR WORKSTATION TERMINAL */}
+      {/* ===================================================================== */}
+      {activeTab === 'shop-floor' && shopFloorOrderId && (
+        <ShopFloorPage
+          orderId={shopFloorOrderId}
+          onBackToOrders={() => setActiveTab('orders')}
+        />
+      )}
 
       {/* ===================================================================== */}
       {/* TAB 1: PRODUCTION ORDERS */}
@@ -918,6 +979,19 @@ export const ProductionPage: React.FC<ProductionPageProps> = () => {
 
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1">
+                            <Button
+                              variant="atelier"
+                              size="sm"
+                              onClick={() => {
+                                setShopFloorOrderId(order.id);
+                                setActiveTab('shop-floor');
+                              }}
+                              className="h-8 px-2 text-xs font-semibold"
+                              title="Launch Shop Floor Workstation"
+                            >
+                              <Factory className="w-3.5 h-3.5 mr-1 text-amber-300" />
+                              <span>Terminal</span>
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
