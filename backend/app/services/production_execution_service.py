@@ -15,16 +15,25 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.exceptions import AppException
-from app.models.execution import OperationExecution
+from app.models.execution import MaterialConsumption, OperationExecution
 from app.models.production import Machine, ProductionOrder, Worker
 from app.models.schedule import ScheduledTask
-from app.models.specification import ProductionSpecification, ProductionStep
+from app.models.specification import (
+    ProductionGemstone,
+    ProductionMaterial,
+    ProductionSpecification,
+    ProductionStep,
+)
 from app.schemas.execution import (
     ExecutionStatus,
+    MaterialConsumptionCreate,
+    MaterialConsumptionResponse,
+    MaterialSummaryItem,
     OperationExecutionCreate,
     OperationExecutionListResponse,
     OperationExecutionResponse,
     OperationExecutionTransitionRequest,
+    OrderMaterialSummaryResponse,
 )
 
 # Valid state transitions for shop-floor operations
@@ -1427,6 +1436,383 @@ class ProductionExecutionService:
 
         execution.production_step = step
         return execution
+
+    # =========================================================================
+    # Phase J.4: Material Consumption & Wastage Tracking
+    # =========================================================================
+
+    @staticmethod
+    def record_material_consumption(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+        payload: MaterialConsumptionCreate,
+    ) -> MaterialConsumption:
+        """
+        Records actual material consumption and wastage against an active or completed
+        shop-floor operation execution. Enforces tenant ownership, execution state rules
+        (IN_PROGRESS or COMPLETED only), quantity constraints, and authoritative
+        specification item alignment.
+
+        Traceability chain:
+        ProductionSpecification -> ProductionOrder -> OperationExecution -> MaterialConsumption
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+
+        # 1. Tenant-scoped execution lookup
+        execution = db.scalar(
+            select(OperationExecution)
+            .where(
+                OperationExecution.id == execution_id,
+                OperationExecution.user_id == user_id,
+            )
+        )
+        if not execution:
+            raise AppException(
+                "Operation execution not found.",
+                code="EXECUTION_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 2. Execution state validation (only IN_PROGRESS or COMPLETED represent real work)
+        if execution.status not in (ExecutionStatus.IN_PROGRESS.value, ExecutionStatus.COMPLETED.value):
+            raise AppException(
+                f"Cannot record material consumption for execution in '{execution.status}' state. "
+                "Consumption can only be recorded when execution is IN_PROGRESS or COMPLETED.",
+                code="INVALID_EXECUTION_STATE",
+                status_code=400,
+            )
+
+        # 3. Tenant-scoped order lookup & linkage validation
+        order = db.scalar(
+            select(ProductionOrder)
+            .where(
+                ProductionOrder.id == execution.production_order_id,
+                ProductionOrder.user_id == user_id,
+            )
+        )
+        if not order:
+            raise AppException(
+                "Production order not found for this execution.",
+                code="ORDER_NOT_FOUND",
+                status_code=404,
+            )
+
+        # 4. Authoritative specification item linkage & validation
+        spec_material: Optional[ProductionMaterial] = None
+        spec_gemstone: Optional[ProductionGemstone] = None
+
+        if payload.specification_material_id:
+            # Query material strictly scoped to current tenant
+            spec_material = db.scalar(
+                select(ProductionMaterial)
+                .join(
+                    ProductionSpecification,
+                    ProductionMaterial.specification_id == ProductionSpecification.id,
+                )
+                .where(
+                    ProductionMaterial.id == payload.specification_material_id,
+                    ProductionSpecification.user_id == user_id,
+                )
+            )
+            if not spec_material:
+                raise AppException(
+                    "Specification material not found.",
+                    code="SPECIFICATION_MATERIAL_NOT_FOUND",
+                    status_code=404,
+                )
+
+            # Prevent cross-order / cross-specification mismatch
+            if not order.specification_id or spec_material.specification_id != order.specification_id:
+                raise AppException(
+                    "Specification material does not belong to the production order's specification.",
+                    code="SPECIFICATION_MATERIAL_MISMATCH",
+                    status_code=400,
+                )
+
+        if payload.specification_gemstone_id:
+            # Query gemstone strictly scoped to current tenant
+            spec_gemstone = db.scalar(
+                select(ProductionGemstone)
+                .join(
+                    ProductionSpecification,
+                    ProductionGemstone.specification_id == ProductionSpecification.id,
+                )
+                .where(
+                    ProductionGemstone.id == payload.specification_gemstone_id,
+                    ProductionSpecification.user_id == user_id,
+                )
+            )
+            if not spec_gemstone:
+                raise AppException(
+                    "Specification gemstone not found.",
+                    code="SPECIFICATION_GEMSTONE_NOT_FOUND",
+                    status_code=404,
+                )
+
+            # Prevent cross-order / cross-specification mismatch
+            if not order.specification_id or spec_gemstone.specification_id != order.specification_id:
+                raise AppException(
+                    "Specification gemstone does not belong to the production order's specification.",
+                    code="SPECIFICATION_GEMSTONE_MISMATCH",
+                    status_code=400,
+                )
+
+        # 5. Derive identity / attributes
+        resolved_type = payload.material_type
+        resolved_name = payload.material_name
+        resolved_unit = payload.unit or "g"
+        resolved_planned = payload.planned_quantity
+
+        if spec_material:
+            if not resolved_type:
+                resolved_type = "METAL"
+            if not resolved_name:
+                color_str = f" {spec_material.metal_color}" if spec_material.metal_color else ""
+                resolved_name = f"{spec_material.metal_purity}{color_str} {spec_material.metal_type}".strip()
+            if not resolved_unit:
+                resolved_unit = "g"
+            if resolved_planned == 0.0 and spec_material.estimated_weight_grams is not None:
+                resolved_planned = float(spec_material.estimated_weight_grams)
+
+        elif spec_gemstone:
+            if not resolved_type:
+                resolved_type = "GEMSTONE"
+            if not resolved_name:
+                shape_str = f" ({spec_gemstone.cut_shape})" if spec_gemstone.cut_shape else ""
+                resolved_name = f"{spec_gemstone.gemstone_type}{shape_str}".strip()
+            if not resolved_unit:
+                resolved_unit = "pcs"
+            if resolved_planned == 0.0:
+                if spec_gemstone.stone_count is not None:
+                    resolved_planned = float(spec_gemstone.stone_count)
+                elif spec_gemstone.estimated_carat_weight is not None:
+                    resolved_planned = float(spec_gemstone.estimated_carat_weight)
+
+        resolved_type = (resolved_type or "METAL").strip().upper()
+
+        # 6. Strict quantity and wastage validation
+        if payload.actual_quantity < 0.0:
+            raise AppException(
+                "Actual quantity must be non-negative.",
+                code="INVALID_QUANTITY",
+                status_code=400,
+            )
+        if payload.wastage_quantity < 0.0:
+            raise AppException(
+                "Wastage quantity must be non-negative.",
+                code="INVALID_QUANTITY",
+                status_code=400,
+            )
+        if resolved_planned < 0.0:
+            raise AppException(
+                "Planned quantity must be non-negative.",
+                code="INVALID_QUANTITY",
+                status_code=400,
+            )
+        if payload.wastage_quantity > payload.actual_quantity:
+            raise AppException(
+                "Wastage quantity cannot exceed actual quantity.",
+                code="INVALID_QUANTITY",
+                status_code=400,
+            )
+
+        # 7. Atomic persistence (Append-only actual manufacturing history)
+        consumption = MaterialConsumption(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            production_order_id=order.id,
+            operation_execution_id=execution.id,
+            specification_material_id=spec_material.id if spec_material else None,
+            specification_gemstone_id=spec_gemstone.id if spec_gemstone else None,
+            material_type=resolved_type,
+            material_name=resolved_name or "Unknown Material",
+            unit=resolved_unit,
+            planned_quantity=resolved_planned,
+            actual_quantity=payload.actual_quantity,
+            wastage_quantity=payload.wastage_quantity,
+            wastage_reason=payload.wastage_reason,
+            notes=payload.notes,
+        )
+
+        try:
+            db.add(consumption)
+            db.commit()
+            db.refresh(consumption)
+        except Exception:
+            db.rollback()
+            raise
+
+        return consumption
+
+    @staticmethod
+    def get_execution_material_consumptions(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        execution_id: Union[str, uuid.UUID],
+    ) -> List[MaterialConsumption]:
+        """
+        Retrieves all actual material consumption records for an operation execution.
+        Enforces tenant isolation.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(execution_id, str):
+            execution_id = uuid.UUID(execution_id)
+
+        execution = db.scalar(
+            select(OperationExecution)
+            .where(
+                OperationExecution.id == execution_id,
+                OperationExecution.user_id == user_id,
+            )
+        )
+        if not execution:
+            raise AppException(
+                "Operation execution not found.",
+                code="EXECUTION_NOT_FOUND",
+                status_code=404,
+            )
+
+        return list(
+            db.scalars(
+                select(MaterialConsumption)
+                .where(
+                    MaterialConsumption.operation_execution_id == execution_id,
+                    MaterialConsumption.user_id == user_id,
+                )
+                .order_by(MaterialConsumption.created_at.asc())
+            ).all()
+        )
+
+    @staticmethod
+    def get_order_material_consumptions(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_id: Union[str, uuid.UUID],
+    ) -> List[MaterialConsumption]:
+        """
+        Retrieves all actual material consumption records for a production order.
+        Enforces tenant isolation.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(order_id, str):
+            order_id = uuid.UUID(order_id)
+
+        order = db.scalar(
+            select(ProductionOrder)
+            .where(
+                ProductionOrder.id == order_id,
+                ProductionOrder.user_id == user_id,
+            )
+        )
+        if not order:
+            raise AppException(
+                "Production order not found.",
+                code="ORDER_NOT_FOUND",
+                status_code=404,
+            )
+
+        return list(
+            db.scalars(
+                select(MaterialConsumption)
+                .where(
+                    MaterialConsumption.production_order_id == order_id,
+                    MaterialConsumption.user_id == user_id,
+                )
+                .order_by(MaterialConsumption.created_at.asc())
+            ).all()
+        )
+
+    @staticmethod
+    def get_order_material_summary(
+        db: Session,
+        user_id: Union[str, uuid.UUID],
+        order_id: Union[str, uuid.UUID],
+    ) -> OrderMaterialSummaryResponse:
+        """
+        Computes concise planned vs actual vs wastage summary for a production order,
+        grouped by material category, name, and unit.
+        Enforces multi-tenant isolation.
+        """
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+        if isinstance(order_id, str):
+            order_id = uuid.UUID(order_id)
+
+        order = db.scalar(
+            select(ProductionOrder)
+            .where(
+                ProductionOrder.id == order_id,
+                ProductionOrder.user_id == user_id,
+            )
+        )
+        if not order:
+            raise AppException(
+                "Production order not found.",
+                code="ORDER_NOT_FOUND",
+                status_code=404,
+            )
+
+        consumptions = list(
+            db.scalars(
+                select(MaterialConsumption)
+                .where(
+                    MaterialConsumption.production_order_id == order_id,
+                    MaterialConsumption.user_id == user_id,
+                )
+                .order_by(MaterialConsumption.created_at.asc())
+            ).all()
+        )
+
+        groups: Dict[Tuple[str, str, str], Dict[str, float]] = {}
+        for c in consumptions:
+            key = (c.material_type, c.material_name, c.unit)
+            if key not in groups:
+                groups[key] = {
+                    "planned": 0.0,
+                    "actual": 0.0,
+                    "wastage": 0.0,
+                }
+            groups[key]["planned"] += c.planned_quantity
+            groups[key]["actual"] += c.actual_quantity
+            groups[key]["wastage"] += c.wastage_quantity
+
+        items: List[MaterialSummaryItem] = []
+        for (m_type, m_name, m_unit), vals in groups.items():
+            actual = round(vals["actual"], 4)
+            wastage = round(vals["wastage"], 4)
+            planned = round(vals["planned"], 4)
+            net = round(actual - wastage, 4)
+            items.append(
+                MaterialSummaryItem(
+                    material_type=m_type,
+                    material_name=m_name,
+                    unit=m_unit,
+                    planned_quantity=planned,
+                    actual_quantity=actual,
+                    wastage_quantity=wastage,
+                    net_consumed_quantity=net,
+                )
+            )
+
+        total_planned = round(sum(i.planned_quantity for i in items), 4)
+        total_actual = round(sum(i.actual_quantity for i in items), 4)
+        total_wastage = round(sum(i.wastage_quantity for i in items), 4)
+        total_net = round(total_actual - total_wastage, 4)
+
+        return OrderMaterialSummaryResponse(
+            order_id=order.id,
+            total_planned_quantity=total_planned,
+            total_actual_quantity=total_actual,
+            total_wastage_quantity=total_wastage,
+            total_net_quantity=total_net,
+            items=items,
+        )
 
 
 production_execution_service = ProductionExecutionService()

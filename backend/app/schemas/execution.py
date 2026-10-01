@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ExecutionStatus(str, Enum):
@@ -195,3 +195,154 @@ class OperationExecutionListResponse(BaseModel):
     blocked_count: int = 0
     current_step_number: Optional[int] = None
     overall_progress_percent: float = 0.0
+
+
+# =========================================================================
+# Phase J.4: Material Consumption & Wastage Tracking Schemas
+# =========================================================================
+
+class MaterialCategory(str, Enum):
+    """Broad categories for jewellery manufacturing materials."""
+    METAL = "METAL"
+    GEMSTONE = "GEMSTONE"
+
+
+class MaterialConsumptionCreate(BaseModel):
+    """
+    Payload for recording actual material consumption against an operation execution.
+    Strictly forbids client-controlled user_id, production_order_id, operation_execution_id,
+    or timestamps to enforce tenant security and historical integrity.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    material_type: Optional[str] = Field(
+        None,
+        description="Material category: METAL or GEMSTONE. If omitted and spec item is linked, derived automatically.",
+    )
+    material_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Name of the material (e.g. '18K Yellow Gold', '0.50ct Round Diamond'). Auto-derived if spec item is linked.",
+    )
+    unit: Optional[str] = Field(
+        "g",
+        min_length=1,
+        max_length=50,
+        description="Unit of measurement (e.g., 'g', 'grams', 'cts', 'carats', 'pcs')",
+    )
+    planned_quantity: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Planned quantity from specification baseline (non-negative)",
+    )
+    actual_quantity: float = Field(
+        ...,
+        ge=0.0,
+        description="Actual quantity consumed on the bench (non-negative)",
+    )
+    wastage_quantity: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Quantity lost as scrap, dust, casting loss, or damage (non-negative)",
+    )
+    wastage_reason: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Optional description or cause for wastage",
+    )
+    notes: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Optional shop-floor operator notes regarding this material draw",
+    )
+    specification_material_id: Optional[uuid.UUID] = Field(
+        None,
+        description="Optional reference to the authoritative ProductionMaterial item in the specification",
+    )
+    specification_gemstone_id: Optional[uuid.UUID] = Field(
+        None,
+        description="Optional reference to the authoritative ProductionGemstone item in the specification",
+    )
+
+    @model_validator(mode="after")
+    def validate_quantities_and_types(self):
+        if self.actual_quantity < 0.0:
+            raise ValueError("actual_quantity must be non-negative.")
+        if self.wastage_quantity < 0.0:
+            raise ValueError("wastage_quantity must be non-negative.")
+        if self.planned_quantity < 0.0:
+            raise ValueError("planned_quantity must be non-negative.")
+        if self.wastage_quantity > self.actual_quantity:
+            raise ValueError("wastage_quantity cannot exceed actual_quantity.")
+
+        if self.material_type is not None:
+            normalized = self.material_type.strip().upper()
+            if normalized not in ("METAL", "GEMSTONE"):
+                raise ValueError(
+                    f"Invalid material_type '{self.material_type}'. Must be 'METAL' or 'GEMSTONE'."
+                )
+            self.material_type = normalized
+
+        # If no specification item is linked, material_name and material_type must be provided
+        if not self.specification_material_id and not self.specification_gemstone_id:
+            if not self.material_name or not self.material_name.strip():
+                raise ValueError(
+                    "material_name is required when not linking to a specification item."
+                )
+            if not self.material_type:
+                raise ValueError(
+                    "material_type is required ('METAL' or 'GEMSTONE') when not linking to a specification item."
+                )
+        return self
+
+
+class MaterialConsumptionResponse(BaseModel):
+    """
+    Authoritative response schema for an actual MaterialConsumption record.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    production_order_id: uuid.UUID
+    operation_execution_id: uuid.UUID
+    specification_material_id: Optional[uuid.UUID] = None
+    specification_gemstone_id: Optional[uuid.UUID] = None
+
+    material_type: str
+    material_name: str
+    unit: str
+    planned_quantity: float
+    actual_quantity: float
+    wastage_quantity: float
+    wastage_reason: Optional[str] = None
+    notes: Optional[str] = None
+
+    created_at: datetime
+    updated_at: datetime
+
+
+class MaterialSummaryItem(BaseModel):
+    """Summary item for planned vs actual material usage grouped by material."""
+    model_config = ConfigDict(from_attributes=True)
+
+    material_type: str
+    material_name: str
+    unit: str
+    planned_quantity: float
+    actual_quantity: float
+    wastage_quantity: float
+    net_consumed_quantity: float = 0.0
+
+
+class OrderMaterialSummaryResponse(BaseModel):
+    """Authoritative summary response for an order's planned vs actual material usage."""
+    model_config = ConfigDict(from_attributes=True)
+
+    order_id: uuid.UUID
+    total_planned_quantity: float
+    total_actual_quantity: float
+    total_wastage_quantity: float
+    total_net_quantity: float = 0.0
+    items: List[MaterialSummaryItem]
