@@ -4,7 +4,7 @@ Centralized settings loaded from environment variables with validation.
 """
 
 from typing import List, Optional, Union
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,7 +17,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Environment & Logging
-    APP_ENV: str = "development"  # development, testing, production
+    APP_ENV: str = Field(
+        default="development",
+        validation_alias=AliasChoices("APP_ENV", "ENVIRONMENT"),
+    )  # development, testing, production
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"       # DEBUG, INFO, WARNING, ERROR, CRITICAL
     
@@ -47,9 +50,23 @@ class Settings(BaseSettings):
     DB_ECHO_LOG: bool = False
     
     # Authentication & Security
-    JWT_SECRET_KEY: str = "jewelmind-super-secret-jwt-key-minimum-32-chars-for-dev"
+    JWT_SECRET_KEY: str = Field(
+        default="jewelmind-super-secret-jwt-key-minimum-32-chars-for-dev",
+        validation_alias=AliasChoices("JWT_SECRET_KEY", "JWT_SECRET"),
+    )
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    @field_validator("JWT_SECRET_KEY")
+    @classmethod
+    def validate_jwt_secret_security(cls, v: str, info) -> str:
+        app_env = info.data.get("APP_ENV", "development") if info.data else "development"
+        if app_env == "production":
+            if not v or v == "jewelmind-super-secret-jwt-key-minimum-32-chars-for-dev" or len(v) < 32:
+                raise ValueError(
+                    "In production, a secure JWT_SECRET_KEY (or JWT_SECRET) with at least 32 characters must be configured."
+                )
+        return v
     
     # Supabase Free Tier Storage & Auth
     SUPABASE_URL: str = ""
