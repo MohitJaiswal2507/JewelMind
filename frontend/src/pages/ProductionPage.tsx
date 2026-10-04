@@ -92,7 +92,7 @@ interface ProductionPageProps {
 export const ProductionPage: React.FC<ProductionPageProps> = ({
   initialOrderId,
 }) => {
-  const initialUrlState = parseProductionUrlState(initialOrderId);
+  const initialUrlState = useMemo(() => parseProductionUrlState(initialOrderId), [initialOrderId]);
   const [viewMode, setViewMode] = useState<ProductionViewMode>(initialUrlState.viewMode);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialUrlState.orderId);
 
@@ -245,13 +245,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
     try {
       const res = await productionService.getSchedules();
       setSchedules(res.items);
-      if (res.items.length > 0 && !activeSchedule) {
-        setActiveSchedule(res.items[0]);
-      }
+      setActiveSchedule((prev) => prev || (res.items.length > 0 ? res.items[0] : null));
     } catch {
       // Non-fatal
     }
-  }, [activeSchedule]);
+  }, []);
 
   const fetchDesigns = useCallback(async () => {
     try {
@@ -306,36 +304,52 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
     }
   }, []);
 
-  // Master Initial Bootstrap
+  // Master Initial Bootstrap - runs ONCE on mount
   useEffect(() => {
+    let isMounted = true;
+
     const bootstrap = async () => {
       setLoading(true);
-      const [fetchedOrders] = await Promise.all([
-        fetchOrders(),
-        fetchSummary(),
-        fetchWorkers(),
-        fetchMachines(),
-        fetchSchedules(),
-        fetchDesigns(),
-      ]);
+      try {
+        const [fetchedOrders] = await Promise.all([
+          fetchOrders(),
+          fetchSummary(),
+          fetchWorkers(),
+          fetchMachines(),
+          fetchSchedules(),
+          fetchDesigns(),
+        ]);
 
-      // If initial URL specified orderId, load it. If not, auto-focus active order if only 1 active.
-      const initialId = initialUrlState.orderId;
-      if (initialId) {
-        fetchSelectedOrderDetails(initialId);
-      } else if (fetchedOrders.length === 1) {
-        setSelectedOrderId(fetchedOrders[0].id);
-        fetchSelectedOrderDetails(fetchedOrders[0].id);
+        if (!isMounted) return;
+
+        // If initial URL specified orderId, load it. If not, auto-focus active order if only 1 active.
+        const initialId = initialUrlState.orderId;
+        if (initialId) {
+          fetchSelectedOrderDetails(initialId);
+        } else if (fetchedOrders.length === 1) {
+          setSelectedOrderId(fetchedOrders[0].id);
+          fetchSelectedOrderDetails(fetchedOrders[0].id);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-
-      setLoading(false);
     };
 
     bootstrap();
-  }, [fetchOrders, fetchSummary, fetchWorkers, fetchMachines, fetchSchedules, fetchDesigns, fetchSelectedOrderDetails, initialUrlState.orderId]);
 
-  // When selectedOrderId changes, reload order telemetry
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Runs once on mount!
+
+  // When selectedOrderId changes after mount, reload order telemetry
+  const isFirstRender = React.useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     if (selectedOrderId) {
       fetchSelectedOrderDetails(selectedOrderId);
     } else {

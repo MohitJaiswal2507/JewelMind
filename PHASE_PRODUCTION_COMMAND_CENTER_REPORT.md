@@ -166,4 +166,34 @@ Using the automated browser subagent, the following workflows were exercised:
 - `PHASE_PRODUCTION_COMMAND_CENTER_REPORT.md`: Comprehensive audit report.
 
 ### Modified:
-- `frontend/src/pages/ProductionPage.tsx`: Refactored monolithic component into a clean, modern coordinator integrating all command center subcomponents while maintaining full URL synchronization and deep linking.
+- `frontend/src/pages/ProductionPage.tsx`: Refactored monolithic component into a clean, modern coordinator integrating all command center subcomponents while maintaining full URL synchronization and deep linking; eliminated callback instability and mount dependency loops causing infinite workstation reloading.
+- `frontend/src/components/production/shop-floor/ShopFloorPage.tsx`: Safeguarded material, quality, and analytics summary queries with non-fatal fallbacks.
+
+---
+
+## 13. Bug Resolution: Shop Floor Workstation Infinite Reload Loop
+
+### Root Cause
+When navigating to the Shop Floor Workstation tab (`?tab=shop-floor&orderId=...`), an infinite re-render loop occurred in `ProductionPage.tsx`:
+1. `fetchSchedules` had `[activeSchedule]` in its dependency array and called `setActiveSchedule(res.items[0])`.
+2. The master `bootstrap()` `useEffect` contained `fetchSchedules` along with multiple other unstable callbacks in its dependency array.
+3. Every time `bootstrap()` ran and updated `activeSchedule`, `fetchSchedules` was recreated with a new reference.
+4. This identity change triggered `bootstrap()` again, re-rendering `ProductionPage` continuously and flooding the backend with repetitive request batches (`orders`, `summary`, `workers`, `machines`, `schedules`, `designs`, `orders/{id}`) every few hundred milliseconds.
+5. Consequently, `ShopFloorPage` was continuously remounted or stalled before completing its execution telemetry fetch, remaining permanently stuck in the `"Opening Workstation Terminal..."` spinner state.
+
+### Solution Applied
+1. **Memoized URL State**: Stabilized `initialUrlState` with `useMemo(..., [initialOrderId])` to avoid recreating the state object on every render.
+2. **Decoupled `fetchSchedules` Dependency**: Converted `setActiveSchedule` inside `fetchSchedules` to use a functional updater `(prev) => prev || (res.items.length > 0 ? res.items[0] : null)` and emptied its dependency array to `[]`.
+3. **Mount-Guarded Bootstrap Effect**: Strictly scoped the initial data loader `useEffect` to run once on component mount (`[]`) with an `isMounted` cancellation flag.
+4. **First-Render Guard on Order Telemetry**: Added an `isFirstRender` ref guard to `useEffect([selectedOrderId])` to prevent duplicate parallel fetches during the initial mount sequence.
+5. **Safeguarded Summaries in `ShopFloorPage`**: Added non-fatal `.catch(() => null)` fallbacks for material and QC summaries so that optional metrics never crash or stall the terminal.
+
+### Verification
+- **Browser Subagent Test**: Navigated to `http://localhost:5173/production?orderId=f3397365-5835-42a6-af02-af9ec0b0eac1&tab=shop-floor`. Confirmed the workstation spinner cleanly resolves and renders the complete terminal UI:
+  - Header: `#f3397365` | `IN PROGRESS` | `JewelMind Demo Emerald Pendant`
+  - Planned vs Actual Analytics: Bench Labor Time, Material Variance, Operations & QC, Schedule Milestones
+  - Active Operation: `CAD & 3D Wax Pattern` with live touch controls and action buttons
+  - Routing Sequence: All 7 Indian jewellery manufacturing steps with status tags and artisan assignments.
+- **Frontend Vitest**: All 132 tests passing.
+- **Backend Pytest**: All 495 tests passing.
+
