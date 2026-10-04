@@ -53,6 +53,39 @@ import { ProductionDashboard } from '../components/production/dashboard/Producti
 
 type ActiveTab = 'dashboard' | 'orders' | 'shop-floor' | 'workers' | 'machines' | 'optimization';
 
+const parseProductionUrlState = (fallbackTab: ActiveTab = 'dashboard', fallbackOrderId?: string): { tab: ActiveTab; orderId: string | null; designId: string | null; renderId: string | null } => {
+  if (typeof window === 'undefined') {
+    return { tab: fallbackTab, orderId: fallbackOrderId || null, designId: null, renderId: null };
+  }
+  const search = new URLSearchParams(window.location.search);
+  const pathname = window.location.pathname.toLowerCase();
+
+  let tab = fallbackTab;
+  let orderId = search.get('orderId') || fallbackOrderId || null;
+  const designId = search.get('designId') || null;
+  const renderId = search.get('renderId') || null;
+
+  if (pathname.includes('/shop-floor')) {
+    tab = 'shop-floor';
+  }
+
+  const rawTab = search.get('tab');
+  if (rawTab) {
+    const norm = rawTab.toLowerCase();
+    if (norm === 'orders') tab = 'orders';
+    else if (norm === 'workers' || norm === 'artisans') tab = 'workers';
+    else if (norm === 'machines' || norm === 'tools') tab = 'machines';
+    else if (norm === 'optimization' || norm === 'schedule' || norm === 'solver') tab = 'optimization';
+    else if (norm === 'shop-floor' || norm === 'shopfloor') tab = 'shop-floor';
+    else if (norm === 'dashboard') tab = 'dashboard';
+  } else if (designId) {
+    // If arriving with designId from Studio, show orders tab
+    tab = 'orders';
+  }
+
+  return { tab, orderId, designId, renderId };
+};
+
 interface ProductionPageProps {
   onNavigateToStudio?: () => void;
   onSelectDesign?: (design: Design) => void;
@@ -64,9 +97,52 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
   initialTab = 'dashboard',
   initialOrderId,
 }) => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
-  const [shopFloorOrderId, setShopFloorOrderId] = useState<string | null>(initialOrderId || null);
+  const initialUrlState = parseProductionUrlState(initialTab, initialOrderId);
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialUrlState.tab);
+  const [shopFloorOrderId, setShopFloorOrderId] = useState<string | null>(initialUrlState.orderId);
   const [summary, setSummary] = useState<ProductionSummary | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  // Tab switcher with URL query parameter synchronization
+  const switchTab = (tab: ActiveTab, orderId?: string | null) => {
+    setActiveTab(tab);
+    if (orderId !== undefined) {
+      setShopFloorOrderId(orderId);
+    }
+
+    if (typeof window !== 'undefined') {
+      const search = new URLSearchParams(window.location.search);
+      if (tab === 'dashboard') {
+        search.delete('tab');
+      } else {
+        search.set('tab', tab);
+      }
+
+      const targetOrderId = orderId !== undefined ? orderId : shopFloorOrderId;
+      if (tab === 'shop-floor' && targetOrderId) {
+        search.set('orderId', targetOrderId);
+      } else if (tab !== 'shop-floor') {
+        search.delete('orderId');
+      }
+
+      const query = search.toString();
+      const basePath = window.location.pathname.includes('/shop-floor') && tab !== 'shop-floor' ? '/production' : window.location.pathname;
+      const targetUrl = `${basePath}${query ? `?${query}` : ''}`;
+      window.history.replaceState(null, '', targetUrl);
+    }
+  };
+
+  // Sync tab on browser Back/Forward (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const { tab, orderId } = parseProductionUrlState(initialTab, initialOrderId);
+      setActiveTab(tab);
+      if (orderId) setShopFloorOrderId(orderId);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [initialTab, initialOrderId]);
 
   // -------------------------------------------------------------------------
   // Orders State
@@ -216,6 +292,25 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
     fetchMachines();
     fetchUserDesigns();
     fetchSchedules();
+  }, [fetchSummary, fetchOrders, fetchWorkers, fetchMachines, fetchUserDesigns, fetchSchedules]);
+
+  const handleRefreshAll = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchSummary(),
+        fetchOrders(),
+        fetchWorkers(),
+        fetchMachines(),
+        fetchUserDesigns(),
+        fetchSchedules(),
+      ]);
+      showFeedback('Production data synchronized.');
+    } catch {
+      showFeedback('Failed to refresh some workshop resources.', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [fetchSummary, fetchOrders, fetchWorkers, fetchMachines, fetchUserDesigns, fetchSchedules]);
 
   const handleRunOptimization = async () => {
@@ -513,15 +608,11 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              fetchSummary();
-              fetchOrders();
-              fetchWorkers();
-              fetchMachines();
-            }}
+            onClick={handleRefreshAll}
+            disabled={isRefreshing}
             className="border-[#1E2333] hover:bg-[#161B26]/60 text-slate-300"
           >
-            <RefreshCw className="w-4 h-4 mr-1.5" />
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
 
@@ -668,7 +759,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
       {/* Tab Navigation */}
       <div className="flex space-x-1 border-b border-[#1E2333] my-6 overflow-x-auto">
         <button
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => switchTab('dashboard')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'dashboard'
               ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
@@ -680,7 +771,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('orders')}
+          onClick={() => switchTab('orders')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'orders'
               ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
@@ -695,7 +786,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('workers')}
+          onClick={() => switchTab('workers')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'workers'
               ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
@@ -710,7 +801,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('machines')}
+          onClick={() => switchTab('machines')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'machines'
               ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
@@ -725,7 +816,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('optimization')}
+          onClick={() => switchTab('optimization')}
           className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'optimization'
               ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
@@ -741,7 +832,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
 
         {shopFloorOrderId && (
           <button
-            onClick={() => setActiveTab('shop-floor')}
+            onClick={() => switchTab('shop-floor')}
             className={`flex items-center space-x-2 py-3 px-5 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
               activeTab === 'shop-floor'
                 ? 'border-[#D4AF37] text-[#E6CA65] bg-[#E6CA65]/5'
@@ -762,11 +853,13 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
       {/* ===================================================================== */}
       {activeTab === 'dashboard' && (
         <ProductionDashboard
+          orders={orders}
+          loading={loadingOrders}
+          onRefresh={handleRefreshAll}
           onOpenShopFloor={(orderId) => {
-            setShopFloorOrderId(orderId);
-            setActiveTab('shop-floor');
+            switchTab('shop-floor', orderId);
           }}
-          onNavigateToTab={(tab) => setActiveTab(tab)}
+          onNavigateToTab={(tab) => switchTab(tab)}
         />
       )}
 
@@ -776,8 +869,34 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
       {activeTab === 'shop-floor' && shopFloorOrderId && (
         <ShopFloorPage
           orderId={shopFloorOrderId}
-          onBackToOrders={() => setActiveTab('orders')}
+          onBackToOrders={() => switchTab('orders')}
         />
+      )}
+
+      {activeTab === 'shop-floor' && !shopFloorOrderId && (
+        <Card className="bg-[#0E111A]/90 border-white/[0.07] p-8 text-center space-y-4">
+          <Factory className="w-12 h-12 text-[#E6CA65] mx-auto opacity-80" />
+          <h3 className="text-lg font-serif font-medium text-white">No Order Selected for Shop Floor</h3>
+          <p className="text-sm text-slate-400 max-w-md mx-auto">
+            Select an active production order to access live station routing, execution transitions, and QC inspection.
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            {orders.length > 0 && (
+              <Button
+                variant="gold"
+                onClick={() => switchTab('shop-floor', orders[0].id)}
+              >
+                Open Order #{orders[0].id.slice(0, 8)}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => switchTab('orders')}
+            >
+              Browse All Production Orders
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* ===================================================================== */}

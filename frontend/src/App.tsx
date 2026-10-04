@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Sparkles, 
   Layers, 
@@ -13,7 +13,8 @@ import {
   Palette,
   Brush,
   Factory,
-  Gem
+  Gem,
+  Loader2
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './components/ui/card';
@@ -30,15 +31,94 @@ import { StudioPage } from './pages/StudioPage';
 import { ProductionPage } from './pages/ProductionPage';
 import { Design } from './types/design';
 
-type ViewMode = 'landing' | 'login' | 'register' | 'dashboard' | 'designs' | 'design-detail' | 'studio' | 'canvas' | 'production';
+export type ViewMode = 'landing' | 'login' | 'register' | 'dashboard' | 'designs' | 'design-detail' | 'studio' | 'canvas' | 'production';
+
+export const parseRouteFromLocation = (): { view: ViewMode; designId: string | null } => {
+  if (typeof window === 'undefined') return { view: 'landing', designId: null };
+  const pathname = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+  const params = new URLSearchParams(window.location.search);
+  const idFromParam = params.get('id') || params.get('designId');
+
+  if (pathname === '/login') return { view: 'login', designId: null };
+  if (pathname === '/register') return { view: 'register', designId: null };
+  if (pathname === '/dashboard') return { view: 'dashboard', designId: null };
+  if (pathname === '/designs') {
+    if (idFromParam) return { view: 'design-detail', designId: idFromParam };
+    return { view: 'designs', designId: null };
+  }
+  if (pathname.startsWith('/designs/')) {
+    const id = pathname.substring('/designs/'.length);
+    if (id) return { view: 'design-detail', designId: id };
+    return { view: 'designs', designId: null };
+  }
+  if (pathname === '/studio') return { view: 'studio', designId: null };
+  if (pathname === '/canvas') {
+    return { view: 'canvas', designId: idFromParam };
+  }
+  if (pathname.startsWith('/canvas/')) {
+    const id = pathname.substring('/canvas/'.length);
+    return { view: 'canvas', designId: id || null };
+  }
+  if (pathname === '/production' || pathname === '/shop-floor') {
+    return { view: 'production', designId: idFromParam };
+  }
+
+  return { view: 'landing', designId: null };
+};
+
+export const getPathForView = (view: ViewMode, designId?: string | null): string => {
+  switch (view) {
+    case 'login': return '/login';
+    case 'register': return '/register';
+    case 'dashboard': return '/dashboard';
+    case 'designs': return '/designs';
+    case 'design-detail': return designId ? `/designs?id=${designId}` : '/designs';
+    case 'studio': return '/studio';
+    case 'canvas': return designId ? `/canvas?id=${designId}` : '/canvas';
+    case 'production': return '/production';
+    case 'landing':
+    default:
+      return '/';
+  }
+};
 
 const MainLayout: React.FC = () => {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout } = useAuth();
 
-  const [currentView, setCurrentView] = useState<ViewMode>('landing');
-  const [selectedDesignId, setSelectedDesignId] = useState<string | null>(null);
+  const initialRoute = parseRouteFromLocation();
+  const [currentView, setCurrentView] = useState<ViewMode>(initialRoute.view);
+  const [selectedDesignId, setSelectedDesignId] = useState<string | null>(initialRoute.designId);
   const [backendHealth, setBackendHealth] = useState<HealthResponse | null>(null);
   const [loadingHealth, setLoadingHealth] = useState<boolean>(true);
+
+  // Centralized navigation helper that synchronizes internal state and HTML5 History
+  const navigateTo = useCallback((view: ViewMode, customPath?: string, options?: { replace?: boolean; designId?: string | null }) => {
+    setCurrentView(view);
+    if (options?.designId !== undefined) {
+      setSelectedDesignId(options.designId);
+    }
+    const targetPath = customPath || getPathForView(view, options?.designId !== undefined ? options.designId : selectedDesignId);
+    if (typeof window !== 'undefined') {
+      const currentFull = window.location.pathname + window.location.search;
+      if (options?.replace) {
+        window.history.replaceState(null, '', targetPath);
+      } else if (currentFull !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
+    }
+  }, [selectedDesignId]);
+
+  // Handle browser Back / Forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const { view, designId } = parseRouteFromLocation();
+      setCurrentView(view);
+      setSelectedDesignId(designId);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const checkHealth = async () => {
     setLoadingHealth(true);
@@ -56,43 +136,50 @@ const MainLayout: React.FC = () => {
     checkHealth();
   }, []);
 
-  // Redirect to dashboard if user logs in
-  const handleAuthSuccess = () => {
-    setCurrentView('dashboard');
-  };
-
-  // Enforce route protection for private application views
+  // Enforce route protection for private application views ONLY AFTER auth token initialization completes
   useEffect(() => {
+    if (isLoading) return; // Prevent premature redirect while verifying stored token!
+
     const protectedViews: ViewMode[] = ['dashboard', 'designs', 'design-detail', 'studio', 'canvas', 'production'];
     if (!isAuthenticated && protectedViews.includes(currentView)) {
-      setCurrentView('login');
+      navigateTo('login', '/login', { replace: true });
+    } else if (isAuthenticated && (currentView === 'login' || currentView === 'register')) {
+      navigateTo('dashboard', '/dashboard', { replace: true });
     }
-  }, [isAuthenticated, currentView]);
+  }, [isAuthenticated, isLoading, currentView, navigateTo]);
+
+  // Redirect after user logs in or registers
+  const handleAuthSuccess = () => {
+    const { view } = parseRouteFromLocation();
+    if (view !== 'login' && view !== 'register' && view !== 'landing') {
+      const path = window.location.pathname + window.location.search;
+      navigateTo(view, path, { replace: true });
+    } else {
+      navigateTo('dashboard', '/dashboard', { replace: true });
+    }
+  };
 
   const handleSelectDesign = (design: Design | { id: string }) => {
-    setSelectedDesignId(design.id);
-    setCurrentView('design-detail');
+    navigateTo('design-detail', `/designs?id=${design.id}`, { designId: design.id });
   };
 
   const handleOpenCanvas = (designId?: string) => {
     if (designId) {
-      setSelectedDesignId(designId);
-      setCurrentView('canvas');
+      navigateTo('canvas', `/canvas?id=${designId}`, { designId });
     } else {
-      setCurrentView('designs');
+      navigateTo('designs', '/designs');
     }
   };
 
   const handleBackToDesigns = () => {
-    setSelectedDesignId(null);
-    setCurrentView('designs');
+    navigateTo('designs', '/designs', { designId: null });
   };
 
   const handleBackFromCanvas = () => {
     if (selectedDesignId) {
-      setCurrentView('design-detail');
+      navigateTo('design-detail', `/designs?id=${selectedDesignId}`, { designId: selectedDesignId });
     } else {
-      setCurrentView('designs');
+      navigateTo('designs', '/designs', { designId: null });
     }
   };
 
@@ -129,6 +216,26 @@ const MainLayout: React.FC = () => {
     },
   ];
 
+  // While auth session is restoring from localStorage token, display seamless loading screen without redirect flashes
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#08090D] text-slate-100 flex flex-col items-center justify-center font-sans">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400/20 via-amber-300/10 to-transparent border border-amber-400/30 flex items-center justify-center shadow-lg shadow-amber-500/10 animate-pulse">
+            <Gem className="w-6 h-6 text-amber-300" />
+          </div>
+          <div className="text-center space-y-1">
+            <h2 className="font-serif text-lg font-semibold tracking-wide text-white">JewelMind Atelier</h2>
+            <p className="text-xs text-slate-400 font-light tracking-wider flex items-center justify-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+              Restoring atelier session...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#08090D] text-slate-100 flex flex-col font-sans selection:bg-amber-400/20 selection:text-amber-200">
       {/* Top Atelier Navigation */}
@@ -137,7 +244,7 @@ const MainLayout: React.FC = () => {
           {/* Logo and Brand */}
           <div 
             className="flex items-center space-x-3.5 cursor-pointer group select-none"
-            onClick={() => setCurrentView(isAuthenticated ? 'dashboard' : 'landing')}
+            onClick={() => navigateTo(isAuthenticated ? 'dashboard' : 'landing', isAuthenticated ? '/dashboard' : '/')}
           >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400/20 via-amber-300/10 to-transparent border border-amber-400/30 flex items-center justify-center shadow-lg shadow-amber-500/5 group-hover:border-amber-400/60 transition-all duration-300">
               <Gem className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform duration-300" />
@@ -178,7 +285,7 @@ const MainLayout: React.FC = () => {
                 <Button
                   variant={currentView === 'dashboard' ? 'gold' : 'ghost'}
                   size="sm"
-                  onClick={() => setCurrentView('dashboard')}
+                  onClick={() => navigateTo('dashboard', '/dashboard')}
                   className="h-8.5 px-3 text-xs"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5 mr-1.5" />
@@ -189,7 +296,7 @@ const MainLayout: React.FC = () => {
                 <Button
                   variant={currentView === 'designs' || currentView === 'design-detail' ? 'gold' : 'ghost'}
                   size="sm"
-                  onClick={() => setCurrentView('designs')}
+                  onClick={() => navigateTo('designs', '/designs')}
                   className="h-8.5 px-3 text-xs"
                 >
                   <Layers className="w-3.5 h-3.5 mr-1.5" />
@@ -199,7 +306,7 @@ const MainLayout: React.FC = () => {
                 <Button
                   variant={currentView === 'studio' ? 'gold' : 'ghost'}
                   size="sm"
-                  onClick={() => setCurrentView('studio')}
+                  onClick={() => navigateTo('studio', '/studio')}
                   className="h-8.5 px-3 text-xs"
                 >
                   <Palette className="w-3.5 h-3.5 mr-1.5" />
@@ -209,7 +316,7 @@ const MainLayout: React.FC = () => {
                 <Button
                   variant={currentView === 'production' ? 'gold' : 'ghost'}
                   size="sm"
-                  onClick={() => setCurrentView('production')}
+                  onClick={() => navigateTo('production', '/production')}
                   className="h-8.5 px-3 text-xs"
                 >
                   <Factory className="w-3.5 h-3.5 mr-1.5" />
@@ -223,7 +330,7 @@ const MainLayout: React.FC = () => {
                   size="sm"
                   onClick={() => {
                     logout();
-                    setCurrentView('landing');
+                    navigateTo('landing', '/', { replace: true });
                   }}
                   className="h-8.5 px-3 text-xs text-slate-300 hover:text-rose-300 hover:border-rose-500/30"
                 >
@@ -236,7 +343,7 @@ const MainLayout: React.FC = () => {
                 <Button
                   variant={currentView === 'login' ? 'atelier' : 'ghost'}
                   size="sm"
-                  onClick={() => setCurrentView('login')}
+                  onClick={() => navigateTo('login', '/login')}
                   className="h-8.5 px-4 text-xs font-medium"
                 >
                   <LogIn className="w-3.5 h-3.5 mr-1.5" />
@@ -245,7 +352,7 @@ const MainLayout: React.FC = () => {
                 <Button
                   variant={currentView === 'register' ? 'gold' : 'gold'}
                   size="sm"
-                  onClick={() => setCurrentView('register')}
+                  onClick={() => navigateTo('register', '/register')}
                   className="h-8.5 px-4 text-xs font-semibold"
                 >
                   <UserPlus className="w-3.5 h-3.5 mr-1.5" />
@@ -261,25 +368,28 @@ const MainLayout: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 w-full">
         {currentView === 'login' && (
           <LoginPage
-            onNavigateToRegister={() => setCurrentView('register')}
+            onNavigateToRegister={() => navigateTo('register', '/register')}
             onSuccess={handleAuthSuccess}
           />
         )}
 
         {currentView === 'register' && (
           <RegisterPage
-            onNavigateToLogin={() => setCurrentView('login')}
+            onNavigateToLogin={() => navigateTo('login', '/login')}
             onSuccess={handleAuthSuccess}
           />
         )}
 
         {currentView === 'dashboard' && (
           <DashboardPage 
-            onLogout={() => setCurrentView('landing')} 
-            onNavigateToDesigns={() => setCurrentView('designs')}
+            onLogout={() => {
+              logout();
+              navigateTo('landing', '/', { replace: true });
+            }} 
+            onNavigateToDesigns={() => navigateTo('designs', '/designs')}
             onSelectDesign={handleSelectDesign}
-            onNavigateToStudio={() => setCurrentView('studio')}
-            onNavigateToProduction={() => setCurrentView('production')}
+            onNavigateToStudio={() => navigateTo('studio', '/studio')}
+            onNavigateToProduction={() => navigateTo('production', '/production')}
             onOpenCanvas={handleOpenCanvas}
           />
         )}
@@ -305,15 +415,20 @@ const MainLayout: React.FC = () => {
 
         {currentView === 'studio' && (
           <StudioPage
-            onNavigateDesigns={() => setCurrentView('designs')}
+            onNavigateDesigns={() => navigateTo('designs', '/designs')}
             onOpenCanvas={handleOpenCanvas}
-            onNavigateProduction={() => setCurrentView('production')}
+            onNavigateProduction={(designId, renderId) => {
+              const query = designId
+                ? `?tab=orders&designId=${designId}${renderId ? `&renderId=${renderId}` : ''}`
+                : '?tab=orders';
+              navigateTo('production', `/production${query}`);
+            }}
           />
         )}
 
         {currentView === 'production' && (
           <ProductionPage
-            onNavigateToStudio={() => setCurrentView('studio')}
+            onNavigateToStudio={() => navigateTo('studio', '/studio')}
             onSelectDesign={handleSelectDesign}
           />
         )}
@@ -345,7 +460,7 @@ const MainLayout: React.FC = () => {
                     <Button
                       variant="gold"
                       size="lg"
-                      onClick={() => setCurrentView('dashboard')}
+                      onClick={() => navigateTo('dashboard', '/dashboard')}
                       className="font-bold tracking-wide"
                     >
                       Enter Atelier Studio
@@ -354,7 +469,7 @@ const MainLayout: React.FC = () => {
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={() => setCurrentView('studio')}
+                      onClick={() => navigateTo('studio', '/studio')}
                     >
                       View Studio Gallery
                     </Button>
@@ -364,7 +479,7 @@ const MainLayout: React.FC = () => {
                     <Button
                       variant="gold"
                       size="lg"
-                      onClick={() => setCurrentView('register')}
+                      onClick={() => navigateTo('register', '/register')}
                       className="font-bold tracking-wide"
                     >
                       Begin Creating
@@ -373,7 +488,7 @@ const MainLayout: React.FC = () => {
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={() => setCurrentView('login')}
+                      onClick={() => navigateTo('login', '/login')}
                     >
                       Sign In to Studio
                     </Button>

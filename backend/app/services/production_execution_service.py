@@ -699,7 +699,7 @@ class ProductionExecutionService:
             )
         )
         if for_update:
-            stmt = stmt.with_for_update()
+            stmt = stmt.with_for_update(of=OperationExecution)
 
         execution = db.scalar(stmt)
         if not execution:
@@ -1210,7 +1210,7 @@ class ProductionExecutionService:
                         OperationExecution.production_order_id == execution.production_order_id,
                         OperationExecution.user_id == user_id,
                     )
-                    .with_for_update()
+                    .with_for_update(of=OperationExecution)
                 ).all()
             )
             order_executions.sort(key=lambda e: (e.production_step.step_number if e.production_step else 0))
@@ -2012,7 +2012,7 @@ class ProductionExecutionService:
                 joinedload(OperationExecution.production_step),
                 joinedload(OperationExecution.production_order),
             )
-            .with_for_update()
+            .with_for_update(of=OperationExecution)
         )
         if not execution:
             raise AppException(
@@ -2254,7 +2254,7 @@ class ProductionExecutionService:
                 joinedload(OperationExecution.production_order),
                 selectinload(OperationExecution.quality_checks),
             )
-            .with_for_update()
+            .with_for_update(of=OperationExecution)
         )
         if not original:
             raise AppException(
