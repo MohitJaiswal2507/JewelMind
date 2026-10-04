@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCw,
   Layers,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { ProductionMetricsCards } from './ProductionMetricsCards';
@@ -14,48 +15,77 @@ import { ProductionOrder } from '../../../types/production';
 interface ProductionDashboardProps {
   onOpenShopFloor: (orderId: string) => void;
   onNavigateToTab?: (tab: 'orders' | 'workers' | 'machines' | 'optimization') => void;
+  orders?: ProductionOrder[];
+  loading?: boolean;
+  onRefresh?: () => void;
 }
 
 export const ProductionDashboard: React.FC<ProductionDashboardProps> = ({
   onOpenShopFloor,
   onNavigateToTab,
+  orders: propOrders,
+  loading: propLoading,
+  onRefresh: propOnRefresh,
 }) => {
-  const [orders, setOrders] = useState<ProductionOrder[]>([]);
+  const [internalOrders, setInternalOrders] = useState<ProductionOrder[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isControlled = propOrders !== undefined;
+  const orders = isControlled ? propOrders : internalOrders;
+  const isLoading = propLoading !== undefined ? propLoading : loading;
 
   const fetchDashboardOrders = useCallback(async (isInitial = false) => {
+    if (propOnRefresh) {
+      setRefreshing(true);
+      setError(null);
+      try {
+        await propOnRefresh();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to refresh orders');
+      } finally {
+        setRefreshing(false);
+      }
+      return;
+    }
+
     if (isInitial) setLoading(true);
     else setRefreshing(true);
+    setError(null);
 
     try {
       const response = await productionService.getOrders({
         page_size: 50,
       });
-      setOrders(response.items);
+      setInternalOrders(response.items);
     } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load dashboard orders';
+      setError(msg);
       console.error('Failed to load dashboard orders:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [propOnRefresh]);
 
   useEffect(() => {
-    fetchDashboardOrders(true);
-  }, [fetchDashboardOrders]);
+    if (!isControlled) {
+      fetchDashboardOrders(true);
+    }
+  }, [isControlled, fetchDashboardOrders]);
 
   const activeOrders = orders.filter(
-    (x) => x.status === 'in_progress' || x.status === 'pending'
+    (x: ProductionOrder) => x.status === 'in_progress' || x.status === 'pending'
   );
-  const completedOrders = orders.filter((x) => x.status === 'completed');
+  const completedOrders = orders.filter((x: ProductionOrder) => x.status === 'completed');
 
   // Estimate QC / rework counts from order statuses or notes/flags
   const ordersAwaitingQc = orders.filter(
-    (x) => x.status === 'in_progress' && (x.routing_steps_count ?? 0) > 0
+    (x: ProductionOrder) => x.status === 'in_progress' && (x.routing_steps_count ?? 0) > 0
   ).length;
   const ordersInRework = orders.filter(
-    (x) => x.notes?.toLowerCase().includes('rework')
+    (x: ProductionOrder) => Boolean(x.notes?.toLowerCase().includes('rework'))
   ).length;
 
   return (
@@ -118,10 +148,24 @@ export const ProductionDashboard: React.FC<ProductionDashboardProps> = ({
       />
 
       {/* Active Orders Workstation Grid */}
-      {loading ? (
+      {isLoading ? (
         <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center">
           <RefreshCw className="w-8 h-8 animate-spin text-amber-400 mb-3" />
           <p className="text-xs">Loading production pipeline...</p>
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-8 text-center">
+          <AlertCircle className="w-10 h-10 text-rose-400 mx-auto mb-2" />
+          <h3 className="text-sm font-semibold text-white">Unable to load production data</h3>
+          <p className="text-xs text-rose-300 mt-1 max-w-md mx-auto">{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchDashboardOrders(false)}
+            className="mt-4 border-rose-500/30 text-rose-300 hover:bg-rose-500/20"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry
+          </Button>
         </div>
       ) : (
         <ActiveProductionTable

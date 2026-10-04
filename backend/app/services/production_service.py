@@ -49,13 +49,27 @@ class ProductionService:
         mats_count = len(spec.materials) if spec and hasattr(spec, "materials") and spec.materials is not None else None
         gems_count = len(spec.gemstones) if spec and hasattr(spec, "gemstones") and spec.gemstones is not None else None
 
+        priority_raw = str(order.priority).lower() if order.priority else "medium"
+        if priority_raw == "normal":
+            priority_raw = "medium"
+        try:
+            priority_val = OrderPriority(priority_raw)
+        except ValueError:
+            priority_val = OrderPriority.MEDIUM
+
+        status_raw = str(order.status).lower() if order.status else "pending"
+        try:
+            status_val = OrderStatus(status_raw)
+        except ValueError:
+            status_val = OrderStatus.PENDING
+
         return ProductionOrderResponse(
             id=order.id,
             user_id=order.user_id,
             design_id=order.design_id,
             quantity=order.quantity,
-            priority=OrderPriority(order.priority),
-            status=OrderStatus(order.status),
+            priority=priority_val,
+            status=status_val,
             deadline=order.deadline,
             notes=order.notes,
             render_id=order.render_id,

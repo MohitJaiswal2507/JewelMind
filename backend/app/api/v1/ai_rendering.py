@@ -488,9 +488,10 @@ async def render_jewellery_sketch(
 )
 async def get_rendered_image(
     filename: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Serve rendered image without exposing filesystem directory paths."""
+    """Serve rendered image without exposing filesystem directory paths and enforcing tenant isolation."""
     # Sanitize filename against directory traversal
     safe_filename = Path(filename).name
     target_path = Path(DEFAULT_OUTPUT_DIR) / safe_filename
@@ -499,6 +500,18 @@ async def get_rendered_image(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Rendered image not found or expired.",
+        )
+
+    # Multi-tenant isolation: verify ownership if indexed in DesignRender
+    render_record = (
+        db.query(DesignRender)
+        .filter(DesignRender.image_url.like(f"%{safe_filename}%"))
+        .first()
+    )
+    if render_record and render_record.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Rendered image not found or access denied.",
         )
 
     return FileResponse(path=str(target_path), media_type="image/png")
