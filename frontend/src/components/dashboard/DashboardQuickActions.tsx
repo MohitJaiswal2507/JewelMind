@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Brush,
   Sparkles,
-  Cpu,
+  Layers,
   Sliders,
   ArrowUpRight,
 } from 'lucide-react';
@@ -13,39 +13,39 @@ interface DashboardQuickActionsProps {
   onOpenCanvas: () => void;
   onNavigateToDesigns: () => void;
   onNavigateToStudio: () => void;
-  onOpenRenderModal: () => void;
-  onOpenDetectionModal: () => void;
-  onOpenNewOrderModal: () => void;
+  onOpenRenderModal?: () => void;
+  onOpenDetectionModal?: () => void;
+  onOpenNewOrderModal?: () => void;
   onNavigateToOptimization: () => void;
 }
 
 export const DashboardQuickActions: React.FC<DashboardQuickActionsProps> = ({
   onOpenCanvas,
-  onOpenRenderModal,
-  onOpenDetectionModal,
+  onNavigateToDesigns,
+  onNavigateToStudio,
   onNavigateToOptimization,
 }) => {
   const actions = [
     {
-      title: 'Blueprint Drawing Desk',
-      desc: 'Precision freehand sketching with symmetry, grid guides & PNG lineart export',
+      title: 'CAD Blueprint Canvas',
+      desc: 'Precision freehand sketching with symmetry, grid guides & direct generation',
       icon: Brush,
       action: onOpenCanvas,
       btnLabel: 'Open Canvas',
     },
     {
-      title: 'AI Generative Studio',
+      title: 'AI Studio',
       desc: 'ControlNet diffusion synthesizing 18K gold, platinum & precious gemstones',
       icon: Sparkles,
-      action: onOpenRenderModal,
-      btnLabel: 'Synthesize Render',
+      action: onNavigateToStudio,
+      btnLabel: 'Explore Studio',
     },
     {
-      title: 'YOLO Component Scanner',
-      desc: 'Instance segmentation extracting gemstones, clasps, mounts & shanks',
-      icon: Cpu,
-      action: onOpenDetectionModal,
-      btnLabel: 'Scan Blueprint',
+      title: 'Design Catalogue',
+      desc: 'Curated library of CAD blueprints, specifications & client collections',
+      icon: Layers,
+      action: onNavigateToDesigns,
+      btnLabel: 'Browse Designs',
     },
     {
       title: 'Workshop CP-SAT Solver',

@@ -36,7 +36,7 @@ export const authService = {
    * Fetch current authenticated user profile
    */
   async getMe(): Promise<User> {
-    return apiClient.get<User>('/api/v1/auth/me');
+    return apiClient.get<User>('/api/v1/auth/me', { timeoutMs: 3500 });
   },
 
   /**

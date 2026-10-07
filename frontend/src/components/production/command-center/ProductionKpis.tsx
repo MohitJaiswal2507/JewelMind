@@ -42,7 +42,7 @@ export const ProductionKpis: React.FC<ProductionKpisProps> = ({
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
       {/* 1. Active Production */}
-      <Card className="bg-[#0E111A]/95 border-white/[0.07] hover:border-amber-400/30 transition-all duration-200">
+      <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-[#D8AD55]/30 transition-all duration-200">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Active Orders</span>
@@ -64,7 +64,7 @@ export const ProductionKpis: React.FC<ProductionKpisProps> = ({
       </Card>
 
       {/* 2. Awaiting QC */}
-      <Card className="bg-[#0E111A]/95 border-white/[0.07] hover:border-cyan-400/30 transition-all duration-200">
+      <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-[#18A879]/30 transition-all duration-200">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Awaiting QC</span>
@@ -88,7 +88,7 @@ export const ProductionKpis: React.FC<ProductionKpisProps> = ({
       </Card>
 
       {/* 3. Delayed Orders */}
-      <Card className="bg-[#0E111A]/95 border-white/[0.07] hover:border-rose-400/30 transition-all duration-200">
+      <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-rose-400/30 transition-all duration-200">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Delayed</span>
@@ -112,16 +112,16 @@ export const ProductionKpis: React.FC<ProductionKpisProps> = ({
       </Card>
 
       {/* 4. Material Value in Production (₹) */}
-      <Card className="bg-[#0E111A]/95 border-white/[0.07] hover:border-emerald-400/30 transition-all duration-200">
+      <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-[#18A879]/30 transition-all duration-200">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Material Value</span>
-            <div className="p-1.5 rounded-lg bg-emerald-400/10 text-emerald-300">
+            <div className="p-1.5 rounded-lg bg-[#18A879]/10 text-[#18A879]">
               <IndianRupee className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
-            <div className="text-2xl font-serif font-bold text-emerald-300 tracking-tight">
+            <div className="text-2xl font-serif font-bold text-[#18A879] tracking-tight">
               {loading ? '...' : formattedMaterialValue}
             </div>
             <div className="text-[11px] text-slate-400 font-light mt-0.5 truncate" title="Calculated from BOM / Consumption weights at IBJA bullion rate">
@@ -132,11 +132,11 @@ export const ProductionKpis: React.FC<ProductionKpisProps> = ({
       </Card>
 
       {/* 5. Karigar Workshop Capacity */}
-      <Card className="bg-[#0E111A]/95 border-white/[0.07] hover:border-blue-400/30 transition-all duration-200">
+      <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-[#D8AD55]/30 transition-all duration-200">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Karigars Active</span>
-            <div className="p-1.5 rounded-lg bg-blue-400/10 text-blue-300">
+            <div className="p-1.5 rounded-lg bg-[#D8AD55]/10 text-[#D8AD55]">
               <Users className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -145,14 +145,14 @@ export const ProductionKpis: React.FC<ProductionKpisProps> = ({
               {loading ? '...' : workersActive}
             </div>
             <div className="text-[11px] text-slate-400 font-light mt-0.5">
-              <span className="text-blue-300 font-medium">{workerHours}</span> daily capacity
+              <span className="text-[#F1D28A] font-medium">{workerHours}</span> daily capacity
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* 6. Rework Rate */}
-      <Card className="bg-[#0E111A]/95 border-white/[0.07] hover:border-amber-400/30 transition-all duration-200">
+      <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-[#D8AD55]/30 transition-all duration-200">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Rework Rate</span>

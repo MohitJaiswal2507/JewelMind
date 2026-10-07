@@ -11,6 +11,7 @@ const TOKEN_STORAGE_KEY = 'jewelmind_auth_token';
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
   requiresAuth?: boolean;
+  timeoutMs?: number;
 }
 
 export class ApiClientError extends Error {
@@ -64,7 +65,7 @@ class ApiClient {
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { params, headers, requiresAuth = true, ...restOptions } = options;
+    const { params, headers, requiresAuth = true, timeoutMs = 15000, ...restOptions } = options;
     const url = this.buildUrl(path, params);
 
     const defaultHeaders: Record<string, string> = {
@@ -81,18 +82,31 @@ class ApiClient {
       defaultHeaders['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-      ...restOptions,
-      headers: {
-        ...defaultHeaders,
-        ...headers,
-      },
-    });
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let effectiveSignal = restOptions.signal;
 
-    // Handle 204 No Content
-    if (response.status === 204) {
-      return {} as T;
+    if (!effectiveSignal && typeof AbortController !== 'undefined' && timeoutMs > 0) {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => {
+        controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      effectiveSignal = controller.signal;
     }
+
+    try {
+      const response = await fetch(url, {
+        ...restOptions,
+        signal: effectiveSignal,
+        headers: {
+          ...defaultHeaders,
+          ...headers,
+        },
+      });
+
+      // Handle 204 No Content
+      if (response.status === 204) {
+        return {} as T;
+      }
 
     const data = await response.json().catch(() => ({}));
 
@@ -129,6 +143,11 @@ class ApiClient {
     }
 
     return data as T;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   public get<T>(path: string, options?: RequestOptions): Promise<T> {

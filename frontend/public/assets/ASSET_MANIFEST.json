@@ -1,0 +1,14 @@
+{
+  "name": "JewelMind Luxury UI Asset Pack",
+  "version": "1.0",
+  "palette": {
+    "ink": "#080A09",
+    "charcoal": "#101312",
+    "gold": "#D8B56A",
+    "goldBright": "#F2D89A",
+    "ivory": "#F2EEE5",
+    "muted": "#A9A397",
+    "forest": "#17382E",
+    "success": "#78A98A"
+  }
+}

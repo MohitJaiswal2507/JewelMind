@@ -20,7 +20,6 @@ import { DashboardComponentDetectionWidget } from '../components/dashboard/Dashb
 import { ComponentDetectionModal } from '../components/dashboard/ComponentDetectionModal';
 import { DashboardProductionOverview } from '../components/dashboard/DashboardProductionOverview';
 import { DashboardDesignAnalytics } from '../components/dashboard/DashboardDesignAnalytics';
-import { AiRenderModal } from '../components/studio/AiRenderModal';
 
 interface DashboardPageProps {
   onLogout: () => void;
@@ -43,12 +42,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [data, setData] = useState<DashboardOverviewResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Modals state
-  const [isRenderModalOpen, setIsRenderModalOpen] = useState<boolean>(false);
-  const [renderSketchUrl, setRenderSketchUrl] = useState<string>('');
-  const [renderDesignTitle, setRenderDesignTitle] = useState<string>('Jewellery Sketch');
-  const [renderCategory, setRenderCategory] = useState<string>('ring');
 
   const [isDetectionModalOpen, setIsDetectionModalOpen] = useState<boolean>(false);
   const [detectionImageUrl, setDetectionImageUrl] = useState<string | null>(null);
@@ -75,22 +68,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const handleLogout = async () => {
     await logout();
     onLogout();
-  };
-
-  const handleOpenRenderModalWithAsset = (sketchUrl?: string, title?: string, category?: string) => {
-    if (sketchUrl) {
-      setRenderSketchUrl(sketchUrl);
-      setRenderDesignTitle(title || 'Jewellery Sketch');
-      if (category) {
-        setRenderCategory(category);
-      }
-    } else {
-      // Clean new render: start with an empty blueprint so old renders don't contaminate new prompts
-      setRenderSketchUrl('');
-      setRenderDesignTitle('New Jewellery Render');
-      setRenderCategory('ring');
-    }
-    setIsRenderModalOpen(true);
   };
 
   const handleOpenDetectionModalWithAsset = (imageUrl?: string | null, title?: string) => {
@@ -140,28 +117,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const userName = data?.user.full_name || user?.full_name || 'Designer';
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
     <div className="space-y-10 max-w-7xl mx-auto py-2 sm:py-4">
-      {/* 1. Header Banner & Executive Atelier Greeting */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-7 sm:p-9 rounded-2xl bg-[#0E111A]/90 border border-white/[0.07] shadow-2xl relative overflow-hidden">
+      {/* 1. Header Banner & Executive Atelier Command Center */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-7 sm:p-9 rounded-2xl bg-[#0B1210]/95 border border-[#1C2621] shadow-2xl relative overflow-hidden">
         {/* Subtle background luxury glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/[0.03] rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#D8AD55]/[0.03] rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex items-start sm:items-center space-x-4 z-10">
-          <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-400/20 via-yellow-400/10 to-transparent border border-amber-400/30 flex items-center justify-center shadow-lg shadow-amber-500/5 shrink-0">
-            <Gem className="w-6 h-6 text-amber-300" />
+          <div className="w-13 h-13 rounded-2xl bg-[#141D19] border border-[#D8AD55]/30 flex items-center justify-center shadow-lg shadow-[#D8AD55]/5 shrink-0">
+            <Gem className="w-6 h-6 text-[#D8AD55]" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="font-serif text-2xl sm:text-3xl text-white font-normal tracking-tight">
-                Welcome to the Atelier, {userName}
+              <h1 className="font-serif text-3xl sm:text-4xl text-[#F4EFE5] font-normal tracking-tight">
+                Overview
               </h1>
               <Badge variant="gold" className="text-[10px]">
                 {data?.user.role || 'Principal Artisan'}
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-slate-400/90 mt-1 font-light max-w-xl">
-              Curate bespoke fine jewellery blueprints, generate diffusion prototypes, and orchestrate workshop manufacturing.
+            <p className="text-xs sm:text-sm text-[#A9ADA7] mt-1 font-light max-w-xl">
+              {getGreeting()}, {userName} — Your jewellery design and production command center.
             </p>
           </div>
         </div>
@@ -214,9 +198,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onOpenCanvas={() => onOpenCanvas()}
         onNavigateToDesigns={onNavigateToDesigns}
         onNavigateToStudio={onNavigateToStudio}
-        onOpenRenderModal={() => handleOpenRenderModalWithAsset()}
-        onOpenDetectionModal={() => handleOpenDetectionModalWithAsset()}
-        onOpenNewOrderModal={() => onNavigateToProduction('orders')}
         onNavigateToOptimization={() => onNavigateToProduction('optimization')}
       />
 
@@ -226,7 +207,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           renders={data.recent_renders}
           onNavigateToStudio={onNavigateToStudio}
           onSelectDesign={handleSelectDesignById}
-          onOpenRenderModal={handleOpenRenderModalWithAsset}
+          onOpenCanvas={() => onOpenCanvas()}
         />
       )}
 
@@ -254,18 +235,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           categories={data.categories}
           statuses={data.statuses}
           priorities={data.priorities}
-        />
-      )}
-
-      {/* Modals */}
-      {isRenderModalOpen && (
-        <AiRenderModal
-          isOpen={isRenderModalOpen}
-          onClose={() => setIsRenderModalOpen(false)}
-          sketchUrl={renderSketchUrl}
-          designTitle={renderDesignTitle}
-          category={renderCategory}
-          sourceBlueprintCategory={renderSketchUrl ? renderCategory : undefined}
         />
       )}
 

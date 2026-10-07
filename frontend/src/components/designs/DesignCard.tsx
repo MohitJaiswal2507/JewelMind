@@ -58,12 +58,12 @@ export const DesignCard: React.FC<DesignCardProps> = ({
   });
 
   return (
-    <Card className="bg-[#0E111A]/90 border-white/[0.07] hover:border-amber-400/30 transition-all duration-300 group flex flex-col justify-between overflow-hidden shadow-xl hover:shadow-2xl">
+    <Card className="bg-[#0B1210]/95 border-[#1C2621] hover:border-[#D8AD55]/40 atelier-card-hover group flex flex-col justify-between overflow-hidden shadow-xl hover:shadow-2xl">
       <div>
         {/* Visual Header / Image Frame */}
         <div 
           onClick={() => onView(design)}
-          className="relative h-48 sm:h-52 w-full bg-[#080A10] flex items-center justify-center cursor-pointer overflow-hidden border-b border-white/[0.06] transition-colors duration-300"
+          className="relative h-48 sm:h-52 w-full bg-[#080D0B] flex items-center justify-center cursor-pointer overflow-hidden border-b border-[#1C2621] transition-colors duration-300"
         >
           {design.rendered_image_url ? (
             <img
@@ -133,7 +133,7 @@ export const DesignCard: React.FC<DesignCardProps> = ({
             variant="secondary"
             size="sm"
             onClick={() => onView(design)}
-            className="flex-1 h-8 text-xs font-semibold text-slate-200 hover:text-white bg-[#121622] hover:bg-[#181E2E] border-white/5"
+            className="flex-1 h-8 text-xs font-semibold text-[#F4EFE5] hover:text-white bg-[#0F1714] hover:bg-[#141D19] border-[#1C2621]"
           >
             <span>View Design</span>
             <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
@@ -143,7 +143,7 @@ export const DesignCard: React.FC<DesignCardProps> = ({
             variant="outline"
             size="sm"
             onClick={() => onEdit(design)}
-            className="h-8 w-8 p-0 text-slate-400 hover:text-amber-300 hover:border-amber-400/40 border-white/10"
+            className="h-8 w-8 p-0 text-[#A9ADA7] hover:text-[#F1D28A] hover:border-[#D8AD55]/40 border-[#1C2621]"
             title="Edit Design"
             aria-label="Edit Design"
           >
@@ -154,7 +154,7 @@ export const DesignCard: React.FC<DesignCardProps> = ({
             variant="outline"
             size="sm"
             onClick={() => onDelete(design)}
-            className="h-8 w-8 p-0 text-slate-400 hover:text-rose-300 hover:border-rose-500/40 border-white/10"
+            className="h-8 w-8 p-0 text-[#A9ADA7] hover:text-rose-300 hover:border-rose-500/40 border-[#1C2621]"
             title="Delete Design"
             aria-label="Delete Design"
           >

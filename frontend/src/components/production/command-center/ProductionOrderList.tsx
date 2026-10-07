@@ -30,7 +30,7 @@ export const ProductionOrderList: React.FC<ProductionOrderListProps> = ({
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-24 rounded-2xl bg-[#0E111A]/60 border border-white/[0.05] animate-pulse" />
+          <div key={i} className="h-24 rounded-2xl bg-[#0B1210] border border-[#1C2621] animate-pulse" />
         ))}
       </div>
     );
@@ -38,13 +38,13 @@ export const ProductionOrderList: React.FC<ProductionOrderListProps> = ({
 
   if (orders.length === 0) {
     return (
-      <div className="p-12 text-center rounded-2xl bg-[#0E111A]/60 border border-white/[0.07] space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-300 flex items-center justify-center mx-auto">
+      <div className="p-12 text-center rounded-2xl bg-[#0B1210] border border-[#1C2621] space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#141D19] border border-[#D8AD55]/20 text-[#D8AD55] flex items-center justify-center mx-auto">
           <Layers className="w-6 h-6 opacity-80" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-base font-serif font-medium text-white">No Active Production Orders</h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto font-light">
+          <h3 className="text-base font-serif font-medium text-[#F4EFE5]">No Active Production Orders</h3>
+          <p className="text-xs text-[#A9ADA7] max-w-sm mx-auto font-light">
             There are no production orders matching your filter. Send an approved specification from the Studio or create a new order to begin.
           </p>
         </div>
@@ -69,8 +69,8 @@ export const ProductionOrderList: React.FC<ProductionOrderListProps> = ({
             onClick={() => onSelectOrder(order.id)}
             className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer relative group ${
               isSelected
-                ? 'bg-[#121624] border-amber-400/60 shadow-xl shadow-amber-500/5 ring-1 ring-amber-400/30'
-                : 'bg-[#0E111A]/90 border-white/[0.07] hover:border-amber-400/30 hover:bg-[#111420]'
+                ? 'bg-[#141D19] border-[#D8AD55]/60 shadow-xl shadow-[#D8AD55]/5 ring-1 ring-[#D8AD55]/30'
+                : 'bg-[#0B1210]/95 border-[#1C2621] hover:border-[#D8AD55]/30 hover:bg-[#0F1714]'
             }`}
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

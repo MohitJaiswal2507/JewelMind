@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Lock, Mail, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/card';
+import { Lock, Mail, AlertCircle, ArrowRight, Loader2, Gem } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useAuth } from '../hooks/useAuth';
@@ -39,99 +38,136 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister, onSu
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-14rem)] px-4 py-8">
-      <Card className="w-full max-w-md bg-[#0E111A]/95 border-[#1E2333] shadow-2xl backdrop-blur-md rounded-2xl relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/40 to-transparent" />
-        
-        <CardHeader className="space-y-3 text-center pb-6 pt-8">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 via-[#161B26] to-[#08090D] border border-[#D4AF37]/30 flex items-center justify-center shadow-lg shadow-[#D4AF37]/5 mb-1">
-            <Sparkles className="w-5 h-5 text-[#E6CA65]" />
+    <div className="min-h-[calc(100vh-12rem)] flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden bg-[#0B1210] border border-[#1C2621] shadow-2xl">
+        {/* Left Column: Luxury Atelier Visual */}
+        <div className="hidden lg:flex lg:col-span-5 relative bg-[#050806] flex-col justify-between p-8 overflow-hidden border-r border-[#1C2621]">
+          {/* Background Photo with Dark Luxury Vignette */}
+          <div className="absolute inset-0">
+            <img
+              src="/assets/photos/pexels-hatice-genc-3580692-32797480.jpg"
+              alt="Luxury Jewellery Collection"
+              className="w-full h-full object-cover object-center opacity-40 scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050806] via-[#050806]/70 to-[#050806]/50" />
           </div>
-          <CardTitle className="text-2xl font-serif font-light tracking-wide text-[#F3F4F6]">
-            Sign In to <span className="text-[#E6CA65] font-normal">JewelMind</span>
-          </CardTitle>
-          <CardDescription className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-            Enter your atelier credentials to access designs, diffusion renders, and production scheduling
-          </CardDescription>
-        </CardHeader>
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4 px-6 sm:px-8">
-            {error && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2.5 text-rose-300 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-                <span className="leading-relaxed">{error}</span>
-              </div>
-            )}
+          {/* Top Brand Monogram */}
+          <div className="relative z-10 flex items-center space-x-3">
+            <div className="w-9 h-9 rounded-xl bg-[#141D19] border border-[#D8AD55]/40 flex items-center justify-center shadow-lg">
+              <Gem className="w-4 h-4 text-[#D8AD55]" />
+            </div>
+            <div>
+              <span className="font-serif font-bold text-lg text-[#F4EFE5] tracking-wide">JewelMind</span>
+              <p className="text-[10px] text-[#A9ADA7] uppercase font-mono tracking-widest">Fine Jewellery Studio</p>
+            </div>
+          </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
-                <Mail className="w-3.5 h-3.5 text-[#D4AF37]/70" />
-                <span>Email Address</span>
-              </label>
-              <Input
-                type="email"
-                placeholder="artisan@jewelmind.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
-                autoComplete="email"
-                required
-                className="bg-[#121622] border-[#22283A] text-slate-100 placeholder:text-slate-600 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/40 rounded-xl"
-              />
+          {/* Editorial Quote */}
+          <div className="relative z-10 space-y-3">
+            <div className="w-8 h-[2px] bg-[#D8AD55]" />
+            <blockquote className="font-serif text-lg text-[#F4EFE5] font-light italic leading-relaxed">
+              "Every fine jewel begins with an intention. Precision turns it into eternity."
+            </blockquote>
+            <p className="text-xs text-[#A9ADA7] font-mono uppercase tracking-widest">
+              High Jewellery Intelligence
+            </p>
+          </div>
+        </div>
+
+        {/* Right Column: Clean Luxury Login Form */}
+        <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center bg-[#0B1210]">
+          <div className="space-y-6 max-w-md mx-auto w-full">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-serif font-normal tracking-wide text-[#F4EFE5]">
+                Welcome back.
+              </h2>
+              <p className="text-xs sm:text-sm text-[#A9ADA7] font-light">
+                Sign in to your JewelMind workspace.
+              </p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
-                <Lock className="w-3.5 h-3.5 text-[#D4AF37]/70" />
-                <span>Password</span>
-              </label>
-              <Input
-                type="password"
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isSubmitting}
-                autoComplete="current-password"
-                required
-                className="bg-[#121622] border-[#22283A] text-slate-100 placeholder:text-slate-600 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/40 rounded-xl"
-              />
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex flex-col space-y-4 pt-4 pb-8 px-6 sm:px-8">
-            <Button
-              type="submit"
-              variant="gold"
-              className="w-full h-11 text-sm font-medium tracking-wide rounded-xl shadow-lg shadow-[#D4AF37]/10"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Authenticating...
-                </>
-              ) : (
-                <>
-                  Enter Atelier
-                  <ArrowRight className="w-4 h-4 ml-1.5 opacity-80" />
-                </>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2.5 text-rose-300 text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                  <span className="leading-relaxed">{error}</span>
+                </div>
               )}
-            </Button>
 
-            <div className="text-center text-xs text-slate-400 pt-1">
-              Don't have an atelier account?{' '}
-              <button
-                type="button"
-                onClick={onNavigateToRegister}
-                className="text-[#E6CA65] hover:text-[#F3DB7C] font-medium underline-offset-4 hover:underline ml-1 transition-colors"
-              >
-                Create Account
-              </button>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[#A9ADA7] flex items-center space-x-1.5">
+                  <Mail className="w-3.5 h-3.5 text-[#D8AD55]" />
+                  <span>Email Address</span>
+                </label>
+                <Input
+                  type="email"
+                  placeholder="artisan@jewelmind.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-[#A9ADA7] flex items-center space-x-1.5">
+                    <Lock className="w-3.5 h-3.5 text-[#D8AD55]" />
+                    <span>Password</span>
+                  </label>
+                  <span className="text-[11px] text-[#6F756F] hover:text-[#D8AD55] cursor-pointer">
+                    Forgot password?
+                  </span>
+                </div>
+                <Input
+                  type="password"
+                  placeholder="••••••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isSubmitting}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+
+              <div className="pt-2 space-y-4">
+                <Button
+                  type="submit"
+                  variant="gold"
+                  size="touch"
+                  className="w-full text-[#050806] font-bold text-xs shadow-lg shadow-[#D8AD55]/15"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin text-[#050806]" />
+                      Signing In...
+                    </>
+                  ) : (
+                    <>
+                      Sign In
+                      <ArrowRight className="w-4 h-4 ml-1.5 text-[#050806]" />
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-center text-xs text-[#A9ADA7] pt-2">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={onNavigateToRegister}
+                    className="text-[#D8AD55] hover:text-[#F1D28A] font-semibold underline-offset-4 hover:underline ml-1 transition-colors cursor-pointer"
+                  >
+                    Create Account
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

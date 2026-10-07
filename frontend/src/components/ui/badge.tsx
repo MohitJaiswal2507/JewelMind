@@ -3,24 +3,30 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase transition-all duration-200',
+  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.14em] uppercase transition-all duration-200 select-none',
   {
     variants: {
       variant: {
         default:
-          'border-amber-400/30 bg-amber-400/10 text-amber-300',
+          'border-[#D8AD55]/30 bg-[#D8AD55]/10 text-[#F1D28A]',
         secondary:
-          'border-white/10 bg-white/[0.04] text-slate-300',
+          'border-white/10 bg-white/[0.04] text-[#A9ADA7]',
         destructive:
-          'border-rose-500/30 bg-rose-500/10 text-rose-300',
+          'border-[#D9534F]/30 bg-[#D9534F]/10 text-rose-300',
         outline:
-          'border-white/15 text-slate-300 bg-transparent',
+          'border-white/15 text-[#A9ADA7] bg-transparent',
         success:
-          'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+          'border-[#18A879]/30 bg-[#18A879]/10 text-[#18A879]',
+        warning:
+          'border-[#D8AD55]/30 bg-[#D8AD55]/10 text-[#F1D28A]',
+        info:
+          'border-blue-500/30 bg-blue-500/10 text-blue-300',
+        ai:
+          'border-purple-400/30 bg-purple-500/10 text-purple-300',
         gold:
-          'border-amber-400/40 bg-gradient-to-r from-amber-400/15 via-yellow-400/10 to-amber-300/15 text-amber-200 shadow-sm shadow-amber-500/10',
+          'border-[#D8AD55]/40 bg-[#D8AD55]/10 text-[#F1D28A] shadow-sm shadow-[#D8AD55]/10',
         atelier:
-          'border-white/10 bg-[#141824] text-slate-200',
+          'border-[#1C2621] bg-[#0B1210] text-[#F4EFE5]',
       },
     },
     defaultVariants: {

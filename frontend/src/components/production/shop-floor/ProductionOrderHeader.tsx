@@ -60,7 +60,7 @@ export const ProductionOrderHeader: React.FC<ProductionOrderHeaderProps> = ({
     : 'No deadline';
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#0E111A]/95 p-5 sm:p-6 backdrop-blur-md shadow-xl mb-6">
+    <div className="rounded-2xl border border-[#1C2621] bg-[#0B1210]/95 p-5 sm:p-6 shadow-xl mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Left: Back Button & Order ID / Design Info */}
         <div className="flex items-start space-x-3.5">
@@ -69,7 +69,7 @@ export const ProductionOrderHeader: React.FC<ProductionOrderHeaderProps> = ({
               variant="outline"
               size="sm"
               onClick={onBack}
-              className="mt-1 h-9 w-9 p-0 rounded-xl border-white/10 hover:border-amber-400/40 text-slate-300"
+              className="mt-1 h-9 w-9 p-0 rounded-xl border-[#1C2621] hover:border-[#D8AD55]/40 text-[#A9ADA7]"
               title="Return to order list"
             >
               <ArrowLeft className="w-4 h-4" />

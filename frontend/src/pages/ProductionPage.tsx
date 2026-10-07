@@ -41,6 +41,7 @@ import { SelectedOrderCommandCenter } from '../components/production/command-cen
 import { RateConfigModal } from '../components/production/command-center/RateConfigModal';
 import { WorkshopResourcesView } from '../components/production/command-center/WorkshopResourcesView';
 import { OptimizationScheduleView } from '../components/production/command-center/OptimizationScheduleView';
+import { ProductionYieldAnalyticsView } from '../components/production/command-center/ProductionYieldAnalyticsView';
 import { ProductionOrderModal } from '../components/production/command-center/ProductionOrderModal';
 
 import { ShopFloorPage } from '../components/production/shop-floor/ShopFloorPage';
@@ -70,14 +71,19 @@ const parseProductionUrlState = (fallbackOrderId?: string): UrlState => {
 
   if (pathname.includes('/shop-floor')) {
     viewMode = 'shop-floor';
+  } else if (pathname.includes('/analytics') || pathname.includes('/yield')) {
+    viewMode = 'analytics';
   }
 
   const rawTab = search.get('tab')?.toLowerCase();
-  if (rawTab) {
-    if (rawTab === 'shop-floor' || rawTab === 'shopfloor') viewMode = 'shop-floor';
-    else if (rawTab === 'workers' || rawTab === 'artisans' || rawTab === 'machines' || rawTab === 'tools') viewMode = 'resources';
-    else if (rawTab === 'optimization' || rawTab === 'schedule' || rawTab === 'solver') viewMode = 'schedule';
-    else if (rawTab === 'orders' || rawTab === 'dashboard') viewMode = 'command-center';
+  const rawView = search.get('view')?.toLowerCase();
+  const activeTab = rawTab || rawView;
+  if (activeTab) {
+    if (activeTab === 'shop-floor' || activeTab === 'shopfloor') viewMode = 'shop-floor';
+    else if (activeTab === 'workers' || activeTab === 'artisans' || activeTab === 'machines' || activeTab === 'tools') viewMode = 'resources';
+    else if (activeTab === 'optimization' || activeTab === 'schedule' || activeTab === 'solver') viewMode = 'schedule';
+    else if (activeTab === 'analytics' || activeTab === 'yield' || activeTab === 'production-analytics') viewMode = 'analytics';
+    else if (activeTab === 'orders' || activeTab === 'dashboard' || activeTab === 'command-center') viewMode = 'command-center';
   }
 
   return { viewMode, orderId, designId, renderId };
@@ -161,12 +167,15 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
 
     if (mode === 'command-center') {
       search.delete('tab');
+      search.delete('view');
     } else if (mode === 'shop-floor') {
       search.set('tab', 'shop-floor');
     } else if (mode === 'resources') {
       search.set('tab', 'artisans');
     } else if (mode === 'schedule') {
       search.set('tab', 'schedule');
+    } else if (mode === 'analytics') {
+      search.set('tab', 'analytics');
     }
 
     if (orderId) {
@@ -190,16 +199,20 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
     syncUrl(viewMode, orderId);
   };
 
-  // Sync on browser Back/Forward (popstate)
+  // Sync on browser Back/Forward (popstate) and in-app navigation events
   useEffect(() => {
-    const handlePopState = () => {
+    const handleUrlChange = () => {
       const state = parseProductionUrlState(initialOrderId);
       setViewMode(state.viewMode);
       setSelectedOrderId(state.orderId);
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('app-location-change', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('app-location-change', handleUrlChange);
+    };
   }, [initialOrderId]);
 
   // Master Data Loaders
@@ -524,7 +537,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
   const reworkCount = executions.filter((e) => e.execution_type === 'rework').length;
 
   return (
-    <div className="flex-1 bg-[#07090e] text-slate-100 py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6">
+    <div className="flex-1 text-slate-100 py-2 sm:py-4 max-w-7xl mx-auto w-full space-y-6">
       {/* Toast Feedback Notification */}
       {feedback && (
         <div
@@ -723,6 +736,23 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
           optimizing={optimizing}
           onRunOptimization={handleRunOptimization}
           onSelectSchedule={setActiveSchedule}
+        />
+      )}
+
+      {/* ===================================================================== */}
+      {/* VIEW MODE 5: PRODUCTION YIELD ANALYTICS (Section 7, Page 12) */}
+      {/* ===================================================================== */}
+      {viewMode === 'analytics' && (
+        <ProductionYieldAnalyticsView
+          orders={orders}
+          summary={summary}
+          selectedOrderId={selectedOrderId}
+          onSelectOrder={(id) => handleSelectOrder(id)}
+          onNavigateToCommandCenter={() => handleViewModeChange('command-center')}
+          onNavigateToShopFloor={(id) => {
+            setSelectedOrderId(id);
+            handleViewModeChange('shop-floor');
+          }}
         />
       )}
 

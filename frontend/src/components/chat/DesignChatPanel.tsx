@@ -4,7 +4,6 @@ import {
   Send,
   Sliders,
   Info,
-  ChevronRight,
   Loader2,
   Wand2,
   Plus,
@@ -45,13 +44,6 @@ interface DesignChatPanelProps {
   onToggleCollapse?: () => void;
 }
 
-const PROMPT_SUGGESTIONS = [
-  'Change metal to 18k rose gold with mirror polish',
-  'Replace center stone with an oval cut royal blue sapphire',
-  'Add micro-pavé diamonds along the shank',
-  'Craft an Art Deco emerald cut solitaire in 950 platinum',
-];
-
 export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
   initialPrompt = '',
   onPromptChange,
@@ -76,7 +68,7 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
     {
       id: '1',
       sender: 'ai',
-      text: `Welcome to the Canva AI Atelier. I am your fine jewellery design copilot. Chat with me to modify precious metals, gemstones, settings, or aesthetic details in real-time.`,
+      text: `Welcome to the Canva AI Copilot. I am your fine jewellery design copilot. Chat with me to modify precious metals, gemstones, settings, or aesthetic details in real-time.`,
       timestamp: 'Just now',
     },
   ]);
@@ -332,26 +324,6 @@ export const DesignChatPanel: React.FC<DesignChatPanelProps> = ({
 
       {/* Bottom Control & Composer Section */}
       <div className="p-3.5 border-t border-white/[0.07] bg-[#0A0C12]/95 space-y-3">
-        {/* Quick Suggestions */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-            <span>Conversational Suggestions</span>
-            <Sparkles className="w-3 h-3 text-amber-300" />
-          </div>
-          <div className="flex flex-col space-y-1 max-h-20 overflow-y-auto pr-1 scrollbar-thin">
-            {PROMPT_SUGGESTIONS.map((sug, i) => (
-              <button
-                key={i}
-                onClick={() => setInputText(sug)}
-                className="text-left px-2.5 py-1 rounded-lg bg-[#0E111A] border border-white/5 hover:border-amber-400/30 hover:bg-[#141824] transition text-[11px] text-slate-300 flex items-center justify-between group cursor-pointer"
-              >
-                <span className="truncate pr-2 font-light">{sug}</span>
-                <ChevronRight className="w-3 h-3 text-slate-500 group-hover:text-amber-300 shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Attached Image Pill */}
         {attachedImageBase64 && (
           <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#141824] border border-amber-400/30 text-xs text-amber-200">

@@ -121,6 +121,7 @@ lerna-debug.log*
 *.local
 *.md
 !PHASE_PRODUCTION_COMMAND_CENTER_REPORT.md
+!PHASE_UI_FULL_REDESIGN_REPORT.md
 
 # --------------------------------------------------
 # IDEs, Text Editors & OS System Files

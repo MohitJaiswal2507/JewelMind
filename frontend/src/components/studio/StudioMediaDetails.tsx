@@ -3,7 +3,7 @@ import {
   X,
   Download,
   Trash2,
-  Brush,
+  PenTool,
   Calendar,
   Layers,
   User,
@@ -89,10 +89,41 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
   const currentPreviewUrl = activeRender ? activeRender.image_url : item.thumbnailUrl;
   const isViewingSketch = !activeRender && item.mediaType === 'PNG Sketch';
 
+  const getFallbackImage = () => {
+    const cat = item.category?.toLowerCase() || '';
+    if (cat.includes('necklace') || cat.includes('choker')) return '/assets/emerald-necklace.jpg';
+    if (cat.includes('ring')) return '/assets/diamond-ring.jpg';
+    if (cat.includes('earring') || cat.includes('jhumka')) return '/assets/jhumka-earrings.jpg';
+    if (cat.includes('pendant')) return '/assets/real-pendant.jpg';
+    if (cat.includes('bracelet') || cat.includes('bangle')) return '/assets/design-sapphire-bracelet.png';
+    if (item.mediaType === 'PNG Sketch') return '/assets/real-sketch.jpg';
+    return '/assets/met-emerald-necklace.jpg';
+  };
+
+  const [imgSrc, setImgSrc] = useState<string>(currentPreviewUrl || '');
+  const [imgError, setImgError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setImgSrc(currentPreviewUrl || '');
+    setImgError(false);
+  }, [currentPreviewUrl]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleDownload = () => {
-    if (!currentPreviewUrl) return;
+    const downloadUrl = imgSrc || currentPreviewUrl;
+    if (!downloadUrl) return;
     const a = document.createElement('a');
-    a.href = currentPreviewUrl;
+    a.href = downloadUrl;
     const label = activeRender ? `V${activeRender.version_number}` : 'sketch';
     a.download = `${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}.png`;
     a.target = '_blank';
@@ -155,46 +186,52 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
   };
 
   return (
-    <aside className="w-full lg:w-88 xl:w-96 bg-[#0A0C12] border-l border-white/[0.07] flex flex-col justify-between select-none p-5 text-slate-300 overflow-y-auto">
-      <div className="space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
-          <h3 className="text-xs font-serif font-medium text-white tracking-wider flex items-center space-x-1.5">
+    <aside className="w-full h-full bg-[#0A0C12] border-l border-white/[0.08] flex flex-col select-none text-slate-300 overflow-hidden shadow-2xl">
+      {/* Sticky Top Header */}
+      <div className="sticky top-0 z-30 bg-[#0A0C12]/95 backdrop-blur-md px-5 py-4 border-b border-white/[0.08] flex items-center justify-between shrink-0">
+        <div className="flex items-center space-x-2">
+          <Sparkles className="w-4 h-4 text-[#D8AD55]" />
+          <h3 className="text-xs font-serif font-medium text-white tracking-wider flex items-center space-x-1.5 uppercase">
             <span>Asset Inspector</span>
-            {activeRender && (
-              <Badge variant="gold" className="text-[10px] font-mono">
-                V{activeRender.version_number}
-              </Badge>
-            )}
           </h3>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-lg text-slate-400 hover:text-white"
-            onClick={onClose}
-            aria-label="Close details"
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          {activeRender && (
+            <Badge variant="gold" className="text-[10px] font-mono px-1.5 py-0">
+              V{activeRender.version_number}
+            </Badge>
+          )}
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          onClick={onClose}
+          aria-label="Close details"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
 
+      {/* Scrollable Inspector Body */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
         {/* Large Media Preview */}
         <div className="w-full bg-[#080A10] rounded-2xl border border-white/[0.07] p-3 flex items-center justify-center min-h-[200px] max-h-[260px] overflow-hidden group relative">
-          {currentPreviewUrl ? (
-            <img
-              src={currentPreviewUrl}
-              alt={item.title}
-              className={`max-h-56 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ${
-                isViewingSketch ? 'filter invert opacity-90' : 'shadow-xl'
-              }`}
-            />
-          ) : (
-            <div className="text-center p-4 text-slate-500 text-xs font-light">No media preview available</div>
-          )}
+          <img
+            src={imgSrc || getFallbackImage()}
+            alt={item.title}
+            onError={() => {
+              if (!imgError) {
+                setImgError(true);
+                setImgSrc(getFallbackImage());
+              }
+            }}
+            className={`max-h-56 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ${
+              isViewingSketch ? 'filter invert opacity-90' : 'shadow-xl'
+            }`}
+          />
 
           {activeRender?.is_approved_for_production && (
-            <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 font-bold text-[10px] flex items-center space-x-1 shadow">
-              <CheckCircle2 className="w-3 h-3" />
+            <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-emerald-500/90 text-white font-semibold text-[10px] flex items-center space-x-1 shadow-lg backdrop-blur-sm border border-emerald-400/30">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
               <span>Approved for Production</span>
             </div>
           )}
@@ -408,10 +445,10 @@ export const StudioMediaDetails: React.FC<StudioMediaDetailsProps> = ({
         <Button
           variant="secondary"
           size="sm"
-          className="w-full font-medium text-xs bg-[#121622] hover:bg-[#181E2E] border-white/5"
+          className="w-full font-semibold text-xs bg-[#161B2C] hover:bg-[#1E263E] text-[#D8AD55] hover:text-[#F1D28A] border border-[#D8AD55]/30 flex items-center justify-center transition-all shadow-sm"
           onClick={() => onOpenCanvas(item.designId)}
         >
-          <Brush className="w-3.5 h-3.5 mr-1.5" /> Open in Drawing Desk
+          <PenTool className="w-3.5 h-3.5 mr-1.5 text-[#D8AD55]" /> Open in Canvas
         </Button>
 
         {/* Download & Delete Buttons */}

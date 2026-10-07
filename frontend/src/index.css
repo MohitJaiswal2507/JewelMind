@@ -2,28 +2,71 @@
 
 @layer base {
   :root {
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-serif: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
-    --font-display: 'Cinzel', 'Playfair Display', serif;
+    /* Semantic Palette Tokens (JewelMind V2 Luxury Atelier) */
+    --color-bg-base: #050806;
+    --color-bg-secondary: #080D0B;
+    --color-surface-1: #0B1210;
+    --color-surface-2: #0F1714;
+    --color-surface-3: #141D19;
 
-    /* Atelier Theme Tokens */
-    --atelier-bg: #08090D;
-    --atelier-surface: #0E111A;
-    --atelier-surface-elevated: #151A26;
-    --atelier-surface-highlight: #1D2333;
-    --atelier-gold: #D4AF37;
-    --atelier-gold-light: #F1DE9D;
-    --atelier-gold-dark: #A47E1B;
-    --atelier-platinum: #E2E8F0;
-    --atelier-border: rgba(255, 255, 255, 0.07);
-    --atelier-border-gold: rgba(212, 175, 55, 0.25);
+    --color-border-subtle: #1C2621;
+    --color-border-strong: #28362F;
+
+    --color-text-primary: #F4EFE5;
+    --color-text-secondary: #A9ADA7;
+    --color-text-muted: #6F756F;
+
+    --color-gold-primary: #D8AD55;
+    --color-gold-highlight: #F1D28A;
+    --color-gold-soft: #C59D45;
+    --color-gold-dark: #A37E2E;
+
+    --color-emerald-primary: #18A879;
+    --color-emerald-deep: #0E6B4F;
+    --color-success: #18A879;
+    --color-warning: #D9822B;
+    --color-danger: #D9534F;
+    --color-info: #5B9BD5;
+
+    /* Atelier Legacy Compatibility Tokens */
+    --atelier-bg: #050806;
+    --atelier-surface: #0B1210;
+    --atelier-surface-elevated: #0F1714;
+    --atelier-surface-highlight: #141D19;
+    --atelier-gold: #D8AD55;
+    --atelier-gold-light: #F1D28A;
+    --atelier-gold-dark: #A37E2E;
+    --atelier-platinum: #F4EFE5;
+    --atelier-border: #1C2621;
+    --atelier-border-gold: rgba(216, 173, 85, 0.28);
+
+    /* Fonts */
+    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: 'Cormorant Garamond', Georgia, serif;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Radii */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-pill: 9999px;
+
+    /* Motion Curves */
+    --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --duration-instant: 150ms;
+    --duration-fast: 300ms;
+    --duration-normal: 400ms;
+    --duration-slow: 700ms;
   }
 
   body {
     margin: 0;
     font-family: var(--font-sans);
-    background-color: var(--atelier-bg);
-    color: #f1f5f9;
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -40,6 +83,12 @@
   .font-sans {
     font-family: var(--font-sans);
   }
+
+  /* Accessible Focus Ring */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-bg-base), 0 0 0 4px var(--color-gold-primary);
+  }
 }
 
 /* Custom Atelier Scrollbar */
@@ -49,57 +98,85 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #08090D;
+  background: #050506;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(244, 239, 229, 0.12);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.35);
+  background: rgba(216, 173, 85, 0.45);
 }
 
-/* Luxury Utilities */
+/* Luxury Atelier Gradients & Text */
 .atelier-gold-gradient {
-  background: linear-gradient(135deg, #F9F1D8 0%, #D4AF37 50%, #AA820A 100%);
+  background: linear-gradient(135deg, #F1D28A 0%, #D8AD55 50%, #A37E2E 100%);
 }
 
 .atelier-gold-text {
-  background: linear-gradient(135deg, #FFF6D6 0%, #E8C868 45%, #C29B27 100%);
+  background: linear-gradient(135deg, #FFF8E7 0%, #F1D28A 40%, #D8AD55 70%, #A37E2E 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .atelier-silver-text {
-  background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%);
+  background: linear-gradient(135deg, #FFFFFF 0%, #F4EFE5 50%, #A9ADA7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .atelier-glass {
-  background: rgba(14, 17, 26, 0.75);
+  background: rgba(11, 18, 16, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--color-border-subtle);
 }
 
 .atelier-glass-gold {
-  background: rgba(20, 22, 30, 0.85);
+  background: rgba(15, 23, 20, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(212, 175, 55, 0.22);
+  border: 1px solid rgba(216, 173, 85, 0.28);
 }
 
+/* Double-Bezel Architectural Enclosures (Doppelrand) */
+.double-bezel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 6px;
+  border-radius: 1.5rem;
+}
+
+.double-bezel-inner {
+  background: #0A0B0F;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: calc(1.5rem - 6px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06);
+}
+
+.double-bezel-gold {
+  background: rgba(232, 185, 74, 0.04);
+  border: 1px solid rgba(232, 185, 74, 0.18);
+  padding: 6px;
+  border-radius: 1.5rem;
+}
+
+.double-bezel-gold .double-bezel-inner {
+  background: #0E1017;
+  border: 1px solid rgba(232, 185, 74, 0.2);
+}
+
+/* Fluid Card Hover */
 .atelier-card-hover {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 300ms var(--ease-spring), border-color 300ms var(--ease-spring), box-shadow 300ms var(--ease-spring);
 }
 
 .atelier-card-hover:hover {
   transform: translateY(-2px);
-  border-color: rgba(212, 175, 55, 0.3);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px -5px rgba(212, 175, 55, 0.1);
+  border-color: rgba(232, 185, 74, 0.35);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.6), 0 0 24px -6px rgba(232, 185, 74, 0.12);
 }
 
 /* Shimmer & Glow Animations */
@@ -109,7 +186,7 @@
 }
 
 .animate-shimmer {
-  animation: shimmer 2.5s infinite;
+  animation: shimmer 2.2s infinite;
 }
 
 @keyframes pulse-slow {
@@ -119,4 +196,32 @@
 
 .animate-pulse-slow {
   animation: pulse-slow 3s ease-in-out infinite;
+}
+
+@keyframes stepProgress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* Accessibility: Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Accessibility: Reduced Transparency Support */
+@media (prefers-reduced-transparency: reduce) {
+  .atelier-glass, .atelier-glass-gold {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: #0A0B0F !important;
+  }
 }

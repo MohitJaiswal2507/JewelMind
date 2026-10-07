@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, ImageOff } from 'lucide-react';
+import { Search, ImageOff, CheckCircle2, Sparkles, Brush, Layers, Image as ImageIcon } from 'lucide-react';
 import { Input } from '../ui/input';
 import { StudioMediaCard, StudioMediaItem } from './StudioMediaCard';
 
@@ -7,48 +7,90 @@ interface StudioMediaGridProps {
   items: StudioMediaItem[];
   selectedItem: StudioMediaItem | null;
   onSelectItem: (item: StudioMediaItem) => void;
+  onOpenCanvas?: (designId: string) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   selectedCategory: string;
   onSelectCategory: (cat: string) => void;
+  selectedCollection?: string | null;
+  onSelectCollection?: (col: string | null) => void;
 }
 
-const CATEGORIES = ['All', 'Ring', 'Necklace', 'Earrings', 'Bracelet', 'Bangle', 'Pendant', 'Other'];
+const CATEGORIES = ['All', 'Ring', 'Necklace', 'Earrings', 'Bracelet', 'Bangle', 'Pendant', 'Brooch', 'Other'];
+
+const SCOPE_FILTERS = [
+  { id: null, label: 'All Media' },
+  { id: 'approved', label: 'Approved Only', icon: CheckCircle2 },
+  { id: 'text', label: 'Text Guided', icon: Sparkles },
+  { id: 'doodle', label: 'Doodle Guided', icon: Brush },
+  { id: 'image', label: 'Image Guided', icon: ImageIcon },
+  { id: 'sketches', label: 'Sketches', icon: Layers },
+];
 
 export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
   items,
   selectedItem,
   onSelectItem,
+  onOpenCanvas,
   searchQuery,
   onSearchChange,
   selectedCategory,
   onSelectCategory,
+  selectedCollection = null,
+  onSelectCollection,
 }) => {
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#08090D] p-5 sm:p-7 space-y-6">
+    <div className="flex-1 flex flex-col h-full bg-[#08090D] p-5 sm:p-7 space-y-6">
       {/* Top Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.07]">
-        {/* Search Field */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search lookbook by title, category, or SKU..."
-            className="pl-9.5 bg-[#0E111A] border-white/10 text-xs text-white placeholder:text-slate-500 rounded-xl focus-visible:ring-amber-400/50"
-          />
+      <div className="flex flex-col gap-4 pb-4 border-b border-white/[0.08]">
+        {/* Row 1: Search + Curation Scope Filter */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          {/* Search Field */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search lookbook by title, category, or SKU..."
+              className="pl-9.5 bg-[#0E111A] border-white/10 text-xs text-white placeholder:text-slate-500 rounded-xl focus-visible:ring-[#D8AD55]/40"
+            />
+          </div>
+
+          {/* Curation Scope Filters */}
+          {onSelectCollection && (
+            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+              {SCOPE_FILTERS.map((scope) => {
+                const Icon = scope.icon;
+                const active = selectedCollection === scope.id;
+                return (
+                  <button
+                    key={scope.label}
+                    onClick={() => onSelectCollection(scope.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition cursor-pointer flex items-center space-x-1.5 ${
+                      active
+                        ? 'bg-[#141D19] text-[#F1D28A] border border-[#D8AD55]/40 shadow-sm font-semibold'
+                        : 'bg-[#0E111A] text-slate-400 border border-white/5 hover:text-white hover:bg-white/[0.03]'
+                    }`}
+                  >
+                    {Icon && <Icon className={`w-3.5 h-3.5 ${active ? 'text-[#D8AD55]' : 'text-slate-500'}`} />}
+                    <span>{scope.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        {/* Row 2: Category Filter Pills */}
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => onSelectCategory(cat)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-amber-400/20 text-amber-200 border border-amber-400/40 shadow-sm'
+                  ? 'bg-[#D8AD55]/20 text-[#F1D28A] border border-[#D8AD55]/50 shadow-sm'
                   : 'bg-[#0E111A] text-slate-400 border border-white/5 hover:text-white hover:border-white/15'
               }`}
             >
@@ -61,9 +103,9 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
       {/* Dynamic Header & Count */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-serif font-medium text-white tracking-wide">
-          Atelier Lookbook <span className="text-amber-300 font-mono text-xs font-normal">({items.length} Assets)</span>
+          Studio Lookbook <span className="text-[#D8AD55] font-mono text-xs font-normal">({items.length} Assets)</span>
         </h2>
-        <span className="text-[11px] text-slate-400 font-light">Fine jewellery blueprints & photorealistic prototypes</span>
+        <span className="text-[11px] text-slate-400 font-light hidden sm:inline">Fine jewellery blueprints &amp; photorealistic prototypes</span>
       </div>
 
       {/* Media Grid Stream */}
@@ -77,13 +119,14 @@ export const StudioMediaGrid: React.FC<StudioMediaGridProps> = ({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-5 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-6 pb-8">
             {items.map((item) => (
               <StudioMediaCard
                 key={item.id}
                 item={item}
                 isSelected={selectedItem?.id === item.id}
                 onSelect={onSelectItem}
+                onOpenCanvas={onOpenCanvas}
               />
             ))}
           </div>

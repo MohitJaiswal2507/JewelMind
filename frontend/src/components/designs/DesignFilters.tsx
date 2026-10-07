@@ -31,31 +31,31 @@ export const DesignFilters: React.FC<DesignFiltersProps> = ({
   const isFiltered = Boolean(search || selectedCategory || selectedStatus);
 
   return (
-    <div className="space-y-4 bg-[#0E111A]/90 p-5 rounded-2xl border border-white/[0.07] shadow-xl">
+    <div className="space-y-4 bg-[#0B1210]/95 p-5 rounded-2xl border border-[#1C2621] shadow-xl">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search input */}
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6F756F]" />
           <Input
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search catalogue by name, category, or gemstone specifications..."
-            className="pl-10 h-10 bg-[#080A10] border-white/10 focus-visible:ring-amber-400/50"
+            className="pl-10 h-10 bg-[#080D0B] border-[#1C2621] text-[#F4EFE5] placeholder:text-[#6F756F] focus-visible:ring-[#D8AD55]/50"
           />
         </div>
 
         {/* Status Dropdown & Reset */}
         <div className="flex items-center space-x-2.5">
           <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+            <Filter className="w-4 h-4 text-[#A9ADA7] hidden sm:block" />
             <select
               value={selectedStatus}
               onChange={(e) => onStatusChange(e.target.value as DesignStatus | '')}
-              className="h-10 rounded-xl border border-white/10 bg-[#080A10] px-3.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-400/50 cursor-pointer shadow-inner"
+              className="h-10 rounded-xl border border-[#1C2621] bg-[#080D0B] px-3.5 text-xs text-[#F4EFE5] focus:outline-none focus:ring-1 focus:ring-[#D8AD55]/50 cursor-pointer shadow-inner"
             >
-              <option value="">All Statuses</option>
+              <option value="" className="bg-[#0B1210]">All Statuses</option>
               {DESIGN_STATUSES.map((st) => (
-                <option key={st.value} value={st.value} className="bg-[#0E111A]">
+                <option key={st.value} value={st.value} className="bg-[#0B1210]">
                   {st.label}
                 </option>
               ))}

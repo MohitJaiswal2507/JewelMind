@@ -9,11 +9,12 @@ import {
   Cpu,
   Calendar,
   IndianRupee,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 
-export type ProductionViewMode = 'command-center' | 'shop-floor' | 'resources' | 'schedule';
+export type ProductionViewMode = 'command-center' | 'shop-floor' | 'resources' | 'schedule' | 'analytics';
 
 interface ProductionHeaderProps {
   viewMode: ProductionViewMode;
@@ -64,22 +65,24 @@ export const ProductionHeader: React.FC<ProductionHeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-wide">
+              <h1 className="text-xl sm:text-2xl font-serif font-bold text-[#F4EFE5] tracking-wide">
                 Production Command Center
               </h1>
-              <span className="text-[11px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#D4AF37]/10 text-[#E6CA65] border border-[#D4AF37]/30 font-semibold tracking-wider">
+              <span className="text-[11px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#D8AD55]/10 text-[#F1D28A] border border-[#D8AD55]/30 font-semibold tracking-wider">
                 Atelier OS
               </span>
             </div>
             {/* Live Ticker Subtitle */}
-            <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap font-light">
-              <span className="text-slate-300 font-medium">{activeOrdersCount} Active Orders</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-amber-300/90">{inProgressCount} In Progress</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-cyan-300/90">{awaitingQcCount} Awaiting QC</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-emerald-300/90 font-mono font-medium">{formattedVal} Material in Flow</span>
+            <div className="text-xs text-[#A9ADA7] mt-1 flex items-center gap-2 flex-wrap font-light">
+              <span className="text-[#F4EFE5] font-medium">From approved design to finished jewellery.</span>
+              <span className="text-[#6F756F]">|</span>
+              <span className="text-[#A9ADA7]">{activeOrdersCount} Active Orders</span>
+              <span className="text-[#6F756F]">•</span>
+              <span className="text-[#F1D28A]">{inProgressCount} In Progress</span>
+              <span className="text-[#6F756F]">•</span>
+              <span className="text-[#18A879]">{awaitingQcCount} Awaiting QC</span>
+              <span className="text-[#6F756F]">•</span>
+              <span className="text-[#D8AD55] font-mono font-medium">{formattedVal} Material in Flow</span>
             </div>
           </div>
         </div>
@@ -123,14 +126,14 @@ export const ProductionHeader: React.FC<ProductionHeaderProps> = ({
       {/* Navigation Mode Strip & Filter Row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
         {/* Mode Selector Tabs */}
-        <div className="inline-flex p-1 rounded-xl bg-[#0D1017] border border-[#1E2333] overflow-x-auto max-w-full">
+        <div className="inline-flex p-1 rounded-xl bg-[#080D0B] border border-[#1C2621] overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => onViewModeChange('command-center')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
               viewMode === 'command-center'
-                ? 'bg-amber-400/15 text-amber-200 border border-amber-400/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#141D19] text-[#F1D28A] border border-[#D8AD55]/30 shadow-sm font-semibold'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
             }`}
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
@@ -140,10 +143,10 @@ export const ProductionHeader: React.FC<ProductionHeaderProps> = ({
           <button
             type="button"
             onClick={() => onViewModeChange('shop-floor')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
               viewMode === 'shop-floor'
-                ? 'bg-amber-400/15 text-amber-200 border border-amber-400/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#141D19] text-[#F1D28A] border border-[#D8AD55]/30 shadow-sm font-semibold'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
             }`}
           >
             <Hammer className="w-3.5 h-3.5" />
@@ -153,27 +156,40 @@ export const ProductionHeader: React.FC<ProductionHeaderProps> = ({
           <button
             type="button"
             onClick={() => onViewModeChange('resources')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
               viewMode === 'resources'
-                ? 'bg-amber-400/15 text-amber-200 border border-amber-400/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#141D19] text-[#F1D28A] border border-[#D8AD55]/30 shadow-sm font-semibold'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
             }`}
           >
             <Cpu className="w-3.5 h-3.5" />
-            <span>Karigars & Machinery</span>
+            <span>Karigars &amp; Machinery</span>
           </button>
 
           <button
             type="button"
             onClick={() => onViewModeChange('schedule')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
               viewMode === 'schedule'
-                ? 'bg-amber-400/15 text-amber-200 border border-amber-400/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#141D19] text-[#F1D28A] border border-[#D8AD55]/30 shadow-sm font-semibold'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>CP-SAT Optimizer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onViewModeChange('analytics')}
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+              viewMode === 'analytics'
+                ? 'bg-[#141D19] text-[#F1D28A] border border-[#D8AD55]/30 shadow-sm font-semibold'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Yield Analytics</span>
           </button>
         </div>
 

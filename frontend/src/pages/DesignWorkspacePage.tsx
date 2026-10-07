@@ -13,6 +13,8 @@ import {
   Download,
   Save,
   ExternalLink,
+  Edit2,
+  GripVertical,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -27,7 +29,7 @@ import { Design } from '../types/design';
 import { DesignState } from '../types/ai';
 
 interface DesignWorkspacePageProps {
-  designId: string;
+  designId?: string;
   onBack: () => void;
 }
 
@@ -54,7 +56,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
 
   // Conversational Design State
   const [designState, setDesignState] = useState<DesignState>({
-    category: null,
+    category: 'Ring',
     primary_metal: null,
     metal_finish: 'polished',
     accent_metal: null,
@@ -102,10 +104,65 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
   const [canvasInfluence, setCanvasInfluence] = useState<number>(60);
+  const [copilotWidth, setCopilotWidth] = useState<number>(380);
+  const [isResizingCopilot, setIsResizingCopilot] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isResizingCopilot) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 280 && newWidth <= Math.min(window.innerWidth - 300, 780)) {
+        setCopilotWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingCopilot(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizingCopilot]);
 
   const fetchDesign = async () => {
     setLoading(true);
     setError(null);
+
+    if (!designId || designId === 'new') {
+      const defaultCategory = 'Ring';
+      setDesign({
+        id: 'new-canvas-draft',
+        user_id: 'current-user',
+        name: 'New Jewellery Piece',
+        description: null,
+        category: defaultCategory,
+        status: 'draft',
+        sketch_image_url: null,
+        rendered_image_url: null,
+        ai_prompt: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      setDesignState(prev => ({
+        ...prev,
+        category: defaultCategory,
+      }));
+      setLoading(false);
+      return;
+    }
+
     try {
       const data = await designService.getDesign(designId);
       setDesign(data);
@@ -114,9 +171,8 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         setWorkspaceView('comparison');
       }
 
-      // Initialize clean design state for loaded design
       setDesignState({
-        category: data.category || null,
+        category: data.category || 'Ring',
         primary_metal: null,
         metal_finish: 'polished',
         accent_metal: null,
@@ -134,9 +190,22 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         renderer_prompt: null,
         negative_prompt: null,
       });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load design workspace.';
-      setError(msg);
+    } catch {
+      // Graceful fallback to fresh workspace piece
+      setDesign({
+        id: designId,
+        user_id: 'current-user',
+        name: 'New Jewellery Piece',
+        description: null,
+        category: 'Ring',
+        status: 'draft',
+        sketch_image_url: null,
+        rendered_image_url: null,
+        ai_prompt: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      setDesignState(prev => ({ ...prev, category: 'Ring' }));
     } finally {
       setLoading(false);
     }
@@ -176,23 +245,32 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
 
   // Save to Supabase Storage & Database
   const handleSaveSketch = async () => {
-    if (!design) return;
     setIsSaving(true);
     try {
-      let updatedDesign = design;
+      let activeDesign = design;
+      if (!activeDesign || activeDesign.id.startsWith('new-')) {
+        activeDesign = await designService.createDesign({
+          name: activeDesign?.name || 'New Jewellery Piece',
+          category: (designState.category || 'ring') as any,
+          ai_prompt: designState.current_prompt || undefined,
+        });
+        setDesign(activeDesign);
+      }
+
+      let updatedDesign = activeDesign;
       if (workspaceMode === 'doodle' && canvasRef.current) {
         const blob = await canvasRef.current.exportPngBlob();
         if (blob) {
-          const cleanName = design.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const cleanName = activeDesign.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
           const file = new File([blob], `${cleanName}_sketch.png`, { type: 'image/png' });
-          updatedDesign = await designService.uploadSketch(design.id, file);
+          updatedDesign = await designService.uploadSketch(activeDesign.id, file);
         }
       }
 
-      if (designState.current_prompt !== design.ai_prompt) {
-        updatedDesign = await designService.updateDesign(design.id, {
+      if (designState.current_prompt !== activeDesign.ai_prompt || designState.category !== activeDesign.category) {
+        updatedDesign = await designService.updateDesign(activeDesign.id, {
           ai_prompt: designState.current_prompt,
-          category: designState.category as any,
+          category: (designState.category || 'ring') as any,
         });
       }
 
@@ -219,18 +297,27 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
 
   // Central Generative Render Execution
   const handleExecuteRender = async () => {
-    if (!design) return;
     setIsRendering(true);
     try {
+      let activeDesign = design;
+      if (!activeDesign || activeDesign.id.startsWith('new-')) {
+        activeDesign = await designService.createDesign({
+          name: activeDesign?.name || 'New Jewellery Piece',
+          category: (designState.category || 'ring') as any,
+          ai_prompt: designState.current_prompt || undefined,
+        });
+        setDesign(activeDesign);
+      }
+
       // Store current render as previous render for iterative comparison & Canny conditioning
       if (renderedImageUrl) {
         setPreviousRenderUrl(renderedImageUrl);
       }
 
-      const categoryValue = (designState.category || design.category || 'other_jewellery').toLowerCase();
+      const categoryValue = (designState.category || activeDesign.category || 'ring').toLowerCase();
       const materialValue = designState.primary_metal || undefined;
       const gemstoneValue = designState.has_gemstones === false ? undefined : (designState.gemstone_type || undefined);
-      const activePrompt = designState.renderer_prompt || designState.current_prompt || design.ai_prompt || `${materialValue ? materialValue + ' ' : ''}${categoryValue}`;
+      const activePrompt = designState.renderer_prompt || designState.current_prompt || activeDesign.ai_prompt || `${materialValue ? materialValue + ' ' : ''}${categoryValue}`;
       const controlStrengthValue = Math.max(0.0, Math.min(1.0, canvasInfluence / 100));
 
       let res;
@@ -238,7 +325,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         // Mode 1: Pure Text -> Render
         res = await aiRenderingService.renderSketch(null, {
           category: categoryValue,
-          source_blueprint_category: design.category.toLowerCase(),
+          source_blueprint_category: activeDesign.category.toLowerCase(),
           prompt: activePrompt,
           negative_prompt: designState.negative_prompt || undefined,
           material: materialValue,
@@ -246,7 +333,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
           control_strength: previousRenderUrl ? 0.65 : 0.0,
           control_type: previousRenderUrl ? 'canny' : 'lineart',
           previous_render_url: previousRenderUrl || undefined,
-          design_id: design.id,
+          design_id: activeDesign.id,
         });
       } else if (workspaceMode === 'doodle') {
         // Mode 2: Canvas Doodle -> Render
@@ -256,28 +343,28 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         }
         res = await aiRenderingService.renderSketch(blob, {
           category: categoryValue,
-          source_blueprint_category: design.category.toLowerCase(),
+          source_blueprint_category: activeDesign.category.toLowerCase(),
           prompt: activePrompt,
           negative_prompt: designState.negative_prompt || undefined,
           material: materialValue,
           gemstone: gemstoneValue,
           control_strength: controlStrengthValue,
           control_type: 'lineart',
-          design_id: design.id,
+          design_id: activeDesign.id,
         });
       } else {
         // Mode 3: Image Blueprint -> Render
         res = await aiRenderingService.renderSketch(uploadedImageFile, {
           category: categoryValue,
-          source_blueprint_category: design.category.toLowerCase(),
+          source_blueprint_category: activeDesign.category.toLowerCase(),
           prompt: activePrompt,
           negative_prompt: designState.negative_prompt || undefined,
           material: materialValue,
           gemstone: gemstoneValue,
           control_strength: controlStrengthValue,
           control_type: 'canny',
-          sketch_url: uploadedImageUrl || design.sketch_image_url || undefined,
-          design_id: design.id,
+          sketch_url: uploadedImageUrl || activeDesign.sketch_image_url || undefined,
+          design_id: activeDesign.id,
         });
       }
 
@@ -366,7 +453,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] space-y-4 text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
-        <span className="text-xs font-light">Initializing Canva AI Jewellery Atelier...</span>
+        <span className="text-xs font-light">Initializing Canva Jewellery Workspace...</span>
       </div>
     );
   }
@@ -388,7 +475,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
   const activeBlueprintUrl = uploadedImageUrl || design.sketch_image_url;
 
   return (
-    <div className="fixed inset-0 top-[72px] z-40 bg-[#08090D] flex flex-col overflow-hidden">
+    <div className="flex-1 w-full h-[calc(100vh-64px)] bg-[#08090D] flex flex-col overflow-hidden relative">
       {/* Hidden File Picker for Canvas Reference */}
       <input
         ref={fileInputRef}
@@ -414,66 +501,98 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
       />
 
       {/* Canva Top Unified Header Bar */}
-      <div className="h-14 bg-[#0A0C12] border-b border-white/[0.08] px-4 sm:px-6 flex items-center justify-between z-30 select-none">
+      <div className="h-14 bg-[#0B1210] border-b border-[#1C2621] px-4 sm:px-6 flex items-center justify-between z-30 select-none">
         {/* Left: Navigation & Design Info */}
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className="text-slate-300 hover:text-white px-2 text-xs"
+            className="text-[#A9ADA7] hover:text-[#F4EFE5] px-2 text-xs"
             title="Exit Canva Workspace"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5" />
             Back
           </Button>
 
-          <div className="h-4 w-[1px] bg-white/10" />
+          <div className="h-4 w-[1px] bg-[#1C2621]" />
 
           <div className="flex items-center space-x-2">
-            <span className="font-serif text-sm font-medium text-white truncate max-w-[140px] sm:max-w-[220px]">
-              {design.name}
-            </span>
-            <Badge variant="gold" className="text-[10px] py-0 px-2">
-              {designState.category}
-            </Badge>
+            {/* Canva-Style Inline Editable Piece Name */}
+            <div className="relative flex items-center group">
+              <input
+                type="text"
+                value={design?.name || ''}
+                placeholder="New Jewellery Piece"
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  setDesign(prev => (prev ? { ...prev, name: newName } : null));
+                }}
+                className="font-serif text-sm font-semibold text-[#F4EFE5] hover:text-[#F1D28A] bg-transparent hover:bg-white/[0.04] focus:bg-[#141D19] px-2 py-1 rounded-lg border border-transparent hover:border-[#1C2621] focus:border-[#D8AD55]/60 focus:outline-none transition-all max-w-[130px] sm:max-w-[200px]"
+                title="Click to edit jewellery piece name"
+              />
+              <Edit2 className="w-3 h-3 text-[#6F756F] opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 pointer-events-none shrink-0" />
+            </div>
+
+            <div className="flex items-center space-x-1 bg-[#141D19] border border-[#D8AD55]/40 rounded-xl px-2 py-0.5">
+              <span className="text-[10px] font-mono text-[#D8AD55] uppercase font-bold">Type:</span>
+              <select
+                value={designState.category || 'Ring'}
+                onChange={(e) => {
+                  const cat = e.target.value;
+                  setDesignState(prev => ({ ...prev, category: cat }));
+                  if (design) {
+                    setDesign(prev => prev ? { ...prev, category: cat as any } : null);
+                  }
+                }}
+                className="bg-transparent text-xs font-semibold text-[#F1D28A] cursor-pointer focus:outline-none"
+              >
+                <option value="Ring" className="bg-[#080D0B] text-[#F4EFE5]">💍 Ring</option>
+                <option value="Necklace" className="bg-[#080D0B] text-[#F4EFE5]">📿 Necklace</option>
+                <option value="Earrings" className="bg-[#080D0B] text-[#F4EFE5]">✨ Earrings</option>
+                <option value="Bracelet" className="bg-[#080D0B] text-[#F4EFE5]">💫 Bracelet</option>
+                <option value="Pendant" className="bg-[#080D0B] text-[#F4EFE5]">💎 Pendant</option>
+                <option value="Bangle" className="bg-[#080D0B] text-[#F4EFE5]">👑 Bangle</option>
+                <option value="Brooch" className="bg-[#080D0B] text-[#F4EFE5]">⚜️ Brooch</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Center: Creation Mode Selector Tabs */}
-        <div className="hidden md:flex items-center bg-[#121622] p-1 rounded-xl border border-white/5 space-x-1">
+        {/* Center: Creation Mode Selector Tabs (Draw, Image, Text) */}
+        <div className="flex items-center bg-[#080D0B] p-1 rounded-xl border border-[#1C2621] space-x-1">
           <button
             onClick={() => setWorkspaceMode('doodle')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
               workspaceMode === 'doodle'
-                ? 'bg-amber-400 text-slate-950 font-semibold shadow'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#D8AD55] text-[#050806] font-semibold shadow'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
             }`}
           >
             <Brush className="w-3.5 h-3.5" />
-            <span>Sketch Canvas</span>
-          </button>
-          <button
-            onClick={() => setWorkspaceMode('text')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-              workspaceMode === 'text'
-                ? 'bg-amber-400 text-slate-950 font-semibold shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Text → Render</span>
+            <span>Draw</span>
           </button>
           <button
             onClick={() => setWorkspaceMode('image')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
               workspaceMode === 'image'
-                ? 'bg-amber-400 text-slate-950 font-semibold shadow'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#D8AD55] text-[#050806] font-semibold shadow'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
             }`}
           >
             <ImageIcon className="w-3.5 h-3.5" />
-            <span>Image Blueprint</span>
+            <span>Image</span>
+          </button>
+          <button
+            onClick={() => setWorkspaceMode('text')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+              workspaceMode === 'text'
+                ? 'bg-[#D8AD55] text-[#050806] font-semibold shadow'
+                : 'text-[#A9ADA7] hover:text-[#F4EFE5]'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Text</span>
           </button>
         </div>
 
@@ -724,7 +843,7 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
                   <div className="space-y-2">
                     <h2 className="font-serif text-2xl text-white font-medium">Text-to-Fine-Jewellery Studio</h2>
                     <p className="text-xs text-slate-400 leading-relaxed font-light max-w-md mx-auto">
-                      Generate bespoke fine jewellery directly from natural language. No drawing required. The atelier diffusion pipeline synthesizes photorealistic specular gold, platinum, and gemstones based strictly on your prompt specifications.
+                      Generate bespoke fine jewellery directly from natural language. No drawing required. The AI diffusion pipeline synthesizes photorealistic specular gold, platinum, and gemstones based strictly on your prompt specifications.
                     </p>
                   </div>
 
@@ -817,12 +936,45 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
           )}
         </div>
 
+        {/* Horizontal Resizer Drag Handle */}
+        {!isCopilotCollapsed && (
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizingCopilot(true);
+            }}
+            className={`hidden md:flex w-2 hover:w-2.5 cursor-col-resize items-center justify-center bg-[#080D0B] hover:bg-[#D8AD55]/30 border-l border-white/[0.08] transition-colors relative z-30 select-none group shrink-0 ${
+              isResizingCopilot ? 'bg-[#D8AD55]/40' : ''
+            }`}
+            title="Drag horizontally to resize chat"
+          >
+            <div className="h-10 w-0.5 rounded-full bg-[#6F756F] group-hover:bg-[#D8AD55] transition-colors" />
+          </div>
+        )}
+
         {/* Right-Side Conversational Copilot & State Panel */}
         <div
+          style={{ width: isCopilotCollapsed ? 48 : copilotWidth }}
           className={`${
-            isCopilotCollapsed ? 'w-12' : 'w-full md:w-[320px] lg:w-[380px]'
-          } h-[360px] md:h-full shrink-0 shadow-2xl border-t md:border-t-0 border-white/[0.07] transition-all duration-300 relative z-20`}
+            isCopilotCollapsed ? 'w-12' : ''
+          } h-[360px] md:h-full shrink-0 shadow-2xl border-t md:border-t-0 border-white/[0.07] ${
+            isResizingCopilot ? '' : 'transition-all duration-150'
+          } relative z-20 overflow-hidden flex flex-col`}
         >
+          {/* Corner resize grip indicator */}
+          {!isCopilotCollapsed && (
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsResizingCopilot(true);
+              }}
+              className="hidden md:flex absolute top-2 left-2 z-40 p-1 rounded hover:bg-[#D8AD55]/20 text-[#6F756F] hover:text-[#D8AD55] cursor-col-resize transition-colors items-center justify-center select-none"
+              title="Drag horizontally from corner to resize chat"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+          )}
+
           <DesignChatPanel
             initialPrompt={designState.current_prompt}
             onPromptChange={(newPrompt) => {

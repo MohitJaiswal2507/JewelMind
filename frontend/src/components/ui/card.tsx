@@ -8,13 +8,32 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      'rounded-2xl border border-white/[0.07] bg-[#0E111A]/85 text-slate-100 shadow-xl shadow-black/40 backdrop-blur-md transition-all duration-200',
+      'rounded-2xl border border-[#1C2621] bg-[#0B1210]/95 text-[#F4EFE5] shadow-xl shadow-black/60 transition-all duration-300',
       className
     )}
     {...props}
   />
 ));
 Card.displayName = 'Card';
+
+const CardBezel = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { variant?: 'default' | 'gold' }
+>(({ className, variant = 'default', children, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      variant === 'gold' ? 'double-bezel-gold' : 'double-bezel',
+      className
+    )}
+    {...props}
+  >
+    <div className="double-bezel-inner h-full w-full">
+      {children}
+    </div>
+  </div>
+));
+CardBezel.displayName = 'CardBezel';
 
 const CardHeader = React.forwardRef<
   HTMLDivElement,
@@ -34,7 +53,7 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn('font-serif text-lg font-medium leading-snug tracking-tight text-white', className)}
+    className={cn('font-serif text-lg font-medium leading-snug tracking-tight text-[#F4EFE5]', className)}
     {...props}
   />
 ));
@@ -46,7 +65,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-xs text-slate-400/90 leading-relaxed', className)}
+    className={cn('text-xs text-[#A9ADA7] leading-relaxed', className)}
     {...props}
   />
 ));
@@ -72,4 +91,4 @@ const CardFooter = React.forwardRef<
 ));
 CardFooter.displayName = 'CardFooter';
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };
+export { Card, CardBezel, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };

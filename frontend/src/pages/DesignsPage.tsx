@@ -132,22 +132,22 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign, onOpen
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-2 sm:py-4">
       {/* Workspace Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-7 sm:p-9 rounded-2xl bg-[#0E111A]/90 border border-white/[0.07] shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-7 sm:p-9 rounded-2xl bg-[#0B1210]/95 border border-[#1C2621] shadow-2xl relative overflow-hidden">
         <div className="flex items-center space-x-4">
-          <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-400/20 via-yellow-400/10 to-transparent border border-amber-400/30 flex items-center justify-center shadow-lg shadow-amber-500/5 shrink-0">
-            <Layers className="w-6 h-6 text-amber-300" />
+          <div className="w-13 h-13 rounded-2xl bg-[#141D19] border border-[#D8AD55]/30 flex items-center justify-center shadow-lg shadow-[#D8AD55]/5 shrink-0">
+            <Layers className="w-6 h-6 text-[#D8AD55]" />
           </div>
           <div>
             <div className="flex items-center space-x-2.5">
-              <h1 className="font-serif text-2xl sm:text-3xl font-normal text-white tracking-tight">
+              <h1 className="font-serif text-3xl sm:text-4xl font-normal text-[#F4EFE5] tracking-tight">
                 Design Catalogue
               </h1>
               <Badge variant="gold" className="text-[10px]">
                 {totalCount} {totalCount === 1 ? 'Design' : 'Designs'}
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-slate-400 font-light mt-1 max-w-xl">
-              Editorial portfolio of fine jewellery blueprints, generative diffusion targets, and bespoke collections.
+            <p className="text-xs sm:text-sm text-[#A9ADA7] font-light mt-1 max-w-xl">
+              Your jewellery concepts, organized.
             </p>
           </div>
         </div>
@@ -158,7 +158,7 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign, onOpen
             size="sm"
             onClick={fetchDesigns}
             disabled={loading}
-            className="h-9 px-3 border-white/10 text-slate-300 hover:border-white/20"
+            className="h-9 px-3 border-[#1C2621] text-[#A9ADA7] hover:border-[#D8AD55]/40"
             title="Refresh Designs"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -168,9 +168,9 @@ export const DesignsPage: React.FC<DesignsPageProps> = ({ onSelectDesign, onOpen
             variant="gold"
             size="default"
             onClick={handleOpenCreateModal}
-            className="h-9 px-5 font-semibold text-xs shadow-md shadow-amber-500/10"
+            className="h-9 px-5 font-bold text-xs text-[#050806] shadow-md shadow-[#D8AD55]/15"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
+            <Plus className="w-4 h-4 mr-1.5 text-[#050806]" />
             New Design
           </Button>
         </div>

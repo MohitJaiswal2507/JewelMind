@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { StudioSidebar } from '../components/studio/StudioSidebar';
+import { Loader2, AlertCircle, PenTool, Sparkles, Layers, CheckCircle2 } from 'lucide-react';
+import { Button } from '../components/ui/button';
 import { StudioMediaGrid } from '../components/studio/StudioMediaGrid';
 import { StudioMediaDetails } from '../components/studio/StudioMediaDetails';
 import { StudioMediaItem } from '../components/studio/StudioMediaCard';
@@ -31,8 +31,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Sidebar navigation & Filters
-  const [activeSection, setActiveSection] = useState<string>('studio');
+  // Filters
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
 
   // Grid search & category filter
@@ -168,20 +167,13 @@ export const StudioPage: React.FC<StudioPageProps> = ({
 
   // Filtered media items
   const filteredItems = useMemo(() => {
-    return allMediaItems.filter((item, index) => {
+    return allMediaItems.filter((item) => {
       // Guidance & version filter
       if (selectedCollection === 'approved' && !item.isApprovedForProduction) return false;
       if (selectedCollection === 'text' && item.renderMode !== 'text') return false;
       if (selectedCollection === 'doodle' && item.renderMode !== 'doodle') return false;
       if (selectedCollection === 'image' && item.renderMode !== 'image') return false;
       if (selectedCollection === 'sketches' && item.mediaType !== 'PNG Sketch') return false;
-
-      // Section filter
-      if (activeSection === 'trash') {
-        if (item.status !== 'archived') return false;
-      } else if (activeSection === 'recent') {
-        if (index > 8) return false;
-      }
 
       // Category filter
       if (selectedCategory !== 'All' && item.category !== selectedCategory) {
@@ -200,7 +192,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({
 
       return true;
     });
-  }, [allMediaItems, selectedCollection, activeSection, selectedCategory, searchQuery]);
+  }, [allMediaItems, selectedCollection, selectedCategory, searchQuery]);
 
   // Delete sketch asset
   const handleDeleteMedia = async (item: StudioMediaItem) => {
@@ -273,26 +265,74 @@ export const StudioPage: React.FC<StudioPageProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 top-[72px] z-30 bg-[#08090D] flex overflow-hidden">
-      {/* Left Sidebar */}
-      <StudioSidebar
-        activeSection={activeSection}
-        onSelectSection={setActiveSection}
-        selectedCollection={selectedCollection}
-        onSelectCollection={setSelectedCollection}
-        collectionCounts={collectionCounts}
-        onNavigateDesigns={onNavigateDesigns}
-      />
+    <div className="max-w-7xl mx-auto space-y-6 select-none pb-12">
+      {/* Studio Header Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0C0F17] via-[#0E1321] to-[#0A0D14] border border-white/[0.08] p-6 sm:p-8 shadow-2xl">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#D8AD55]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D8AD55]/10 border border-[#D8AD55]/20 text-[#D8AD55] text-xs font-medium">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Studio Lookbook & Vault</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-serif tracking-tight text-white font-medium">
+              Studio Lookbook
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 font-light max-w-xl">
+              Photorealistic neural prototypes, multi-version generative iterations, and artisan blueprint sketches.
+            </p>
 
-      {/* Main Studio Grid Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
+            {/* Quick Metrics */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.06] text-[11px] text-slate-300">
+                <Layers className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span className="font-semibold text-white">{collectionCounts.total}</span> Total Assets
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span className="font-semibold text-emerald-300">{collectionCounts.approved}</span> Production Approved
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="font-semibold text-indigo-200">{collectionCounts.text + collectionCounts.doodle + collectionCounts.image}</span> Neural Renders
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300">
+                <PenTool className="w-3.5 h-3.5" />
+                <span className="font-semibold text-amber-200">{collectionCounts.sketches}</span> Blueprints
+              </div>
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Button
+              onClick={onNavigateDesigns}
+              variant="outline"
+              className="bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/10 rounded-xl text-xs font-medium px-4 py-2.5 h-auto transition-all"
+            >
+              Designs Catalog
+            </Button>
+            <Button
+              onClick={() => onOpenCanvas('new')}
+              className="bg-gradient-to-r from-[#D8AD55] via-[#E2C37E] to-[#B38B3F] hover:from-[#E2C37E] hover:to-[#D8AD55] text-black font-semibold rounded-xl text-xs px-5 py-2.5 h-auto shadow-lg shadow-[#D8AD55]/20 flex items-center gap-2 transition-all"
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              <span>Create in Canvas</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Studio Grid Container */}
+      <div className="bg-[#0A0D14] border border-white/[0.08] rounded-2xl overflow-hidden shadow-2xl min-h-[600px] flex flex-col">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-full space-y-3 text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-300" />
-            <span className="text-xs font-light">Loading Atelier Lookbook...</span>
+          <div className="flex flex-col items-center justify-center py-32 space-y-3 text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-[#D8AD55]" />
+            <span className="text-xs font-light tracking-wider">Loading Studio Lookbook...</span>
           </div>
         ) : error ? (
-          <div className="p-6 max-w-lg mx-auto my-12 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center space-x-2.5">
+          <div className="p-6 max-w-lg mx-auto my-16 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center space-x-2.5">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -301,26 +341,40 @@ export const StudioPage: React.FC<StudioPageProps> = ({
             items={filteredItems}
             selectedItem={selectedMedia}
             onSelectItem={setSelectedMedia}
+            onOpenCanvas={onOpenCanvas}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            selectedCollection={selectedCollection}
+            onSelectCollection={setSelectedCollection}
           />
         )}
-      </main>
+      </div>
 
-      {/* Right Side Media Details Inspector */}
+      {/* Slide-over Drawer for Media Details */}
       {selectedMedia && (
-        <StudioMediaDetails
-          item={selectedMedia}
-          onClose={() => setSelectedMedia(null)}
-          onOpenCanvas={onOpenCanvas}
-          onDeleteMedia={handleDeleteMedia}
-          onApproveRender={handleApproveRender}
-          onDeleteRender={handleDeleteRender}
-          onCompareVersions={handleCompareVersions}
-          onSendToProduction={handleSendToProduction}
-        />
+        <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
+          {/* Subtle Ambient Backdrop - Click to dismiss */}
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity cursor-pointer"
+            onClick={() => setSelectedMedia(null)}
+          />
+
+          {/* Drawer Content */}
+          <div className="relative z-10 w-full sm:w-[460px] md:w-[500px] h-full shadow-2xl flex flex-col bg-[#0A0C12] border-l border-white/[0.1]">
+            <StudioMediaDetails
+              item={selectedMedia}
+              onClose={() => setSelectedMedia(null)}
+              onOpenCanvas={onOpenCanvas}
+              onDeleteMedia={handleDeleteMedia}
+              onApproveRender={handleApproveRender}
+              onDeleteRender={handleDeleteRender}
+              onCompareVersions={handleCompareVersions}
+              onSendToProduction={handleSendToProduction}
+            />
+          </div>
+        </div>
       )}
 
       {/* Comparison Modal */}

@@ -4,6 +4,7 @@ import {
   Layers,
   ArrowRight,
   ExternalLink,
+  PenTool,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -14,14 +15,14 @@ interface DashboardRecentRendersProps {
   renders: DashboardRecentAsset[];
   onNavigateToStudio: () => void;
   onSelectDesign: (designId: string) => void;
-  onOpenRenderModal: (sketchUrl?: string, designName?: string, category?: string) => void;
+  onOpenCanvas?: () => void;
 }
 
 export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
   renders,
   onNavigateToStudio,
   onSelectDesign,
-  onOpenRenderModal,
+  onOpenCanvas,
 }) => {
   const [selectedAsset, setSelectedAsset] = useState<DashboardRecentAsset | null>(
     renders.length > 0 ? renders[0] : null
@@ -46,11 +47,11 @@ export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
             <Button
               variant="gold"
               size="sm"
-              onClick={() => onOpenRenderModal()}
+              onClick={onOpenCanvas}
               className="text-xs font-semibold shadow-sm"
             >
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              New AI Render
+              <PenTool className="w-3.5 h-3.5 mr-1.5" />
+              Open Canvas
             </Button>
             <Button
               variant="secondary"
@@ -80,11 +81,11 @@ export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
             <Button
               variant="gold"
               size="sm"
-              onClick={() => onOpenRenderModal()}
+              onClick={() => (onOpenCanvas ? onOpenCanvas() : onNavigateToStudio())}
               className="text-xs font-semibold"
             >
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              Synthesize First Render
+              <PenTool className="w-3.5 h-3.5 mr-1.5" />
+              Open CAD Canvas
             </Button>
           </div>
         ) : (
@@ -170,16 +171,11 @@ export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
                           <Button
                             variant="gold"
                             size="sm"
-                            onClick={() =>
-                              onOpenRenderModal(
-                                selectedAsset.sketch_image_url || undefined,
-                                selectedAsset.name,
-                                selectedAsset.category
-                              )
-                            }
+                            onClick={() => (onOpenCanvas ? onOpenCanvas() : onNavigateToStudio())}
                             className="h-7 text-[11px] font-semibold"
                           >
-                            Render Blueprint
+                            <PenTool className="w-3 h-3 mr-1" />
+                            Open in Canvas
                           </Button>
                         )}
                       </div>
@@ -197,7 +193,7 @@ export const DashboardRecentRenders: React.FC<DashboardRecentRendersProps> = ({
             {/* Right: Quick Selection List */}
             <div className="space-y-3">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest block">
-                Atelier Gallery ({renders.length})
+                Creations Gallery ({renders.length})
               </span>
               <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                 {renders.map((item) => {
