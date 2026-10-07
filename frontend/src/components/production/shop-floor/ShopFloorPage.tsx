@@ -118,8 +118,8 @@ export const ShopFloorPage: React.FC<ShopFloorPageProps> = ({
       // 5. Fetch Material, QC & Analytics Summaries
       try {
         const [matSum, qcSum, analyticsData] = await Promise.all([
-          productionExecutionService.getOrderMaterialSummary(orderId),
-          productionExecutionService.getOrderQualitySummary(orderId),
+          productionExecutionService.getOrderMaterialSummary(orderId).catch(() => null),
+          productionExecutionService.getOrderQualitySummary(orderId).catch(() => null),
           productionExecutionService.getOrderAnalytics(orderId).catch(() => null),
         ]);
         setMaterialSummary(matSum);
