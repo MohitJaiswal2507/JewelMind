@@ -249,9 +249,14 @@ export const SelectedOrderCommandCenter: React.FC<SelectedOrderCommandCenterProp
           </div>
         </CardHeader>
         <CardContent className="p-4 sm:p-5 pt-0">
-          <div className="overflow-x-auto pb-2">
-            <div className="flex items-center min-w-[720px] py-3">
-              {executions.map((exec, idx) => {
+          {executions.length === 0 ? (
+            <div className="py-4 text-center text-xs text-slate-400 font-light">
+              No routing operations initialized. Orders created from approved specifications in the Studio automatically generate tailored manufacturing stages (CAD Modeling, Casting, Setting, Polishing).
+            </div>
+          ) : (
+            <div className="overflow-x-auto pb-2">
+              <div className="flex items-center min-w-[720px] py-3">
+                {executions.map((exec, idx) => {
                 const isCompleted = exec.status === 'completed';
                 const isActive = exec.status === 'in_progress' || exec.status === 'paused';
                 const isLast = idx === executions.length - 1;
@@ -302,7 +307,8 @@ export const SelectedOrderCommandCenter: React.FC<SelectedOrderCommandCenterProp
               })}
             </div>
           </div>
-        </CardContent>
+        )}
+      </CardContent>
       </Card>
 
       {/* Sub-Navigation Tabs */}
@@ -510,6 +516,18 @@ export const SelectedOrderCommandCenter: React.FC<SelectedOrderCommandCenterProp
                       </Button>
                     </div>
                   </>
+                ) : executions.length === 0 ? (
+                  <div className="text-center py-8 space-y-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 flex items-center justify-center mx-auto">
+                      <Layers className="w-5 h-5 opacity-80" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-white">No Workshop Routing Stages Attached</div>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto font-light leading-relaxed">
+                        This order was created manually without an approved manufacturing specification. To see the full sequential workshop pipeline in action, create or open an order derived from an approved piece in the Studio.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center py-8 text-slate-400">
                     All operations for this order have been completed.

@@ -5,7 +5,7 @@ Provides database persistence and operations for Production Orders, Workers, Mac
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Tuple, Union
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -298,6 +298,7 @@ class ProductionService:
             )
 
         # 7. Atomically create order with server-derived authoritative parameters
+        calculated_deadline = order_in.deadline or (datetime.now(timezone.utc) + timedelta(days=14))
         try:
             order = ProductionOrder(
                 user_id=user_id,
@@ -305,7 +306,7 @@ class ProductionService:
                 quantity=order_in.quantity,
                 priority=order_in.priority.value if isinstance(order_in.priority, OrderPriority) else str(order_in.priority),
                 status=OrderStatus.PENDING.value,
-                deadline=order_in.deadline,
+                deadline=calculated_deadline,
                 notes=order_in.notes,
                 render_id=spec.render_id,
                 approved_render_url=render.image_url,

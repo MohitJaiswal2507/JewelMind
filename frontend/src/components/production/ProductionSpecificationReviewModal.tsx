@@ -60,6 +60,11 @@ export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificatio
   const [creatingOrder, setCreatingOrder] = useState<boolean>(false);
   const [orderCreated, setOrderCreated] = useState<boolean>(false);
   const [orderQuantity, setOrderQuantity] = useState<number>(1);
+  const [orderDeadline, setOrderDeadline] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  });
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showApproveConfirm, setShowApproveConfirm] = useState<boolean>(false);
@@ -379,9 +384,14 @@ export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificatio
     setSuccessMessage(null);
 
     try {
+      const deadlineIso = orderDeadline
+        ? new Date(`${orderDeadline}T00:00:00Z`).toISOString()
+        : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
       const order = await productionService.createOrderFromSpecification({
         specification_id: specification.id,
         quantity: orderQuantity > 0 ? orderQuantity : 1,
+        deadline: deadlineIso,
       });
       setOrderCreated(true);
       setSuccessMessage(
@@ -1124,6 +1134,18 @@ export const ProductionSpecificationReviewModal: React.FC<ProductionSpecificatio
                   className="w-12 bg-transparent text-xs text-white font-bold outline-none text-center"
                   disabled={creatingOrder || orderCreated}
                   data-testid="order-quantity-input"
+                />
+              </div>
+
+              <div className="flex items-center space-x-1.5 bg-black/40 border border-white/10 rounded-lg px-2.5 py-1">
+                <span className="text-[11px] text-slate-400">Due:</span>
+                <input
+                  type="date"
+                  value={orderDeadline}
+                  onChange={(e) => setOrderDeadline(e.target.value)}
+                  className="bg-transparent text-xs text-white outline-none cursor-pointer"
+                  disabled={creatingOrder || orderCreated}
+                  data-testid="order-deadline-input"
                 />
               </div>
 

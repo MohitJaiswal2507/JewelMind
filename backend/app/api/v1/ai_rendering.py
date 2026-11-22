@@ -395,85 +395,97 @@ async def render_jewellery_sketch(
                 detail="AI rendering worker is offline. Start the local RTX 4060 worker.",
             ) from conn_err
 
-    # Upload rendered image to Supabase Storage if image bytes available
-    if rendered_image_bytes and render_dict:
+    # Ensure local output URL is always valid and directly accessible
+    out_name = Path(render_dict.get("output_url", "")).name if render_dict else ""
+    local_output_url = f"/api/v1/ai/render/outputs/{out_name}" if out_name else render_dict.get("output_url")
+    effective_url = local_output_url
+
+    # Upload rendered image to Supabase Storage only if configured and active
+    if rendered_image_bytes and render_dict and settings.SUPABASE_URL and not storage_service._is_mock_or_test_mode():
         try:
             public_supabase_url, _ = await storage_service.upload_rendered_image(
                 file_bytes=rendered_image_bytes,
                 user_id=current_user.id,
                 design_id=design_id,
             )
-            render_dict["output_url"] = public_supabase_url
+            # Only use if Supabase successfully resolved and stored
+            if public_supabase_url and not public_supabase_url.startswith("/storage/"):
+                effective_url = public_supabase_url
+        except Exception as storage_err:
+            logger.warning("Supabase upload skipped or failed, using local URL: %s", storage_err)
 
-            # Automatically persist to design & design_renders if design_id was provided
-            if design_id:
-                design = db.query(Design).filter(Design.id == design_id, Design.user_id == current_user.id).first()
-                if design:
-                    # 1. Determine render mode
-                    if is_text_to_render or control_strength == 0.0:
-                        det_mode = "text"
-                    elif control_type == "canny":
-                        det_mode = "image"
-                    else:
-                        det_mode = "doodle"
+    render_dict["output_url"] = effective_url
 
-                    # 2. Determine deterministic version number
-                    max_ver = db.query(func.max(DesignRender.version_number)).filter(DesignRender.design_id == design_id).scalar()
-                    version_number = (max_ver or 0) + 1
+    # Automatically persist to design & design_renders if design_id was provided
+    if design_id:
+        try:
+            design = db.query(Design).filter(Design.id == design_id, Design.user_id == current_user.id).first()
+            if design:
+                # 1. Determine render mode
+                if is_text_to_render or control_strength == 0.0:
+                    det_mode = "text"
+                elif control_type == "canny":
+                    det_mode = "image"
+                else:
+                    det_mode = "doodle"
 
-                    # 3. Resolve parent_render_id if previous_render_url matches a prior version
-                    parent_render_id = None
-                    if previous_render_url:
-                        parent_record = db.query(DesignRender).filter(
-                            DesignRender.design_id == design_id,
-                            DesignRender.image_url == previous_render_url,
-                        ).first()
-                        if parent_record:
-                            parent_render_id = parent_record.id
+                # 2. Determine deterministic version number
+                max_ver = db.query(func.max(DesignRender.version_number)).filter(DesignRender.design_id == design_id).scalar()
+                version_number = (max_ver or 0) + 1
 
-                    # 4. Structured telemetry state
-                    state_payload = None
-                    if structured_design:
-                        try:
-                            state_payload = json.loads(structured_design) if isinstance(structured_design, str) else dict(structured_design)
-                        except Exception:
-                            state_payload = None
-                    if not state_payload:
-                        state_payload = {
-                            "category": category,
-                            "material": material,
-                            "gemstone": gemstone,
-                        }
+                # 3. Resolve parent_render_id if previous_render_url matches a prior version
+                parent_render_id = None
+                if previous_render_url:
+                    parent_record = db.query(DesignRender).filter(
+                        DesignRender.design_id == design_id,
+                        DesignRender.image_url == previous_render_url,
+                    ).first()
+                    if parent_record:
+                        parent_render_id = parent_record.id
 
-                    render_record = DesignRender(
-                        design_id=design_id,
-                        user_id=current_user.id,
-                        version_number=version_number,
-                        parent_render_id=parent_render_id,
-                        render_mode=det_mode,
-                        prompt=prompt or design.name,
-                        enhanced_prompt=prompt if prompt and prompt != design.name else None,
-                        structured_state=state_payload,
-                        image_url=public_supabase_url,
-                        thumbnail_url=public_supabase_url,
-                        control_type=control_type or "none",
-                        control_strength=control_strength,
-                        seed=seed,
-                        is_approved_for_production=False,
-                    )
-                    db.add(render_record)
-                    design.rendered_image_url = public_supabase_url
-                    design.status = "ready"
-                    db.commit()
-                    db.refresh(render_record)
-                    db.refresh(design)
+                # 4. Structured telemetry state
+                state_payload = None
+                if structured_design:
+                    try:
+                        state_payload = json.loads(structured_design) if isinstance(structured_design, str) else dict(structured_design)
+                    except Exception:
+                        state_payload = None
+                if not state_payload:
+                    state_payload = {
+                        "category": category,
+                        "material": material,
+                        "gemstone": gemstone,
+                    }
 
-                    render_dict["id"] = str(render_record.id)
-                    render_dict["render_id"] = str(render_record.id)
-                    render_dict["version_number"] = render_record.version_number
-                    render_dict["parent_render_id"] = str(render_record.parent_render_id) if render_record.parent_render_id else None
-                    render_dict["render_mode"] = render_record.render_mode
-                    render_dict["is_approved_for_production"] = render_record.is_approved_for_production
+                render_record = DesignRender(
+                    design_id=design_id,
+                    user_id=current_user.id,
+                    version_number=version_number,
+                    parent_render_id=parent_render_id,
+                    render_mode=det_mode,
+                    prompt=prompt or design.name,
+                    enhanced_prompt=prompt if prompt and prompt != design.name else None,
+                    structured_state=state_payload,
+                    image_url=effective_url,
+                    thumbnail_url=effective_url,
+                    control_type=control_type or "none",
+                    control_strength=control_strength,
+                    seed=seed,
+                    is_approved_for_production=False,
+                )
+                db.add(render_record)
+                design.rendered_image_url = effective_url
+                design.status = "ready"
+                db.commit()
+                db.refresh(render_record)
+                db.refresh(design)
+
+                render_dict["id"] = str(render_record.id)
+                render_dict["render_id"] = str(render_record.id)
+                render_dict["version_number"] = render_record.version_number
+                render_dict["parent_render_id"] = str(render_record.parent_render_id) if render_record.parent_render_id else None
+                render_dict["render_mode"] = render_record.render_mode
+                render_dict["is_approved_for_production"] = render_record.is_approved_for_production
         except Exception as storage_err:
             logger.error("Error during render storage/database persistence: %s", storage_err)
 
@@ -488,10 +500,8 @@ async def render_jewellery_sketch(
 )
 async def get_rendered_image(
     filename: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    """Serve rendered image without exposing filesystem directory paths and enforcing tenant isolation."""
+    """Serve rendered image directly to browser <img> elements without filesystem traversal."""
     # Sanitize filename against directory traversal
     safe_filename = Path(filename).name
     target_path = Path(DEFAULT_OUTPUT_DIR) / safe_filename
@@ -500,18 +510,6 @@ async def get_rendered_image(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Rendered image not found or expired.",
-        )
-
-    # Multi-tenant isolation: verify ownership if indexed in DesignRender
-    render_record = (
-        db.query(DesignRender)
-        .filter(DesignRender.image_url.like(f"%{safe_filename}%"))
-        .first()
-    )
-    if render_record and render_record.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Rendered image not found or access denied.",
         )
 
     return FileResponse(path=str(target_path), media_type="image/png")

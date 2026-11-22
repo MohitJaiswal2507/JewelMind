@@ -5,6 +5,8 @@ import {
   Plus,
   Edit2,
   Trash2,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -21,6 +23,8 @@ interface WorkshopResourcesViewProps {
   onEditMachine: (machine: Machine) => void;
   onToggleMachineAvailability: (machine: Machine) => void;
   onDeleteMachine: (machine: Machine) => void;
+  onLoadSampleResources?: () => void;
+  loadingSample?: boolean;
 }
 
 export const WorkshopResourcesView: React.FC<WorkshopResourcesViewProps> = ({
@@ -34,6 +38,8 @@ export const WorkshopResourcesView: React.FC<WorkshopResourcesViewProps> = ({
   onEditMachine,
   onToggleMachineAvailability,
   onDeleteMachine,
+  onLoadSampleResources,
+  loadingSample = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'workers' | 'machines'>('workers');
 
@@ -63,7 +69,31 @@ export const WorkshopResourcesView: React.FC<WorkshopResourcesViewProps> = ({
           </Button>
         </div>
 
-        <div>
+        <div className="flex items-center gap-2">
+          {onLoadSampleResources && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onLoadSampleResources}
+              disabled={loadingSample}
+              className="text-xs h-8 border-[#D8AD55]/40 text-[#D8AD55] hover:bg-[#D8AD55]/10 font-medium"
+              title="Auto-fill sample Karigars and Machinery for demonstration"
+              data-testid="populate-sample-resources-btn"
+            >
+              {loadingSample ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  <span>Loading Roster...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+                  <span>⚡ Populate Sample Karigars & Equipment</span>
+                </>
+              )}
+            </Button>
+          )}
+
           {activeTab === 'workers' ? (
             <Button variant="gold" size="sm" onClick={onAddWorker} className="text-xs h-8">
               <Plus className="w-3.5 h-3.5 mr-1.5" />
@@ -80,8 +110,39 @@ export const WorkshopResourcesView: React.FC<WorkshopResourcesViewProps> = ({
 
       {/* Karigars (Artisans) Tab */}
       {activeTab === 'workers' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {workers.map((worker) => {
+        workers.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-[#0B1210] border border-[#1C2621] space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#141D19] border border-[#D8AD55]/20 text-[#D8AD55] flex items-center justify-center mx-auto">
+              <Users className="w-6 h-6 opacity-80" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-serif font-medium text-[#F4EFE5]">No Karigars Registered Yet</h3>
+              <p className="text-xs text-[#A9ADA7] max-w-md mx-auto font-light leading-relaxed">
+                Karigars and machinery are required by the CP-SAT Optimizer to calculate bench capacity, routing operations, and dispatch schedules.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              {onLoadSampleResources && (
+                <Button
+                  variant="gold"
+                  size="sm"
+                  onClick={onLoadSampleResources}
+                  disabled={loadingSample}
+                  className="text-xs font-semibold shadow-md"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  <span>⚡ Populate Sample Karigars & Equipment (1-Click)</span>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={onAddWorker} className="text-xs border-[#1E2333]">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                <span>Manual Register</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {workers.map((worker) => {
             const skillConfig = WORKER_SKILLS.find((s) => s.value === worker.skill);
             return (
               <Card key={worker.id} className="bg-[#0E111A]/95 border-white/[0.08] hover:border-amber-400/30 transition-all">
@@ -140,12 +201,43 @@ export const WorkshopResourcesView: React.FC<WorkshopResourcesViewProps> = ({
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Machinery Tab */}
       {activeTab === 'machines' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {machines.map((machine) => {
+        machines.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-[#0B1210] border border-[#1C2621] space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#141D19] border border-[#D8AD55]/20 text-[#D8AD55] flex items-center justify-center mx-auto">
+              <Cpu className="w-6 h-6 opacity-80" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-serif font-medium text-[#F4EFE5]">No Machinery Registered Yet</h3>
+              <p className="text-xs text-[#A9ADA7] max-w-md mx-auto font-light leading-relaxed">
+                Machinery and tools provide operational duty cycles for 3D wax printing, casting furnaces, laser engravers, and polishing lathes.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              {onLoadSampleResources && (
+                <Button
+                  variant="gold"
+                  size="sm"
+                  onClick={onLoadSampleResources}
+                  disabled={loadingSample}
+                  className="text-xs font-semibold shadow-md"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  <span>⚡ Populate Sample Karigars & Equipment (1-Click)</span>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={onAddMachine} className="text-xs border-[#1E2333]">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                <span>Manual Register</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {machines.map((machine) => {
             const machineConfig = MACHINE_TYPES.find((m) => m.value === machine.machine_type);
             return (
               <Card key={machine.id} className="bg-[#0E111A]/95 border-white/[0.08] hover:border-amber-400/30 transition-all">
@@ -204,7 +296,7 @@ export const WorkshopResourcesView: React.FC<WorkshopResourcesViewProps> = ({
             );
           })}
         </div>
-      )}
+      ))}
     </div>
   );
 };

@@ -244,3 +244,5 @@ events.out.tfevents.*
 *.sqlite3
 *.db
 backend/app.db
+docs/
+interview_prep/

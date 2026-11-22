@@ -74,7 +74,7 @@ class ProductionOrderCreateFromSpecification(BaseModel):
     specification_id: uuid.UUID = Field(..., description="ID of the approved production specification")
     quantity: int = Field(default=1, gt=0, description="Quantity of items to manufacture (> 0)")
     priority: OrderPriority = Field(default=OrderPriority.MEDIUM, description="Production priority level")
-    deadline: datetime = Field(..., description="Target completion deadline timestamp (UTC)")
+    deadline: Optional[datetime] = Field(None, description="Target completion deadline timestamp (UTC). Defaults to 14 days if omitted.")
     notes: Optional[str] = Field(None, max_length=2000, description="Special artisan notes or production instructions")
 
     model_config = ConfigDict(extra="forbid")

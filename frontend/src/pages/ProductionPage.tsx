@@ -15,6 +15,8 @@ import {
   ProductionOrder,
   Worker,
   Machine,
+  WorkerCreateInput,
+  MachineCreateInput,
   ProductionSummary,
   ProductionSchedule,
 } from '../types/production';
@@ -43,6 +45,7 @@ import { WorkshopResourcesView } from '../components/production/command-center/W
 import { OptimizationScheduleView } from '../components/production/command-center/OptimizationScheduleView';
 import { ProductionYieldAnalyticsView } from '../components/production/command-center/ProductionYieldAnalyticsView';
 import { ProductionOrderModal } from '../components/production/command-center/ProductionOrderModal';
+import { AddResourceModal } from '../components/production/command-center/AddResourceModal';
 
 import { ShopFloorPage } from '../components/production/shop-floor/ShopFloorPage';
 import { WorkerAssignmentDialog } from '../components/production/shop-floor/WorkerAssignmentDialog';
@@ -153,7 +156,9 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
   const [isMachineModalOpen, setIsMachineModalOpen] = useState<boolean>(false);
   const [isQcModalOpen, setIsQcModalOpen] = useState<boolean>(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState<boolean>(false);
-  const [deletingItem, setDeletingItem] = useState<{ id: string; type: 'worker' | 'machine'; name: string } | null>(null);
+  const [resourceModal, setResourceModal] = useState<{ open: boolean; type: 'worker' | 'machine' }>({ open: false, type: 'worker' });
+  const [loadingSampleResources, setLoadingSampleResources] = useState<boolean>(false);
+  const [deletingItem, setDeletingItem] = useState<{ id: string; type: 'worker' | 'machine' | 'order'; name: string } | null>(null);
 
   const showFeedback = (message: string, type: 'success' | 'error' = 'success') => {
     setFeedback({ message, type });
@@ -641,6 +646,14 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
                   setSelectedOrderId(id);
                   handleViewModeChange('shop-floor');
                 }}
+                onDeleteOrder={(order) => {
+                  const orderName = order.design_name || `Order #${order.id.slice(0, 8)}`;
+                  setDeletingItem({
+                    id: order.id,
+                    type: 'order',
+                    name: orderName,
+                  });
+                }}
                 loading={loading}
               />
             </div>
@@ -697,7 +710,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
         <WorkshopResourcesView
           workers={workers}
           machines={machines}
-          onAddWorker={() => showFeedback('To register artisans, click New Karigar in workshop settings.')}
+          onAddWorker={() => setResourceModal({ open: true, type: 'worker' })}
           onEditWorker={(w) => showFeedback(`Editing Karigar: ${w.name}`)}
           onToggleWorkerAvailability={async (w) => {
             try {
@@ -710,7 +723,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
             }
           }}
           onDeleteWorker={(w) => setDeletingItem({ id: w.id, type: 'worker', name: w.name })}
-          onAddMachine={() => showFeedback('To register machinery, click New Equipment in workshop settings.')}
+          onAddMachine={() => setResourceModal({ open: true, type: 'machine' })}
           onEditMachine={(m) => showFeedback(`Editing equipment: ${m.name}`)}
           onToggleMachineAvailability={async (m) => {
             try {
@@ -723,6 +736,39 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
             }
           }}
           onDeleteMachine={(m) => setDeletingItem({ id: m.id, type: 'machine', name: m.name })}
+          onLoadSampleResources={async () => {
+            try {
+              setLoadingSampleResources(true);
+              const sampleWorkers: WorkerCreateInput[] = [
+                { name: 'Ramesh Verma', skill: 'cad_design', capacity_hours_per_day: 8.0, is_available: true },
+                { name: 'Vikramaditya Soni', skill: 'casting', capacity_hours_per_day: 8.0, is_available: true },
+                { name: 'Suraj Prajapati', skill: 'stone_setting', capacity_hours_per_day: 7.5, is_available: true },
+                { name: 'Mukesh Rathore', skill: 'polishing', capacity_hours_per_day: 8.0, is_available: true },
+                { name: 'Arjun Swarnakar', skill: 'engraving', capacity_hours_per_day: 7.0, is_available: true },
+              ];
+              const sampleMachines: MachineCreateInput[] = [
+                { name: 'Asiga Max 3D Wax Printer', machine_type: '3d_wax_printer', capacity_hours_per_day: 12.0, is_available: true },
+                { name: 'Indutherm VC400 Vacuum Furnace', machine_type: 'casting_furnace', capacity_hours_per_day: 10.0, is_available: true },
+                { name: 'Coherent StarFiber 30W Laser Engraver', machine_type: 'laser_engraver', capacity_hours_per_day: 8.0, is_available: true },
+                { name: 'Orotig High-Speed Polishing Lathe', machine_type: 'polishing_lathe', capacity_hours_per_day: 8.0, is_available: true },
+                { name: 'Elma Digital Ultrasonic Clean Station', machine_type: 'ultrasonic_cleaner', capacity_hours_per_day: 14.0, is_available: true },
+              ];
+
+              await Promise.all([
+                ...sampleWorkers.map((w) => productionService.createWorker(w)),
+                ...sampleMachines.map((m) => productionService.createMachine(m)),
+              ]);
+
+              await Promise.all([fetchWorkers(), fetchMachines(), fetchSummary()]);
+              showFeedback('Loaded 5 Master Karigars & 5 Workshop Machines into Atelier OS!');
+            } catch (err: unknown) {
+              console.error('Failed to populate sample workshop resources:', err);
+              showFeedback('Failed to load sample resources', 'error');
+            } finally {
+              setLoadingSampleResources(false);
+            }
+          }}
+          loadingSample={loadingSampleResources}
         />
       )}
 
@@ -851,11 +897,24 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
           qualityCheckpoint={dialogExecution.quality_checkpoint}
           onSubmit={async (payload: QualityCheckCreate) => {
             try {
+              if (dialogExecution.status === 'ready') {
+                await productionExecutionService.transitionExecution(dialogExecution.id, {
+                  target_status: 'in_progress',
+                  operator_notes: 'Station auto-transitioned for QC inspection',
+                });
+              }
+              if (dialogExecution.status === 'ready' || dialogExecution.status === 'in_progress' || dialogExecution.status === 'paused') {
+                await productionExecutionService.transitionExecution(dialogExecution.id, {
+                  target_status: 'completed',
+                  operator_notes: 'Station work completed via QC inspection verdict',
+                });
+              }
               await productionExecutionService.recordQualityCheck(dialogExecution.id, payload);
               if (selectedOrderId) await fetchSelectedOrderDetails(selectedOrderId);
               showFeedback(`Quality inspection recorded: ${payload.result}`);
             } catch (err: unknown) {
-              showFeedback('Failed to record QC check', 'error');
+              const msg = err instanceof Error ? err.message : 'Failed to record QC check';
+              showFeedback(msg, 'error');
             }
           }}
         />
@@ -873,11 +932,18 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
           stageName={dialogExecution.stage_name}
           onSubmit={async (payload: MaterialConsumptionCreate) => {
             try {
+              if (dialogExecution.status === 'ready') {
+                await productionExecutionService.transitionExecution(dialogExecution.id, {
+                  target_status: 'in_progress',
+                  operator_notes: 'Station auto-transitioned for material logging',
+                });
+              }
               await productionExecutionService.recordMaterialConsumption(dialogExecution.id, payload);
               if (selectedOrderId) await fetchSelectedOrderDetails(selectedOrderId);
               showFeedback('Material consumption and scrap logged.');
             } catch (err: unknown) {
-              showFeedback('Failed to log material consumption', 'error');
+              const msg = err instanceof Error ? err.message : 'Failed to log material consumption';
+              showFeedback(msg, 'error');
             }
           }}
         />
@@ -911,6 +977,12 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
                     } else if (deletingItem.type === 'machine') {
                       await productionService.deleteMachine(deletingItem.id);
                       await fetchMachines();
+                    } else if (deletingItem.type === 'order') {
+                      await productionService.deleteOrder(deletingItem.id);
+                      if (selectedOrderId === deletingItem.id) {
+                        setSelectedOrderId(null);
+                      }
+                      await fetchOrders();
                     }
                     await fetchSummary();
                     showFeedback(`Removed ${deletingItem.name}`);
@@ -928,6 +1000,17 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* 8. Register Karigar / Equipment Modal */}
+      <AddResourceModal
+        isOpen={resourceModal.open}
+        onClose={() => setResourceModal((prev) => ({ ...prev, open: false }))}
+        type={resourceModal.type}
+        onSuccess={async () => {
+          await Promise.all([fetchWorkers(), fetchMachines(), fetchSummary()]);
+        }}
+        showFeedback={showFeedback}
+      />
     </div>
   );
 };

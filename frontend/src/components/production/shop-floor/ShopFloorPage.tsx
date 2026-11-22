@@ -187,6 +187,18 @@ export const ShopFloorPage: React.FC<ShopFloorPageProps> = ({
   const handleRecordQc = async (payload: QualityCheckCreate) => {
     if (!currentExecution) return;
     try {
+      if (currentExecution.status === 'ready') {
+        await productionExecutionService.transitionExecution(currentExecution.id, {
+          target_status: 'in_progress',
+          operator_notes: 'Station auto-transitioned for QC inspection',
+        });
+      }
+      if (currentExecution.status === 'ready' || currentExecution.status === 'in_progress' || currentExecution.status === 'paused') {
+        await productionExecutionService.transitionExecution(currentExecution.id, {
+          target_status: 'completed',
+          operator_notes: 'Station work completed via QC inspection verdict',
+        });
+      }
       await productionExecutionService.recordQualityCheck(currentExecution.id, payload);
       showFeedback(`QC inspection logged: ${payload.result}`);
       await loadStationData(false);
@@ -215,6 +227,12 @@ export const ShopFloorPage: React.FC<ShopFloorPageProps> = ({
   const handleRecordMaterial = async (payload: MaterialConsumptionCreate) => {
     if (!currentExecution) return;
     try {
+      if (currentExecution.status === 'ready') {
+        await productionExecutionService.transitionExecution(currentExecution.id, {
+          target_status: 'in_progress',
+          operator_notes: 'Station auto-transitioned for material logging',
+        });
+      }
       await productionExecutionService.recordMaterialConsumption(currentExecution.id, payload);
       showFeedback('Material and wastage record logged.');
       await loadStationData(false);

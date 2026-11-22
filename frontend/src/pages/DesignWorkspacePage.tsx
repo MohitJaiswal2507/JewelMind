@@ -14,7 +14,6 @@ import {
   Save,
   ExternalLink,
   Edit2,
-  GripVertical,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -170,6 +169,10 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         setRenderedImageUrl(data.rendered_image_url);
         setWorkspaceView('comparison');
       }
+      if (data.sketch_image_url) {
+        setUploadedImageUrl(data.sketch_image_url);
+        setWorkspaceMode('image');
+      }
 
       setDesignState({
         category: data.category || 'Ring',
@@ -190,6 +193,15 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
         renderer_prompt: null,
         negative_prompt: null,
       });
+
+      if (data.id && !data.id.startsWith('new-')) {
+        localStorage.setItem('jewelmind_active_design_id', data.id);
+        const currentParams = new URLSearchParams(window.location.search);
+        if (currentParams.get('id') !== data.id) {
+          currentParams.set('id', data.id);
+          window.history.replaceState(null, '', `${window.location.pathname}?${currentParams.toString()}`);
+        }
+      }
     } catch {
       // Graceful fallback to fresh workspace piece
       setDesign({
@@ -255,6 +267,10 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
           ai_prompt: designState.current_prompt || undefined,
         });
         setDesign(activeDesign);
+        localStorage.setItem('jewelmind_active_design_id', activeDesign.id);
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('id', activeDesign.id);
+        window.history.replaceState(null, '', `${window.location.pathname}?${currentParams.toString()}`);
       }
 
       let updatedDesign = activeDesign;
@@ -307,6 +323,10 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
           ai_prompt: designState.current_prompt || undefined,
         });
         setDesign(activeDesign);
+        localStorage.setItem('jewelmind_active_design_id', activeDesign.id);
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('id', activeDesign.id);
+        window.history.replaceState(null, '', `${window.location.pathname}?${currentParams.toString()}`);
       }
 
       // Store current render as previous render for iterative comparison & Canny conditioning
@@ -961,20 +981,6 @@ export const DesignWorkspacePage: React.FC<DesignWorkspacePageProps> = ({
             isResizingCopilot ? '' : 'transition-all duration-150'
           } relative z-20 overflow-hidden flex flex-col`}
         >
-          {/* Corner resize grip indicator */}
-          {!isCopilotCollapsed && (
-            <div
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setIsResizingCopilot(true);
-              }}
-              className="hidden md:flex absolute top-2 left-2 z-40 p-1 rounded hover:bg-[#D8AD55]/20 text-[#6F756F] hover:text-[#D8AD55] cursor-col-resize transition-colors items-center justify-center select-none"
-              title="Drag horizontally from corner to resize chat"
-            >
-              <GripVertical className="w-3.5 h-3.5" />
-            </div>
-          )}
-
           <DesignChatPanel
             initialPrompt={designState.current_prompt}
             onPromptChange={(newPrompt) => {

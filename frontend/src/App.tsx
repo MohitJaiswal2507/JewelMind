@@ -40,11 +40,14 @@ export const parseRouteFromLocation = (): { view: ViewMode; designId: string | n
   }
   if (pathname === '/studio') return { view: 'studio', designId: null };
   if (pathname === '/canvas') {
-    return { view: 'canvas', designId: idFromParam };
+    const storedId = typeof window !== 'undefined' ? localStorage.getItem('jewelmind_active_design_id') : null;
+    const effectiveId = idFromParam || storedId;
+    return { view: 'canvas', designId: effectiveId };
   }
   if (pathname.startsWith('/canvas/')) {
     const id = pathname.substring('/canvas/'.length);
-    return { view: 'canvas', designId: id || null };
+    const storedId = typeof window !== 'undefined' ? localStorage.getItem('jewelmind_active_design_id') : null;
+    return { view: 'canvas', designId: id || storedId || null };
   }
   if (pathname === '/production' || pathname === '/shop-floor' || pathname === '/analytics' || pathname === '/yield-analytics') {
     return { view: 'production', designId: idFromParam };
@@ -212,6 +215,9 @@ const MainLayout: React.FC = () => {
   };
 
   const handleBackFromCanvas = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('jewelmind_active_design_id');
+    }
     if (selectedDesignId) {
       navigateTo('design-detail', `/designs?id=${selectedDesignId}`, { designId: selectedDesignId });
     } else {
@@ -394,7 +400,7 @@ const MainLayout: React.FC = () => {
               <div className="flex items-center space-x-4 sm:space-x-6 text-[11px] font-mono text-[#A9ADA7]">
                 <span>ControlNet Diffusion</span>
                 <span>•</span>
-                <span>YOLO Segmentation</span>
+                <span>Gemini 2.5 Vision</span>
                 <span>•</span>
                 <span>OR-Tools CP-SAT</span>
               </div>

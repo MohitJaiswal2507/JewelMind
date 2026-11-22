@@ -5,6 +5,7 @@ import {
   Eye,
   Calendar,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -16,6 +17,7 @@ interface ProductionOrderListProps {
   selectedOrderId: string | null;
   onSelectOrder: (orderId: string) => void;
   onOpenShopFloor: (orderId: string) => void;
+  onDeleteOrder?: (order: ProductionOrder) => void;
   loading?: boolean;
 }
 
@@ -24,6 +26,7 @@ export const ProductionOrderList: React.FC<ProductionOrderListProps> = ({
   selectedOrderId,
   onSelectOrder,
   onOpenShopFloor,
+  onDeleteOrder,
   loading = false,
 }) => {
   if (loading) {
@@ -188,6 +191,22 @@ export const ProductionOrderList: React.FC<ProductionOrderListProps> = ({
                     <Hammer className="w-3.5 h-3.5 mr-1" />
                     <span>Shop Floor</span>
                   </Button>
+
+                  {onDeleteOrder && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteOrder(order);
+                      }}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all hover:scale-105 active:scale-95 shrink-0"
+                      title="Delete Production Order"
+                      aria-label="Delete Production Order"
+                      data-testid={`delete-order-${order.id}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
